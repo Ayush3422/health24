@@ -1,6 +1,6 @@
 # SP1 — Foundation: Implementation Plan
 
-**Status:** Phases 1-6 complete. Phase 7 (clinical web app) outstanding.
+**Status:** Complete. All seven phases delivered.
 **Scope:** Tenancy, identity & auth, patient registry, audit skeleton. No clinical data.
 **Design reference:** `planning.md` §5, §6.1, §6.2, §8 · `features.md` SP1
 
@@ -96,12 +96,12 @@ Tasks are ordered. Each is independently verifiable.
 
 ### Phase 7 — Clinical app shell
 
-- [ ] **T36** `apps/clinical` Vite + React + TanStack Router/Query scaffold
-- [ ] **T37** Login screen with TOTP step
-- [ ] **T38** App shell: nav, hospital context, sign-out
-- [ ] **T39** Patient register screen
-- [ ] **T40** Patient search + detail screens
-- [ ] **T41** Merge review queue screen
+- [x] **T36** `apps/clinical` Vite + React + TanStack Query. React Router rather than TanStack Router — fewer moving parts for a solo build, and routing is not where this product's difficulty lies
+- [x] **T37** Login screen with TOTP step
+- [x] **T38** App shell: nav, hospital context, sign-out
+- [x] **T39** Patient register screen
+- [x] **T40** Patient search + detail screens
+- [x] **T41** Merge review queue screen
 
 ---
 

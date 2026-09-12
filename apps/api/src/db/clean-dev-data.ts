@@ -22,7 +22,13 @@ loadEnv();
  */
 
 const STAFF_EMAIL_PATTERNS = ['smoke.%@%', 'kavita.%@%', 'nosystem@%', 'sneaky@%'];
-const PATIENT_NAME_PATTERNS = ['Ramesh Testkumar %', 'Second Patient %', 'Somebody Entirely %'];
+const PATIENT_NAME_PATTERNS = [
+  'Ramesh Testkumar %',
+  'Second Patient %',
+  'Somebody Entirely %',
+  // Created while exercising the clinical app by hand.
+  'Lakshmi Narayanan',
+];
 
 async function main(): Promise<void> {
   if (process.env.NODE_ENV === 'production') {

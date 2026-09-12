@@ -81,5 +81,8 @@ jobs:
       - name: Test
         run: pnpm --filter @health24/api test
 
-      - name: Build
+      - name: Build API
         run: pnpm --filter @health24/api build
+
+      - name: Build clinical app
+        run: pnpm --filter @health24/clinical build
