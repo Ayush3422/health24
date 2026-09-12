@@ -43,31 +43,31 @@ Tasks are ordered. Each is independently verifiable.
 
 ### Phase 1 — Skeleton
 
-- [ ] **T1** Workspace scaffold: pnpm workspace, root tsconfig, eslint, prettier, .gitignore, .env.example
-- [ ] **T2** `docker-compose.yml` — Postgres 16 + Redis, with healthchecks
-- [ ] **T3** `packages/shared` — Zod schemas, enums, shared types
-- [ ] **T4** `apps/api` NestJS bootstrap: config module, health endpoint, structured logging with PHI scrubbing
-- [ ] **T5** Drizzle setup: connection, migration runner, npm scripts
+- [x] **T1** Workspace scaffold: pnpm workspace, root tsconfig, eslint, prettier, .gitignore, .env.example
+- [x] **T2** `docker-compose.yml` — Postgres 16 + Redis, with healthchecks
+- [x] **T3** `packages/shared` — Zod schemas, enums, shared types
+- [x] **T4** `apps/api` NestJS bootstrap: config module, health endpoint, structured logging with PHI scrubbing
+- [x] **T5** Drizzle setup: connection, migration runner, npm scripts
 
 ### Phase 2 — Data layer
 
-- [ ] **T6** Schema: `hospital`, `staff_user`, `role` enum, `session`
-- [ ] **T7** Schema: `patient`, `patient_hospital_link`, `patient_account`
-- [ ] **T8** Schema: `patient_merge_candidate`, `patient_merge_log`
-- [ ] **T9** Schema: `access_log` — append-only, no UPDATE/DELETE grant
-- [ ] **T10** RLS policies on every tenant-scoped table, driven by `app.current_hospital_id`
-- [ ] **T11** Seed script: one platform admin, two hospitals (one Ayush, one allopathic), staff in each
+- [x] **T6** Schema: `hospital`, `staff_user`, `role` enum, `session`
+- [x] **T7** Schema: `patient`, `patient_hospital_link`, `patient_account`
+- [x] **T8** Schema: `patient_merge_candidate`, `patient_merge_log`
+- [x] **T9** Schema: `access_log` — append-only, no UPDATE/DELETE grant
+- [x] **T10** RLS policies on every tenant-scoped table, driven by `app.current_hospital_id`
+- [x] **T11** Seed script: one platform admin, two hospitals (one Ayush, one allopathic), staff in each
 
 ### Phase 3 — Identity & access
 
-- [ ] **T12** Password service: argon2id hash/verify, password policy
-- [ ] **T13** TOTP service: enrolment, QR provisioning URI, verification, recovery codes
-- [ ] **T14** Session service: issue, refresh, revoke, list active sessions
-- [ ] **T15** `AuthGuard` — validates access token, loads actor
-- [ ] **T16** `TenantContextInterceptor` — sets the Postgres session variable per request
-- [ ] **T17** `RolesGuard` + `@Roles()` decorator, permission matrix
-- [ ] **T18** `AuditInterceptor` — writes `access_log` on every PHI read and write
-- [ ] **T19** Auth endpoints: login, verify-TOTP, refresh, logout, logout-all
+- [x] **T12** Password service: argon2id hash/verify, password policy
+- [x] **T13** TOTP service: enrolment, QR provisioning URI, verification, recovery codes
+- [x] **T14** Session service: issue, refresh, revoke, list active sessions
+- [x] **T15** `AuthGuard` — validates access token, loads actor
+- [x] **T16** Tenant context — implemented as `DatabaseService.asTenant()` rather than an interceptor, so each call site names the hospital it acts for instead of relying on ambient request state
+- [x] **T17** `RolesGuard` + `@Roles()` decorator, permission matrix
+- [~] **T18** `AuditService` written and wired; denials are audited by `PermissionsGuard` and auth events by `AuthService`. The blanket interceptor over PHI reads lands with the patient module in Phase 5, since there is no PHI route yet
+- [x] **T19** Auth endpoints: login, verify-TOTP, refresh, logout, logout-all
 
 ### Phase 4 — Tenancy & staff
 
