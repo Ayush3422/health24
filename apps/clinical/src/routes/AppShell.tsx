@@ -3,6 +3,8 @@ import { hasPermission } from '@health24/shared';
 import { useAuth } from '../auth/AuthProvider';
 import { useOwnHospital } from '../api/hooks';
 
+const navClass = ({ isActive }: { isActive: boolean }) => (isActive ? 'active' : '');
+
 /**
  * The frame every signed-in screen sits in.
  *
@@ -13,7 +15,11 @@ import { useOwnHospital } from '../api/hooks';
  */
 export function AppShell(): JSX.Element {
   const { staff, signOut, idleWarningSeconds, stayActive } = useAuth();
-  const hospital = useOwnHospital();
+
+  // Only roles that belong to a hospital may read it. Requesting it for every
+  // role made each page load of a platform admin or curator a 403 — and every
+  // 403 is written to the audit log as a refused access.
+  const hospital = useOwnHospital(Boolean(staff && hasPermission(staff.role, 'hospital:read:own')));
 
   if (!staff) return <></>;
 
@@ -21,6 +27,8 @@ export function AppShell(): JSX.Element {
   const canSeePatients = hasPermission(staff.role, 'patient:search');
   const canRegister = hasPermission(staff.role, 'patient:create');
   const canSeeStaff = hasPermission(staff.role, 'staff:read');
+  const canReadTerminology = hasPermission(staff.role, 'terminology:read');
+  const canCurate = hasPermission(staff.role, 'terminology:curate');
 
   return (
     <div className="shell">
@@ -28,7 +36,7 @@ export function AppShell(): JSX.Element {
         <div className="shell__brand">
           <strong>Health24</strong>
           <span className="shell__hospital">
-            {hospital.data?.name ?? staff.hospitalName ?? 'Platform'}
+            {hospital.data?.name ?? staff.hospitalName ?? 'Health24 platform'}
             {hospital.data ? (
               <em className={`badge badge--${hospital.data.facilityType}`}>
                 {hospital.data.facilityType}
@@ -39,22 +47,32 @@ export function AppShell(): JSX.Element {
 
         <nav className="shell__nav">
           {canSeePatients ? (
-            <NavLink to="/patients" className={({ isActive }) => (isActive ? 'active' : '')}>
+            <NavLink to="/patients" end className={navClass}>
               Patients
             </NavLink>
           ) : null}
           {canRegister ? (
-            <NavLink to="/patients/new" className={({ isActive }) => (isActive ? 'active' : '')}>
+            <NavLink to="/patients/new" className={navClass}>
               Register
             </NavLink>
           ) : null}
           {canSeeMergeQueue ? (
-            <NavLink to="/merge-queue" className={({ isActive }) => (isActive ? 'active' : '')}>
+            <NavLink to="/merge-queue" className={navClass}>
               Duplicates
             </NavLink>
           ) : null}
+          {canReadTerminology ? (
+            <NavLink to="/terminology" end className={navClass}>
+              Terminology
+            </NavLink>
+          ) : null}
+          {canCurate ? (
+            <NavLink to="/terminology/review" className={navClass}>
+              Mapping review
+            </NavLink>
+          ) : null}
           {canSeeStaff ? (
-            <NavLink to="/staff" className={({ isActive }) => (isActive ? 'active' : '')}>
+            <NavLink to="/staff" className={navClass}>
               Staff
             </NavLink>
           ) : null}
@@ -64,7 +82,7 @@ export function AppShell(): JSX.Element {
           <span>
             {staff.name}
             <em className="shell__role">
-              {staff.role.replace('_', ' ')}
+              {staff.role.replace(/_/g, ' ')}
               {staff.systemOfMedicine ? ` · ${staff.systemOfMedicine}` : ''}
             </em>
           </span>

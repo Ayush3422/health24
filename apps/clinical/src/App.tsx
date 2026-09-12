@@ -1,15 +1,33 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { hasPermission, type StaffRole } from '@health24/shared';
 import { useAuth } from './auth/AuthProvider';
 import { LoginPage } from './auth/LoginPage';
 import { AppShell } from './routes/AppShell';
+import { CurationPage } from './routes/CurationPage';
 import { MergeQueuePage } from './routes/MergeQueuePage';
 import { PatientDetailPage } from './routes/PatientDetailPage';
 import { PatientRegisterPage } from './routes/PatientRegisterPage';
 import { PatientSearchPage } from './routes/PatientSearchPage';
 import { StaffPage } from './routes/StaffPage';
+import { TerminologyPage } from './routes/TerminologyPage';
+
+/**
+ * Where each role lands after signing in.
+ *
+ * Derived from the permission matrix rather than hard-coded per role. Sending
+ * everyone to the patient list, as before, put hospital admins, platform
+ * admins and curators on a page that answered every request with a 403.
+ */
+function homeFor(role: StaffRole): string {
+  if (hasPermission(role, 'patient:search')) return '/patients';
+  if (hasPermission(role, 'terminology:curate')) return '/terminology/review';
+  if (hasPermission(role, 'staff:read')) return '/staff';
+  if (hasPermission(role, 'terminology:read')) return '/terminology';
+  return '/patients';
+}
 
 export function App(): JSX.Element {
-  const { status } = useAuth();
+  const { status, staff } = useAuth();
 
   // Restoring a session from the refresh token. Rendering the login screen
   // here would flash it on every page reload.
@@ -17,7 +35,7 @@ export function App(): JSX.Element {
     return <div className="booting">Loading…</div>;
   }
 
-  if (status === 'signed-out') {
+  if (status === 'signed-out' || !staff) {
     return <LoginPage />;
   }
 
@@ -29,7 +47,9 @@ export function App(): JSX.Element {
         <Route path="/patients/:id" element={<PatientDetailPage />} />
         <Route path="/merge-queue" element={<MergeQueuePage />} />
         <Route path="/staff" element={<StaffPage />} />
-        <Route path="*" element={<Navigate to="/patients" replace />} />
+        <Route path="/terminology" element={<TerminologyPage />} />
+        <Route path="/terminology/review" element={<CurationPage />} />
+        <Route path="*" element={<Navigate to={homeFor(staff.role)} replace />} />
       </Route>
     </Routes>
   );

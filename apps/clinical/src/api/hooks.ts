@@ -39,11 +39,12 @@ export interface MergeQueueEntry {
   }>;
 }
 
-export function useOwnHospital() {
+export function useOwnHospital(enabled = true) {
   return useQuery({
     queryKey: ['hospital', 'me'],
     queryFn: () => api<HospitalSummary>('/hospitals/me'),
     staleTime: 5 * 60 * 1000,
+    enabled,
   });
 }
 
