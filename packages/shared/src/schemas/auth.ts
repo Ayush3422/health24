@@ -32,7 +32,9 @@ export const verifyTotpSchema = z.object({
 });
 export type VerifyTotpInput = z.infer<typeof verifyTotpSchema>;
 
+/** First-time enrolment carries the challenge alongside the code. */
 export const enrolTotpSchema = z.object({
+  challengeToken: z.string().min(1),
   code: z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit code from your authenticator app'),
 });
 export type EnrolTotpInput = z.infer<typeof enrolTotpSchema>;

@@ -18,7 +18,14 @@ import { pgEnum } from 'drizzle-orm/pg-core';
  * and the application can never drift apart. Adding a value means editing
  * `@health24/shared` and generating a migration — which is the point.
  */
-const tuple = <T extends readonly string[]>(values: T) => values as unknown as [string, ...string[]];
+/**
+ * Drizzle's `pgEnum` wants a mutable tuple; the shared enums are `as const`
+ * readonly tuples. This bridges the two **without widening to `string`** —
+ * `T[number]` keeps the literal union, so a column typed by one of these
+ * enums is checked against its real values rather than accepting any string.
+ */
+const tuple = <T extends readonly [string, ...string[]]>(values: T) =>
+  values as unknown as [T[number], ...T[number][]];
 
 export const facilityTypeEnum = pgEnum('facility_type', tuple(FACILITY_TYPES));
 export const hospitalStatusEnum = pgEnum('hospital_status', tuple(HOSPITAL_STATUSES));

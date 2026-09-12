@@ -3,6 +3,10 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
+    // Inside dist deliberately: with the build info outside the output
+    // directory, deleting dist leaves tsc believing the build is current, and
+    // it then emits nothing while exiting 0.
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "module": "CommonJS",
     "moduleResolution": "Node",
     "types": ["node", "vitest/globals"],

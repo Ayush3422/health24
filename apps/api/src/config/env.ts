@@ -12,7 +12,10 @@ const envSchema = z
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
 
+    /** The application's unprivileged connection. Row-level security binds to it. */
     DATABASE_URL: z.string().url(),
+    /** The owner connection. Migrations and seeding only; never the running API. */
+    DATABASE_ADMIN_URL: z.string().url().optional(),
     REDIS_URL: z.string().url().optional(),
 
     JWT_ACCESS_SECRET: z.string().min(16, 'JWT_ACCESS_SECRET must be at least 16 characters'),
@@ -20,6 +23,14 @@ const envSchema = z
     REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
 
     TOTP_ISSUER: z.string().default('Health24'),
+    /**
+     * Encrypts TOTP secrets at rest. Must decode to exactly 32 bytes — a TOTP
+     * secret is a bearer credential, and a database dump holding them in clear
+     * would hand an attacker every user's second factor.
+     */
+    TOTP_ENCRYPTION_KEY: z.string().min(32),
+
+    CORS_ORIGINS: z.string().optional(),
 
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   })
