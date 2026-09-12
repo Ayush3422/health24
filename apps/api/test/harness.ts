@@ -127,6 +127,12 @@ export async function resetDatabase(): Promise<void> {
     await client.unsafe(`
       TRUNCATE TABLE
         "access_log",
+        "concept_map_review",
+        "concept_map_element",
+        "concept_map",
+        "concept_designation",
+        "concept",
+        "code_system",
         "patient_demographic_change",
         "patient_merge_log",
         "patient_merge_candidate",
@@ -308,6 +314,60 @@ function encryptForFixture(base32: string): string {
   if (!key) throw new Error('TOTP_ENCRYPTION_KEY is not set');
 
   return encryptSecret(base32, key);
+}
+
+/**
+ * A platform-level account that belongs to no hospital — a platform admin or a
+ * terminology curator — with a second factor already enrolled.
+ */
+export async function seedPlatformUser(options: {
+  role: 'platform_admin' | 'terminology_curator';
+  email: string;
+  name: string;
+}): Promise<SeededStaff> {
+  const { db, close } = testDb();
+
+  try {
+    const passwordHash = await argon2.hash(FIXTURE_PASSWORD, {
+      type: argon2.argon2id,
+      memoryCost: 19456,
+      timeCost: 2,
+      parallelism: 1,
+    });
+
+    const secret = new OTPAuth.Secret({ size: 20 });
+
+    return await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT set_config('app.system_context', 'on', true)`);
+
+      const [row] = await tx
+        .insert(schema.staffUsers)
+        .values({
+          hospitalId: null,
+          name: options.name,
+          email: options.email,
+          role: options.role,
+          status: 'active',
+          passwordHash,
+          totpSecretEncrypted: encryptForFixture(secret.base32),
+          totpEnrolledAt: new Date(),
+        })
+        .returning();
+
+      if (!row) throw new Error(`Failed to seed ${options.role}`);
+
+      return {
+        id: row.id,
+        email: row.email,
+        password: FIXTURE_PASSWORD,
+        role: options.role,
+        hospitalId: null,
+        totpSecret: secret.base32,
+      };
+    });
+  } finally {
+    await close();
+  }
 }
 
 /** Signs a fixture account in completely and returns its access token. */

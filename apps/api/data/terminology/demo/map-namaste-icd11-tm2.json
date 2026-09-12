@@ -1,0 +1,29 @@
+{
+  "map": {
+    "key": "namaste-to-icd11-tm2",
+    "name": "DEMO NAMASTE to TM2 (synthetic)",
+    "version": "demo-1",
+    "publisher": "Health24 synthetic test data",
+    "source": { "key": "namaste", "version": "demo-1" },
+    "target": { "key": "icd11-tm2", "version": "demo-1" },
+    "experimental": true,
+    "reviewPolicy": "authoritative",
+    "attribution": "Synthetic. Marked authoritative to mirror the real situation, in which an official NAMASTE to TM2 mapping exists. Asserts no clinical correspondence."
+  },
+  "elements": [
+    { "sourceCode": "DEMO-NAM-001", "targetCode": "DEMO-TM2-01", "equivalence": "equivalent" },
+    { "sourceCode": "DEMO-NAM-002", "targetCode": "DEMO-TM2-02", "equivalence": "equivalent" },
+    { "sourceCode": "DEMO-NAM-003", "targetCode": "DEMO-TM2-03", "equivalence": "wider" },
+    { "sourceCode": "DEMO-NAM-004", "targetCode": "DEMO-TM2-04", "equivalence": "equivalent" },
+    { "sourceCode": "DEMO-NAM-005", "targetCode": "DEMO-TM2-05", "equivalence": "narrower" },
+    { "sourceCode": "DEMO-NAM-006", "targetCode": "DEMO-TM2-06", "equivalence": "equivalent" },
+    { "sourceCode": "DEMO-NAM-007", "targetCode": "DEMO-TM2-07", "equivalence": "inexact" },
+    { "sourceCode": "DEMO-NAM-008", "targetCode": "DEMO-TM2-08", "equivalence": "equivalent" },
+    {
+      "sourceCode": "DEMO-NAM-009",
+      "targetCode": null,
+      "equivalence": "unmatched",
+      "comment": "Reviewed; no TM2 correspondence. Recorded so the absence is a finding rather than a gap."
+    }
+  ]
+}

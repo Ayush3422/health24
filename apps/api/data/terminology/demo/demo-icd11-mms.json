@@ -1,0 +1,19 @@
+{
+  "codeSystem": {
+    "key": "icd11-mms",
+    "uri": "urn:health24:demo:icd11-mms",
+    "name": "DEMO biomedical (synthetic — not WHO ICD-11 MMS, not for clinical use)",
+    "version": "demo-1",
+    "publisher": "Health24 synthetic test data",
+    "experimental": true,
+    "licence": "Synthetic test data created by Health24. Not issued by the World Health Organization.",
+    "attribution": "Synthetic placeholders standing in for ICD-11 MMS. No code here is an ICD-11 code."
+  },
+  "concepts": [
+    { "code": "DEMO-MMS-01", "display": "Demo biomedical category 01" },
+    { "code": "DEMO-MMS-02", "display": "Demo biomedical category 02" },
+    { "code": "DEMO-MMS-03", "display": "Demo biomedical category 03" },
+    { "code": "DEMO-MMS-04", "display": "Demo biomedical category 04" },
+    { "code": "DEMO-MMS-05", "display": "Demo biomedical category 05" }
+  ]
+}

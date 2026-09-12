@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import type { StaffRole } from '@health24/shared';
 
 /**
@@ -34,14 +35,17 @@ export interface AuthenticatedRequest {
 /**
  * Narrows an actor to one that definitely belongs to a hospital.
  *
- * Platform admins have no tenant, so any code path that needs a tenant context
- * must reject them explicitly rather than defaulting to something.
+ * Platform admins and terminology curators have no tenant, so any code path
+ * that needs a tenant context must reject them explicitly rather than
+ * defaulting to something.
+ *
+ * A 403, not a plain Error. A plain Error surfaces as a 500, which tells the
+ * caller the server broke when in fact they asked for something their account
+ * cannot do — and a second platform-level role made that path reachable.
  */
 export function requireHospital(actor: Actor): string {
   if (!actor.hospitalId) {
-    throw new Error(
-      `Actor ${actor.staffUserId} (${actor.role}) has no hospital; this operation requires one`,
-    );
+    throw new ForbiddenException('This action requires an account attached to a hospital');
   }
 
   return actor.hospitalId;

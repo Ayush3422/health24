@@ -1,0 +1,21 @@
+{
+  "map": {
+    "key": "namaste-to-icd11-mms",
+    "name": "DEMO NAMASTE to biomedical (synthetic)",
+    "version": "demo-1",
+    "publisher": "Health24 synthetic test data",
+    "source": { "key": "namaste", "version": "demo-1" },
+    "target": { "key": "icd11-mms", "version": "demo-1" },
+    "experimental": true,
+    "reviewPolicy": "requires_review",
+    "attribution": "Synthetic. Requires review to mirror the real situation, in which no official NAMASTE to biomedical mapping was found. Asserts no clinical correspondence."
+  },
+  "elements": [
+    { "sourceCode": "DEMO-NAM-001", "targetCode": "DEMO-MMS-01", "equivalence": "wider", "confidence": 0.7, "comment": "Synthetic demo mapping." },
+    { "sourceCode": "DEMO-NAM-002", "targetCode": "DEMO-MMS-02", "equivalence": "inexact", "confidence": 0.4, "comment": "Synthetic demo mapping. Inexact: must never be attached to a diagnosis." },
+    { "sourceCode": "DEMO-NAM-004", "targetCode": "DEMO-MMS-03", "equivalence": "equivalent", "confidence": 0.8, "comment": "Synthetic demo mapping." },
+    { "sourceCode": "DEMO-NAM-006", "targetCode": "DEMO-MMS-04", "equivalence": "narrower", "confidence": 0.6, "comment": "Synthetic demo mapping. Narrower: must never be attached to a diagnosis." },
+    { "sourceCode": "DEMO-NAM-007", "targetCode": "DEMO-MMS-05", "equivalence": "wider", "confidence": 0.5, "comment": "Synthetic demo mapping." },
+    { "sourceCode": "DEMO-NAM-008", "targetCode": null, "equivalence": "unmatched", "comment": "Synthetic demo mapping. No biomedical correspondence." }
+  ]
+}

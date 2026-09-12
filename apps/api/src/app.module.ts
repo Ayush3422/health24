@@ -8,6 +8,7 @@ import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HospitalsModule } from './modules/hospitals/hospitals.module';
 import { PatientsModule } from './modules/patients/patients.module';
+import { TerminologyModule } from './modules/terminology/terminology.module';
 import { StaffModule } from './modules/staff/staff.module';
 import { AuthGuard } from './common/guards/auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -28,6 +29,7 @@ import { HealthController } from './health.controller';
     HospitalsModule,
     StaffModule,
     PatientsModule,
+    TerminologyModule,
   ],
   controllers: [HealthController],
   providers: [

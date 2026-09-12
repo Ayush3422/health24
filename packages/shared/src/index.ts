@@ -4,4 +4,6 @@ export * from './schemas/auth.js';
 export * from './schemas/hospital.js';
 export * from './schemas/patient.js';
 export * from './schemas/staff.js';
+export * from './schemas/terminology.js';
+export * from './terminology/fold.js';
 export * from './permissions.js';

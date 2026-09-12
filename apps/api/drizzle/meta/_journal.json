@@ -29,6 +29,27 @@
       "when": 1789232429137,
       "tag": "0003_staff_email_case_insensitive",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789242880239,
+      "tag": "0004_sp2_terminology",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789242884684,
+      "tag": "0005_terminology_indexes_and_immutability",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789243220889,
+      "tag": "0006_terminology_id_defaults",
+      "breakpoints": true
     }
   ]
 }

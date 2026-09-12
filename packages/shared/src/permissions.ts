@@ -41,6 +41,13 @@ export const PERMISSIONS = [
   // Audit
   'audit:read:own_hospital',
   'audit:read:any',
+
+  // Terminology
+  'terminology:read',
+  /** Propose, approve and reject NAMASTE ↔ ICD-11 mappings. */
+  'terminology:curate',
+  /** Activate and retire terminology releases. */
+  'terminology:manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -49,9 +56,11 @@ export type Permission = (typeof PERMISSIONS)[number];
 const BASELINE: Permission[] = [];
 
 /**
- * Note what platform_admin does NOT have: any permission touching patients.
- * Health24 staff operate the platform; they do not read patient records. This
- * is enforced here rather than trusted to discipline.
+ * Note what platform_admin does NOT have: any permission touching patients,
+ * or the right to approve a mapping. Health24 staff operate the platform; they
+ * neither read patient records nor exercise clinical judgement over what a
+ * traditional diagnosis corresponds to. Both are enforced here rather than
+ * trusted to discipline.
  */
 export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
   platform_admin: [
@@ -60,7 +69,15 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'hospital:read:any',
     'hospital:update:any',
     'audit:read:any',
+    'terminology:read',
+    'terminology:manage',
   ],
+
+  /**
+   * Curators review mappings for the whole platform. They see terminology and
+   * nothing else — no hospitals, no staff, no patients.
+   */
+  terminology_curator: [...BASELINE, 'terminology:read', 'terminology:curate'],
 
   hospital_admin: [
     ...BASELINE,
@@ -88,6 +105,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'patient:search',
     'patient:update',
     'patient:lookup_global',
+    'terminology:read',
   ],
 
   front_desk: [

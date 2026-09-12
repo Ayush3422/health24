@@ -1,0 +1,22 @@
+{
+  "codeSystem": {
+    "key": "icd11-tm2",
+    "uri": "urn:health24:demo:icd11-tm2",
+    "name": "DEMO TM2 (synthetic — not WHO ICD-11, not for clinical use)",
+    "version": "demo-1",
+    "publisher": "Health24 synthetic test data",
+    "experimental": true,
+    "licence": "Synthetic test data created by Health24. Not issued by the World Health Organization.",
+    "attribution": "Synthetic placeholders standing in for ICD-11 Traditional Medicine Module 2. No code here is an ICD-11 code."
+  },
+  "concepts": [
+    { "code": "DEMO-TM2-01", "display": "Demo TM2 disorder 01" },
+    { "code": "DEMO-TM2-02", "display": "Demo TM2 disorder 02" },
+    { "code": "DEMO-TM2-03", "display": "Demo TM2 disorder 03" },
+    { "code": "DEMO-TM2-04", "display": "Demo TM2 disorder 04" },
+    { "code": "DEMO-TM2-05", "display": "Demo TM2 disorder 05" },
+    { "code": "DEMO-TM2-06", "display": "Demo TM2 disorder 06" },
+    { "code": "DEMO-TM2-07", "display": "Demo TM2 disorder 07" },
+    { "code": "DEMO-TM2-08", "display": "Demo TM2 disorder 08" }
+  ]
+}

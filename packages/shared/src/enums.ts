@@ -31,23 +31,30 @@ export type FacilityType = (typeof FACILITY_TYPES)[number];
  * a liability in a clinical product, because nobody can then reason about who
  * can see what.
  *
- * - platform_admin: Health24 staff. Onboards hospitals, manages terminology
- *                   releases. Cannot read clinical data.
- * - hospital_admin: Manages staff and settings for one hospital. Cannot read
- *                   clinical data.
- * - clinician:      Reads and writes clinical data for their hospital.
- * - front_desk:     Registers patients and uploads documents. Cannot read
- *                   clinical notes.
+ * - platform_admin:      Health24 staff. Onboards hospitals, activates
+ *                        terminology releases. Cannot read clinical data, and
+ *                        cannot approve mappings — operating the platform is
+ *                        not a clinical qualification.
+ * - terminology_curator: A qualified traditional-medicine reviewer who
+ *                        approves NAMASTE ↔ ICD-11 mappings for the whole
+ *                        platform. Belongs to no hospital. Cannot read
+ *                        clinical data.
+ * - hospital_admin:      Manages staff and settings for one hospital. Cannot
+ *                        read clinical data.
+ * - clinician:           Reads and writes clinical data for their hospital.
+ * - front_desk:          Registers patients and uploads documents. Cannot read
+ *                        clinical notes.
  */
 export const STAFF_ROLES = [
   'platform_admin',
+  'terminology_curator',
   'hospital_admin',
   'clinician',
   'front_desk',
 ] as const;
 export type StaffRole = (typeof STAFF_ROLES)[number];
 
-/** Roles that belong to a hospital tenant (everything except platform_admin). */
+/** Roles that belong to a hospital tenant (everything except platform-level roles). */
 export const TENANT_ROLES = ['hospital_admin', 'clinician', 'front_desk'] as const;
 export type TenantRole = (typeof TENANT_ROLES)[number];
 
@@ -96,3 +103,70 @@ export type MergeCandidateStatus = (typeof MERGE_CANDIDATE_STATUSES)[number];
 /** How two patient records came to be linked. */
 export const MATCH_METHODS = ['abha_exact', 'probabilistic', 'manual'] as const;
 export type MatchMethod = (typeof MATCH_METHODS)[number];
+
+// ---------------------------------------------------------------------------
+// Terminology
+// ---------------------------------------------------------------------------
+
+/**
+ * Lifecycle of a terminology release. Only one version of a code system is
+ * active at a time; retired versions stay resolvable so that records coded
+ * against them keep their meaning.
+ */
+export const CODE_SYSTEM_STATUSES = ['draft', 'active', 'retired'] as const;
+export type CodeSystemStatus = (typeof CODE_SYSTEM_STATUSES)[number];
+
+/** How a designation relates to its concept. */
+export const DESIGNATION_USES = ['display', 'synonym', 'transliteration'] as const;
+export type DesignationUse = (typeof DESIGNATION_USES)[number];
+
+/**
+ * How closely a source concept corresponds to a target, following FHIR R4
+ * ConceptMap equivalence.
+ *
+ * - equivalent: same meaning
+ * - wider:      the target is broader than the source
+ * - narrower:   the target is more specific than the source
+ * - inexact:    related, but not a clean correspondence
+ * - unmatched:  reviewed, and there is no corresponding target
+ *
+ * `unmatched` is a finding, not a gap: it records that someone looked.
+ */
+export const MAP_EQUIVALENCES = [
+  'equivalent',
+  'wider',
+  'narrower',
+  'inexact',
+  'unmatched',
+] as const;
+export type MapEquivalence = (typeof MAP_EQUIVALENCES)[number];
+
+/**
+ * Review state of a single mapping. Only `approved` mappings are ever attached
+ * to a patient's diagnosis.
+ */
+export const MAP_ELEMENT_STATUSES = ['proposed', 'approved', 'rejected', 'retired'] as const;
+export type MapElementStatus = (typeof MAP_ELEMENT_STATUSES)[number];
+
+/** Where a mapping came from. */
+export const MAP_PROVENANCES = ['imported', 'curated'] as const;
+export type MapProvenance = (typeof MAP_PROVENANCES)[number];
+
+/**
+ * How an imported concept map's elements arrive.
+ *
+ * - authoritative:   from the issuing authority; elements land approved.
+ * - requires_review: elements land proposed and must pass a curator.
+ */
+export const MAP_REVIEW_POLICIES = ['authoritative', 'requires_review'] as const;
+export type MapReviewPolicy = (typeof MAP_REVIEW_POLICIES)[number];
+
+/**
+ * Why a coding is attached to a diagnosis.
+ *
+ * - primary:    the clinician's own selection, in their own vocabulary
+ * - translated: attached from an approved map, authoritative
+ * - advisory:   a suggested biomedical correspondence — never a diagnosis
+ */
+export const CODING_ROLES = ['primary', 'translated', 'advisory'] as const;
+export type CodingRole = (typeof CODING_ROLES)[number];

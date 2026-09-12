@@ -2,9 +2,15 @@ import {
   ACCESS_ACTIONS,
   ACTOR_TYPES,
   BLOOD_GROUPS,
+  CODE_SYSTEM_STATUSES,
+  DESIGNATION_USES,
   FACILITY_TYPES,
   GENDERS,
   HOSPITAL_STATUSES,
+  MAP_ELEMENT_STATUSES,
+  MAP_EQUIVALENCES,
+  MAP_PROVENANCES,
+  MAP_REVIEW_POLICIES,
   MATCH_METHODS,
   MERGE_CANDIDATE_STATUSES,
   STAFF_ROLES,
@@ -47,3 +53,21 @@ export const accessOutcomeEnum = pgEnum('access_outcome', ['allowed', 'denied'])
 
 /** A patient row is either live or a tombstone pointing at the record it merged into. */
 export const patientStatusEnum = pgEnum('patient_status', ['active', 'merged']);
+
+// Terminology
+
+export const codeSystemStatusEnum = pgEnum('code_system_status', tuple(CODE_SYSTEM_STATUSES));
+export const designationUseEnum = pgEnum('designation_use', tuple(DESIGNATION_USES));
+export const mapEquivalenceEnum = pgEnum('map_equivalence', tuple(MAP_EQUIVALENCES));
+export const mapElementStatusEnum = pgEnum('map_element_status', tuple(MAP_ELEMENT_STATUSES));
+export const mapProvenanceEnum = pgEnum('map_provenance', tuple(MAP_PROVENANCES));
+export const mapReviewPolicyEnum = pgEnum('map_review_policy', tuple(MAP_REVIEW_POLICIES));
+
+/** Actions recorded in a mapping's review history. Internal to the API. */
+export const mapReviewActionEnum = pgEnum('map_review_action', [
+  'import',
+  'propose',
+  'approve',
+  'reject',
+  'retire',
+]);

@@ -4,6 +4,7 @@ import {
   resetDatabase,
   seedHospital,
   seedPlatformAdmin,
+  seedPlatformUser,
   signIn,
   type SeededStaff,
   type TestContext,
@@ -19,7 +20,8 @@ import {
  * deciding who may call it.
  */
 
-type RoleKey = 'platformAdmin' | 'admin' | 'clinician' | 'frontDesk' | 'otherHospitalAdmin';
+type RoleKey =
+  'platformAdmin' | 'admin' | 'clinician' | 'frontDesk' | 'otherHospitalAdmin' | 'curator';
 
 const ALL_ROLES: RoleKey[] = [
   'platformAdmin',
@@ -27,6 +29,7 @@ const ALL_ROLES: RoleKey[] = [
   'clinician',
   'frontDesk',
   'otherHospitalAdmin',
+  'curator',
 ];
 
 /**
@@ -59,6 +62,9 @@ interface RouteExpectation {
 }
 
 const EVERY_ROLE = ALL_ROLES;
+
+/** Terminology is reference data, read by those who code diagnoses or curate mappings. */
+const TERMINOLOGY_READERS: RoleKey[] = ['platformAdmin', 'clinician', 'curator'];
 
 const ROUTES: RouteExpectation[] = [
   { method: 'get', path: '/health', allow: [], public: true },
@@ -187,6 +193,31 @@ const ROUTES: RouteExpectation[] = [
     allow: ['clinician', 'frontDesk'],
     body: { name: 'Probe Patient' },
   },
+
+  // Terminology
+  { method: 'get', path: '/api/v1/terminology/systems', allow: TERMINOLOGY_READERS },
+  { method: 'get', path: '/api/v1/terminology/search', allow: TERMINOLOGY_READERS },
+  {
+    method: 'get',
+    path: '/api/v1/terminology/systems/:key/concepts/:code',
+    allow: TERMINOLOGY_READERS,
+  },
+  { method: 'get', path: '/api/v1/terminology/translate', allow: TERMINOLOGY_READERS },
+  { method: 'get', path: '/api/v1/terminology/auto-code', allow: TERMINOLOGY_READERS },
+  // Activating a release is platform operation, not clinical judgement.
+  { method: 'post', path: '/api/v1/terminology/systems/:id/activate', allow: ['platformAdmin'] },
+  // Reviewing mappings is clinical judgement: curators only, and pointedly not
+  // platform admins.
+  { method: 'get', path: '/api/v1/terminology/review-queue', allow: ['curator'] },
+  { method: 'post', path: '/api/v1/terminology/map-elements', allow: ['curator'] },
+  {
+    method: 'post',
+    path: '/api/v1/terminology/map-elements/:id/review',
+    allow: ['curator'],
+    body: { decision: 'reject', comment: 'authorisation probe' },
+  },
+  { method: 'get', path: '/api/v1/terminology/map-elements/:id/history', allow: ['curator'] },
+  { method: 'get', path: '/api/v1/terminology/coverage', allow: ['curator', 'platformAdmin'] },
 ];
 
 const ABSENT_ID = '00000000-0000-4000-8000-000000000000';
@@ -255,6 +286,14 @@ describe('authorization', () => {
     tokens.clinician = await signIn(ctx, primary.staff.clinician as SeededStaff);
     tokens.frontDesk = await signIn(ctx, primary.staff.frontDesk as SeededStaff);
     tokens.otherHospitalAdmin = await signIn(ctx, secondary.staff.admin as SeededStaff);
+    tokens.curator = await signIn(
+      ctx,
+      await seedPlatformUser({
+        role: 'terminology_curator',
+        email: 'probe.curator@example.in',
+        name: 'Probe Curator',
+      }),
+    );
 
     hospitalFor.admin = primary.hospital.id;
     hospitalFor.clinician = primary.hospital.id;

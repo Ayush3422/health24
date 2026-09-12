@@ -43,6 +43,36 @@ async function main(): Promise<void> {
   await db.transaction(async (tx) => {
     await tx.execute(sql`select set_config('app.system_context', 'on', true)`);
 
+    // Two curators, because a mapping cannot be approved by the curator who
+    // proposed it — demonstrating review takes a second pair of eyes. Ensured
+    // on every run, so a database seeded before curators existed gains them.
+    const curators = await tx
+      .insert(schema.staffUsers)
+      .values([
+        {
+          hospitalId: null,
+          name: 'Vaidya Anjali Kulkarni (curator)',
+          email: 'curator.anjali@health24.example.in',
+          role: 'terminology_curator',
+          status: 'active',
+          passwordHash,
+        },
+        {
+          hospitalId: null,
+          name: 'Vaidya Rohan Deshpande (curator)',
+          email: 'curator.rohan@health24.example.in',
+          role: 'terminology_curator',
+          status: 'active',
+          passwordHash,
+        },
+      ])
+      .onConflictDoNothing()
+      .returning({ id: schema.staffUsers.id });
+
+    if (curators.length > 0) {
+      console.log(`Added ${curators.length} terminology curator account(s).`);
+    }
+
     const existing = await tx.select({ id: schema.hospitals.id }).from(schema.hospitals).limit(1);
 
     if (existing.length > 0) {

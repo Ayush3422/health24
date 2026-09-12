@@ -1,0 +1,111 @@
+{
+  "codeSystem": {
+    "key": "namaste",
+    "uri": "urn:health24:demo:namaste",
+    "name": "DEMO NAMASTE (synthetic — not NAMASTE, not for clinical use)",
+    "version": "demo-1",
+    "publisher": "Health24 synthetic test data",
+    "experimental": true,
+    "licence": "Synthetic test data created by Health24. Not issued by the Ministry of Ayush.",
+    "attribution": "Synthetic demonstration codes. The traditional terms are real words used for search testing; the codes, hierarchy and every mapping to them are invented and assert nothing clinical."
+  },
+  "concepts": [
+    {
+      "code": "DEMO-NAM-GRP-1",
+      "display": "Annavaha vikara",
+      "designations": [
+        { "language": "sa-Deva", "use": "transliteration", "value": "अन्नवह विकार" }
+      ]
+    },
+    {
+      "code": "DEMO-NAM-001",
+      "display": "Amlapitta",
+      "parentCode": "DEMO-NAM-GRP-1",
+      "designations": [
+        { "language": "sa-Deva", "use": "transliteration", "value": "अम्लपित्त" },
+        { "language": "sa-Latn", "use": "transliteration", "value": "amlapitta" }
+      ]
+    },
+    {
+      "code": "DEMO-NAM-002",
+      "display": "Ajirna",
+      "parentCode": "DEMO-NAM-GRP-1",
+      "designations": [
+        { "language": "sa-Deva", "use": "transliteration", "value": "अजीर्ण" },
+        { "language": "sa-Latn", "use": "transliteration", "value": "ajīrṇa" }
+      ]
+    },
+    {
+      "code": "DEMO-NAM-003",
+      "display": "Atisara",
+      "parentCode": "DEMO-NAM-GRP-1",
+      "designations": [
+        { "language": "sa-Deva", "use": "transliteration", "value": "अतिसार" },
+        { "language": "sa-Latn", "use": "transliteration", "value": "atisāra" }
+      ]
+    },
+    {
+      "code": "DEMO-NAM-GRP-2",
+      "display": "Pranavaha vikara",
+      "designations": [
+        { "language": "sa-Deva", "use": "transliteration", "value": "प्राणवह विकार" }
+      ]
+    },
+    {
+      "code": "DEMO-NAM-004",
+      "display": "Shvasa",
+      "parentCode": "DEMO-NAM-GRP-2",
+      "designations": [
+        { "language": "sa-Deva", "use": "transliteration", "value": "श्वास" },
+        { "language": "sa-Latn", "use": "transliteration", "value": "śvāsa" }
+      ]
+    },
+    {
+      "code": "DEMO-NAM-005",
+      "display": "Kasa",
+      "parentCode": "DEMO-NAM-GRP-2",
+      "designations": [
+        { "language": "sa-Deva", "use": "transliteration", "value": "कास" },
+        { "language": "sa-Latn", "use": "transliteration", "value": "kāsa" }
+      ]
+    },
+    {
+      "code": "DEMO-NAM-006",
+      "display": "Jvara",
+      "designations": [
+        { "language": "sa-Deva", "use": "transliteration", "value": "ज्वर" },
+        { "language": "sa-Latn", "use": "transliteration", "value": "jvara" }
+      ]
+    },
+    {
+      "code": "DEMO-NAM-007",
+      "display": "Prameha",
+      "designations": [
+        { "language": "sa-Deva", "use": "transliteration", "value": "प्रमेह" }
+      ]
+    },
+    {
+      "code": "DEMO-NAM-008",
+      "display": "Sandhigata Vata",
+      "designations": [
+        { "language": "sa-Deva", "use": "transliteration", "value": "संधिगत वात" },
+        { "language": "sa-Latn", "use": "transliteration", "value": "sandhigata vāta" }
+      ]
+    },
+    {
+      "code": "DEMO-NAM-009",
+      "display": "Shirahshula",
+      "designations": [
+        { "language": "sa-Deva", "use": "transliteration", "value": "शिरःशूल" },
+        { "language": "sa-Latn", "use": "transliteration", "value": "śiraḥśūla" }
+      ]
+    },
+    {
+      "code": "DEMO-NAM-010",
+      "display": "Kampavata",
+      "designations": [
+        { "language": "sa-Deva", "use": "transliteration", "value": "कम्पवात" }
+      ]
+    }
+  ]
+}
