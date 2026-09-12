@@ -21,3 +21,5 @@ Thumbs.db
 /backups/
 /uploads/
 /tmp/
+# Development TOTP secrets for the smoke scripts. Never real credentials.
+.smoke-secrets.json

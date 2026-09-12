@@ -29,7 +29,7 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    const required = this.reflector.getAllAndOverride<Permission | undefined>(
+    const required = this.reflector.getAllAndOverride<Permission[] | undefined>(
       REQUIRED_PERMISSION_KEY,
       [context.getHandler(), context.getClass()],
     );
@@ -37,7 +37,7 @@ export class PermissionsGuard implements CanActivate {
     // A route with no declared permission is authenticated but unrestricted —
     // legitimate for things like "read my own profile". The authorisation test
     // suite asserts that no patient-touching route relies on this.
-    if (!required) {
+    if (!required || required.length === 0) {
       return true;
     }
 
@@ -48,10 +48,12 @@ export class PermissionsGuard implements CanActivate {
       throw new ForbiddenException('Not authenticated');
     }
 
-    if (!hasPermission(actor.role, required)) {
+    const permitted = required.some((permission) => hasPermission(actor.role, permission));
+
+    if (!permitted) {
       await this.audit.recordForActor(actor, {
         resourceType: 'authorization',
-        resourceId: required,
+        resourceId: required.join('|'),
         action: 'read',
         outcome: 'denied',
         meta: request.meta,

@@ -6,6 +6,8 @@ import { validateEnv } from './config/env';
 import { DatabaseModule } from './db/database.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { HospitalsModule } from './modules/hospitals/hospitals.module';
+import { StaffModule } from './modules/staff/staff.module';
 import { AuthGuard } from './common/guards/auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { RequestContextMiddleware } from './common/request-context.middleware';
@@ -22,6 +24,8 @@ import { HealthController } from './health.controller';
     DatabaseModule,
     AuditModule,
     AuthModule,
+    HospitalsModule,
+    StaffModule,
   ],
   controllers: [HealthController],
   providers: [

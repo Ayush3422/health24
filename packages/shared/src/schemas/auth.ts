@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { STAFF_ROLES, SYSTEMS_OF_MEDICINE } from '../enums.js';
-import { emailSchema, phoneSchema, uuidSchema } from '../primitives.js';
+import { emailSchema, uuidSchema } from '../primitives.js';
 
 /**
  * Password policy.
@@ -79,14 +79,3 @@ export const sessionSummarySchema = z.object({
   isCurrent: z.boolean(),
 });
 export type SessionSummary = z.infer<typeof sessionSummarySchema>;
-
-export const inviteStaffSchema = z.object({
-  name: z.string().trim().min(1).max(120),
-  email: emailSchema,
-  phone: phoneSchema.optional(),
-  role: z.enum(['hospital_admin', 'clinician', 'front_desk']),
-  systemOfMedicine: z.enum(SYSTEMS_OF_MEDICINE).optional(),
-  /** Healthcare Professional Registry ID, where the clinician has one. */
-  hprId: z.string().trim().max(64).optional(),
-});
-export type InviteStaffInput = z.infer<typeof inviteStaffSchema>;

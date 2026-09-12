@@ -71,8 +71,8 @@ Tasks are ordered. Each is independently verifiable.
 
 ### Phase 4 — Tenancy & staff
 
-- [ ] **T20** Hospital module: CRUD for platform admin, read-own for hospital admin
-- [ ] **T21** Staff module: invite, accept invite, list, update role, deactivate, reinstate
+- [x] **T20** Hospital module: CRUD for platform admin, read-own for hospital admin
+- [x] **T21** Staff module: invite, accept invite, list, update role, deactivate, reinstate
 
 ### Phase 5 — Patient registry
 

@@ -18,12 +18,18 @@ export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 /**
  * Declares the permission a route requires.
  *
+ * Accepts several, with OR semantics, for the routes that legitimately serve
+ * two audiences — `PATCH /hospitals/:id` is reachable by a platform admin
+ * holding `hospital:update:any` and by a hospital admin holding
+ * `hospital:update:own`. The guard admits the caller; the service then decides
+ * what each of them is actually allowed to change.
+ *
  * The authorisation test suite enumerates every route and fails the build if
  * one carries neither this nor `@Public()`, so a new endpoint cannot ship
  * without someone deciding who may call it.
  */
-export const RequirePermission = (permission: Permission) =>
-  SetMetadata(REQUIRED_PERMISSION_KEY, permission);
+export const RequirePermission = (...permissions: [Permission, ...Permission[]]) =>
+  SetMetadata(REQUIRED_PERMISSION_KEY, permissions);
 
 /** Injects the authenticated actor. */
 export const CurrentActor = createParamDecorator((_data: unknown, ctx: ExecutionContext): Actor => {

@@ -21,7 +21,8 @@
     "db:seed": "pnpm --filter @health24/api db:seed",
     "db:bootstrap": "pnpm --filter @health24/api db:bootstrap",
     "db:reset": "docker compose down -v && docker compose up -d && node -e \"setTimeout(()=>{},8000)\"",
-    "smoke:auth": "pnpm --filter @health24/api smoke:auth"
+    "smoke:auth": "pnpm --filter @health24/api smoke:auth",
+    "smoke:tenancy": "pnpm --filter @health24/api smoke:tenancy"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
