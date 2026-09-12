@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1789224862695,
+      "tag": "0000_sp1_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789224912250,
+      "tag": "0001_rls_and_audit_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789225294810,
+      "tag": "0002_app_role_and_id_defaults",
+      "breakpoints": true
+    }
+  ]
+}

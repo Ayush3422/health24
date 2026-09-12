@@ -1,0 +1,32 @@
+{
+  "name": "health24",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Unified patient record system with NAMASTE + ICD-11 dual coding",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.11.0",
+  "scripts": {
+    "dev": "pnpm --filter @health24/api dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "pnpm -r test",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:generate": "pnpm --filter @health24/api db:generate",
+    "db:migrate": "pnpm --filter @health24/api db:migrate",
+    "db:seed": "pnpm --filter @health24/api db:seed",
+    "db:bootstrap": "pnpm --filter @health24/api db:bootstrap",
+    "db:reset": "docker compose down -v && docker compose up -d && node -e \"setTimeout(()=>{},8000)\""
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "eslint": "^9.15.0",
+    "prettier": "^3.4.1",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.16.0"
+  }
+}

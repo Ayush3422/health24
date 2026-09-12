@@ -1,0 +1,23 @@
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+.env
+.env.local
+.env.*.local
+
+.DS_Store
+Thumbs.db
+
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Never commit anything that could hold real patient data
+*.dump
+*.sql.gz
+/backups/
+/uploads/
+/tmp/
