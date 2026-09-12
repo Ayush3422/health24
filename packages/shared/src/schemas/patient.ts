@@ -121,3 +121,25 @@ export const patientSummarySchema = z.object({
   createdAt: z.string(),
 });
 export type PatientSummary = z.infer<typeof patientSummarySchema>;
+
+/**
+ * Confirming that an existing record is the same person.
+ *
+ * The identifying details are re-sent deliberately. Linking grants a hospital
+ * access to a patient's history, so the caller must demonstrate they can
+ * already identify the person rather than simply naming an id — otherwise this
+ * endpoint becomes a way to attach yourself to any record on the platform.
+ */
+export const linkPatientSchema = z.object({
+  name: personNameSchema,
+  gender: z.enum(GENDERS).optional(),
+  dateOfBirth: dateOfBirthSchema.optional(),
+  phone: phoneSchema.optional(),
+  abhaNumber: abhaNumberSchema.optional(),
+});
+export type LinkPatientInput = z.infer<typeof linkPatientSchema>;
+
+export const revertMergeSchema = z.object({
+  reason: z.string().trim().min(3).max(500),
+});
+export type RevertMergeInput = z.infer<typeof revertMergeSchema>;

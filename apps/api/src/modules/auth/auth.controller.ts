@@ -34,8 +34,17 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(200)
-  // Tight limit: this is the endpoint worth brute-forcing.
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  /**
+   * The rate limit is keyed by IP, and an entire hospital sits behind one NAT
+   * address. At ten per minute, a morning shift change would lock staff out of
+   * their own system — so this is set high enough to survive normal use and
+   * only stops floods.
+   *
+   * Brute-force protection against a specific account does not live here: it
+   * lives in the per-account failure counter and lockout in AuthService, which
+   * is unaffected by how many colleagues are signing in at the same time.
+   */
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
   async login(
     @Body(zodBody(loginSchema)) body: LoginInput,
     @CurrentMeta() meta: RequestMeta,
@@ -48,7 +57,7 @@ export class AuthController {
   @Public()
   @Post('mfa/verify')
   @HttpCode(200)
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
   async verifyMfa(
     @Body(zodBody(verifyTotpSchema)) body: VerifyTotpInput,
     @CurrentMeta() meta: RequestMeta,
@@ -61,7 +70,7 @@ export class AuthController {
   @Public()
   @Post('mfa/enrol')
   @HttpCode(200)
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
   async enrolMfa(
     @Body(zodBody(enrolTotpSchema)) body: EnrolTotpInput,
     @CurrentMeta() meta: RequestMeta,

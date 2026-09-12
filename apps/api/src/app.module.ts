@@ -7,6 +7,7 @@ import { DatabaseModule } from './db/database.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HospitalsModule } from './modules/hospitals/hospitals.module';
+import { PatientsModule } from './modules/patients/patients.module';
 import { StaffModule } from './modules/staff/staff.module';
 import { AuthGuard } from './common/guards/auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -26,6 +27,7 @@ import { HealthController } from './health.controller';
     AuthModule,
     HospitalsModule,
     StaffModule,
+    PatientsModule,
   ],
   controllers: [HealthController],
   providers: [

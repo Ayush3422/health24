@@ -66,7 +66,7 @@ Tasks are ordered. Each is independently verifiable.
 - [x] **T15** `AuthGuard` — validates access token, loads actor
 - [x] **T16** Tenant context — implemented as `DatabaseService.asTenant()` rather than an interceptor, so each call site names the hospital it acts for instead of relying on ambient request state
 - [x] **T17** `RolesGuard` + `@Roles()` decorator, permission matrix
-- [~] **T18** `AuditService` written and wired; denials are audited by `PermissionsGuard` and auth events by `AuthService`. The blanket interceptor over PHI reads lands with the patient module in Phase 5, since there is no PHI route yet
+- [x] **T18** Auditing is explicit per service rather than a blanket interceptor, so each entry carries the patient it concerns — an interceptor cannot know that. Verified in the database: patient reads, searches, creates, updates, merges, reverts, logins, failures and authorisation denials all produce rows
 - [x] **T19** Auth endpoints: login, verify-TOTP, refresh, logout, logout-all
 
 ### Phase 4 — Tenancy & staff
@@ -76,18 +76,18 @@ Tasks are ordered. Each is independently verifiable.
 
 ### Phase 5 — Patient registry
 
-- [ ] **T22** MRN generator: per-hospital, configurable prefix, collision-safe
-- [ ] **T23** Patient registration endpoint
-- [ ] **T24** Patient search: name, phone, MRN, ABHA — tenant-scoped
-- [ ] **T25** Identity matching service: deterministic ABHA match; probabilistic score on phone + DOB + name similarity
-- [ ] **T26** Global lookup endpoint returning match candidates with scores
-- [ ] **T27** Merge queue: list candidates, approve, reject
-- [ ] **T28** Merge execution: reversible, fully logged
-- [ ] **T29** Patient demographic update with change history
+- [x] **T22** MRN generator: per-hospital, configurable prefix, collision-safe
+- [x] **T23** Patient registration endpoint
+- [x] **T24** Patient search: name, phone, MRN, ABHA — tenant-scoped
+- [x] **T25** Identity matching service: deterministic ABHA match; probabilistic score on phone + DOB + name similarity
+- [x] **T26** Global lookup endpoint returning match candidates with scores
+- [x] **T27** Merge queue: list candidates, approve, reject
+- [x] **T28** Merge execution: reversible, fully logged
+- [x] **T29** Patient demographic update with change history
 
 ### Phase 6 — Verification
 
-- [ ] **T30** Unit tests: matching algorithm, MRN generation, password policy, TOTP
+- [x] **T30** Unit tests: matching algorithm, MRN generation, password policy, TOTP
 - [ ] **T31** Integration tests: every endpoint against real Postgres
 - [ ] **T32** Authorisation suite: wrong tenant, wrong role, revoked session — denied on every endpoint
 - [ ] **T33** RLS test: raw query as tenant A cannot see tenant B's rows
