@@ -149,4 +149,39 @@ check(
   `got ${meAfter.status} — revocation that waits for token expiry is not revocation`,
 );
 
+section('12. Failed-login backoff is a curve, not a cliff');
+// A fixed lockout on a known email address is a denial-of-service against a
+// named clinician. The wait must stay short enough that the account's owner is
+// never shut out of a patient record.
+const victim = await createStaff(admin.token, { role: 'front_desk' });
+
+let lastMessage = '';
+for (let attempt = 1; attempt <= 5; attempt += 1) {
+  const failed = await call('POST', '/auth/login', {
+    body: { email: victim.email, password: 'wrong-password-every-time' },
+  });
+  lastMessage = String(failed.body?.message ?? '');
+}
+
+check('repeated failures eventually back off', lastMessage.includes('Try again in'), lastMessage);
+
+const waitSeconds = Number(lastMessage.match(/in (\d+) second/)?.[1] ?? -1);
+check('the wait is stated, not just "locked"', waitSeconds >= 0, lastMessage);
+check(
+  'and it is seconds, not the old fifteen minutes',
+  waitSeconds > 0 && waitSeconds <= 30,
+  `${waitSeconds}s — a clinician locked out for 15 minutes cannot reach a patient record`,
+);
+
+// The owner gets back in shortly, with the correct password.
+await new Promise((resolve) => setTimeout(resolve, (waitSeconds + 1) * 1000));
+const recovered = await call('POST', '/auth/login', {
+  body: { email: victim.email, password: victim.password },
+});
+check(
+  'the rightful owner regains access once the short wait elapses',
+  recovered.status === 200,
+  `got ${recovered.status} ${recovered.raw.slice(0, 120)}`,
+);
+
 finish();

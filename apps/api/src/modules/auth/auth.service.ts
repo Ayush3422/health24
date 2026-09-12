@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { eq } from 'drizzle-orm';
@@ -14,6 +9,7 @@ import { hashToken } from '../../common/crypto';
 import type { RequestMeta } from '../../common/actor';
 import { AuditService } from '../audit/audit.service';
 import { PasswordService } from './password.service';
+import { lockedUntilFor, secondsRemaining } from './lockout';
 import { SessionService, type SessionOrigin } from './session.service';
 import { TotpService } from './totp.service';
 
@@ -45,8 +41,6 @@ export interface AuthenticatedResult {
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
-  private static readonly MAX_FAILED_ATTEMPTS = 5;
-  private static readonly LOCKOUT_MINUTES = 15;
   private static readonly CHALLENGE_TTL = '5m';
 
   constructor(
@@ -75,11 +69,7 @@ export class AuthService {
     // Pre-authentication lookup: we do not yet know which hospital this is, so
     // it cannot be tenant-scoped.
     const staff = await this.db.asSystem(async (tx) => {
-      const [row] = await tx
-        .select()
-        .from(staffUsers)
-        .where(eq(staffUsers.email, email))
-        .limit(1);
+      const [row] = await tx.select().from(staffUsers).where(eq(staffUsers.email, email)).limit(1);
 
       return row;
     });
@@ -93,9 +83,14 @@ export class AuthService {
     }
 
     if (staff.lockedUntil && staff.lockedUntil.getTime() > Date.now()) {
+      const wait = secondsRemaining(staff.lockedUntil);
       await this.auditFailure(staff.id, email, meta, 'account_locked');
+
+      // The wait is stated, because the alternative — a flat "account locked"
+      // — sends a clinician to ring IT when they could have waited four
+      // seconds.
       throw new UnauthorizedException(
-        'Account is temporarily locked after repeated failed attempts',
+        `Too many failed attempts. Try again in ${wait} second${wait === 1 ? '' : 's'}.`,
       );
     }
 
@@ -176,7 +171,9 @@ export class AuthService {
             .where(eq(staffUsers.id, staff.id));
         });
 
-        this.logger.warn(`Recovery code used for staff ${staff.id}; ${result.remaining.length} left`);
+        this.logger.warn(
+          `Recovery code used for staff ${staff.id}; ${result.remaining.length} left`,
+        );
       }
     }
 
@@ -394,10 +391,9 @@ export class AuthService {
   }
 
   private async signChallenge(staffId: string, purpose: ChallengePayload['purpose']) {
-    return this.jwt.signAsync(
-      { sub: staffId, purpose } satisfies ChallengePayload,
-      { expiresIn: AuthService.CHALLENGE_TTL },
-    );
+    return this.jwt.signAsync({ sub: staffId, purpose } satisfies ChallengePayload, {
+      expiresIn: AuthService.CHALLENGE_TTL,
+    });
   }
 
   private async consumeChallenge(
@@ -419,25 +415,29 @@ export class AuthService {
     return payload.sub;
   }
 
+  /**
+   * Records a failed attempt and applies backoff.
+   *
+   * The delay grows exponentially rather than jumping to a fixed lockout. See
+   * `lockout.ts` for why: a hard lock on a known email address is a
+   * denial-of-service against a named clinician, and in a hospital that has
+   * consequences beyond annoyance.
+   */
   private async registerFailedAttempt(staffId: string, current: number): Promise<void> {
     const attempts = current + 1;
-    const shouldLock = attempts >= AuthService.MAX_FAILED_ATTEMPTS;
+    const lockedUntil = lockedUntilFor(attempts);
 
     await this.db.asSystem(async (tx) => {
       await tx
         .update(staffUsers)
-        .set({
-          failedLoginAttempts: attempts,
-          lockedUntil: shouldLock
-            ? new Date(Date.now() + AuthService.LOCKOUT_MINUTES * 60 * 1000)
-            : null,
-          updatedAt: new Date(),
-        })
+        .set({ failedLoginAttempts: attempts, lockedUntil, updatedAt: new Date() })
         .where(eq(staffUsers.id, staffId));
     });
 
-    if (shouldLock) {
-      this.logger.warn(`Staff ${staffId} locked after ${attempts} failed attempts`);
+    if (lockedUntil) {
+      this.logger.warn(
+        `Staff ${staffId}: ${attempts} consecutive failures, backing off until ${lockedUntil.toISOString()}`,
+      );
     }
   }
 

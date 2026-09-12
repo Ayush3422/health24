@@ -15,7 +15,9 @@
     "db:bootstrap": "tsx src/db/bootstrap-local.ts",
     "smoke:auth": "node scripts/smoke-auth.mjs",
     "smoke:tenancy": "node scripts/smoke-tenancy.mjs",
-    "smoke:patients": "node scripts/smoke-patients.mjs"
+    "smoke:patients": "node scripts/smoke-patients.mjs",
+    "db:wait": "tsx src/db/wait-for-db.ts",
+    "db:clean": "tsx src/db/clean-dev-data.ts"
   },
   "dependencies": {
     "@health24/shared": "workspace:*",
