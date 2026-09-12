@@ -7,7 +7,6 @@ import { loadEnv } from './config/load-env';
 
 loadEnv();
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 async function bootstrap(): Promise<void> {
   const { AppModule } = await import('./app.module');
 

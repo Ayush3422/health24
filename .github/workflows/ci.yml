@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, typecheck and test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: health24
+          POSTGRES_PASSWORD: health24_ci
+          POSTGRES_DB: health24
+        ports:
+          - 5433:5432
+        # The job will not start until Postgres answers, so no sleeping.
+        options: >-
+          --health-cmd "pg_isready -U health24 -d health24"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      NODE_ENV: test
+      # The application connects as an unprivileged role so that row-level
+      # security binds to it. Running the tests as the owner would let every
+      # isolation assertion pass against completely broken policies.
+      DATABASE_URL: postgresql://health24_api:health24_ci@localhost:5433/health24
+      DATABASE_ADMIN_URL: postgresql://health24:health24_ci@localhost:5433/health24
+      LOCAL_APP_DB_PASSWORD: health24_ci
+      JWT_ACCESS_SECRET: ci_only_secret_not_used_anywhere_else
+      JWT_ACCESS_TTL: 15m
+      REFRESH_TOKEN_TTL_DAYS: 30
+      TOTP_ISSUER: Health24
+      # Deterministic in CI so a failure is reproducible. Never a real key.
+      TOTP_ENCRYPTION_KEY: aGVhbHRoMjQtY2ktb25seS1rZXktbm90LWEtc2VjcmU
+      LOG_LEVEL: warn
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        # The API imports @health24/shared from its build output, so this has
+        # to happen before anything typechecks.
+        run: pnpm --filter @health24/shared build
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Apply migrations
+        run: pnpm db:migrate
+
+      - name: Create the unprivileged application role
+        run: pnpm db:bootstrap
+
+      - name: Test
+        run: pnpm --filter @health24/api test
+
+      - name: Build
+        run: pnpm --filter @health24/api build

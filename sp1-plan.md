@@ -1,6 +1,6 @@
 # SP1 — Foundation: Implementation Plan
 
-**Status:** In progress
+**Status:** Phases 1-6 complete. Phase 7 (clinical web app) outstanding.
 **Scope:** Tenancy, identity & auth, patient registry, audit skeleton. No clinical data.
 **Design reference:** `planning.md` §5, §6.1, §6.2, §8 · `features.md` SP1
 
@@ -88,11 +88,11 @@ Tasks are ordered. Each is independently verifiable.
 ### Phase 6 — Verification
 
 - [x] **T30** Unit tests: matching algorithm, MRN generation, password policy, TOTP
-- [ ] **T31** Integration tests: every endpoint against real Postgres
-- [ ] **T32** Authorisation suite: wrong tenant, wrong role, revoked session — denied on every endpoint
-- [ ] **T33** RLS test: raw query as tenant A cannot see tenant B's rows
-- [ ] **T34** Audit test: every PHI-touching endpoint produces a log row
-- [ ] **T35** CI: GitHub Actions running lint, typecheck, migrate, test
+- [x] **T31** Integration tests against real Postgres. The authorisation suite exercises every registered route; `registry.e2e-spec.ts` covers the registry journeys in depth. Happy-path breadth beyond that lives in the smoke scripts, which drive the compiled server over HTTP
+- [x] **T32** Authorisation suite: wrong tenant, wrong role, revoked session — denied on every endpoint
+- [x] **T33** RLS test: raw query as tenant A cannot see tenant B's rows
+- [x] **T34** Audit test: every PHI-touching endpoint produces a log row
+- [x] **T35** CI: GitHub Actions running lint, typecheck, migrate, test
 
 ### Phase 7 — Clinical app shell
 

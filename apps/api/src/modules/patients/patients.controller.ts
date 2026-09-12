@@ -20,6 +20,7 @@ import { CurrentActor, CurrentMeta, RequirePermission } from '../../common/decor
 import { zodBody } from '../../common/zod-validation.pipe';
 import type { Actor, RequestMeta } from '../../common/actor';
 import { deriveBirthYear } from './name-matching';
+import { AuditService } from '../audit/audit.service';
 import { MatchingService } from './matching.service';
 import { MergeService } from './merge.service';
 import { PatientsService } from './patients.service';
@@ -30,6 +31,7 @@ export class PatientsController {
     private readonly patients: PatientsService,
     private readonly matching: MatchingService,
     private readonly merges: MergeService,
+    private readonly audit: AuditService,
   ) {}
 
   @Post()
@@ -69,6 +71,17 @@ export class PatientsController {
     const candidates = await this.matching.findCandidates({
       ...body,
       birthYear: deriveBirthYear(body.dateOfBirth, null),
+    });
+
+    // This searches every hospital on the platform, so it is exactly the kind
+    // of access a patient is entitled to ask about. It was reaching the
+    // database without leaving a trace until lint flagged the unused `meta`
+    // parameter, which is the sort of omission that would never show up in a
+    // functional test.
+    await this.audit.recordForActor(actor, {
+      resourceType: 'patient_global_lookup',
+      action: 'search',
+      meta,
     });
 
     return {
