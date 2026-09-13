@@ -1,24 +1,9 @@
 import { useEffect, useState, type KeyboardEvent } from 'react';
-import { TERMINOLOGY_KEYS, type Coding } from '@health24/shared';
+import { TERMINOLOGY_KEYS } from '@health24/shared';
 import { ApiError } from '../api/client';
-import {
-  EQUIVALENCE_LABELS,
-  useAutoCode,
-  useCodeSystems,
-  useConcept,
-  useTerminologySearch,
-} from '../api/terminology';
-
-function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(value), delayMs);
-    return () => window.clearTimeout(timer);
-  }, [value, delayMs]);
-
-  return debounced;
-}
+import { useAutoCode, useCodeSystems, useConcept, useTerminologySearch } from '../api/terminology';
+import { CodingRow } from '../clinical/CodingRow';
+import { useDebouncedValue } from '../clinical/useDebouncedValue';
 
 const errorMessage = (error: unknown): string =>
   error instanceof ApiError ? error.message : 'Something went wrong';
@@ -296,43 +281,5 @@ function ConceptPanel({
         </footer>
       ) : null}
     </article>
-  );
-}
-
-function CodingRow({
-  label,
-  coding,
-  emptyText,
-  advisory = false,
-}: {
-  label: string;
-  coding: Coding | null;
-  emptyText?: string;
-  advisory?: boolean;
-}): JSX.Element {
-  const classes = ['coding', advisory ? 'coding--advisory' : '', coding ? '' : 'coding--empty']
-    .filter(Boolean)
-    .join(' ');
-
-  return (
-    <div className={classes}>
-      <div className="coding__label">{label}</div>
-
-      {coding ? (
-        <div>
-          <strong>{coding.display}</strong> <span className="code">{coding.code}</span>
-          {coding.equivalence ? (
-            <span className={`equivalence equivalence--${coding.equivalence}`}>
-              {EQUIVALENCE_LABELS[coding.equivalence]}
-            </span>
-          ) : null}
-          {advisory ? (
-            <div className="small">A suggested correspondence only. It is not a diagnosis.</div>
-          ) : null}
-        </div>
-      ) : (
-        <div>{emptyText}</div>
-      )}
-    </div>
   );
 }

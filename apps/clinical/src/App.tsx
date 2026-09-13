@@ -4,12 +4,14 @@ import { useAuth } from './auth/AuthProvider';
 import { LoginPage } from './auth/LoginPage';
 import { AppShell } from './routes/AppShell';
 import { CurationPage } from './routes/CurationPage';
+import { EncounterPage } from './routes/EncounterPage';
 import { MergeQueuePage } from './routes/MergeQueuePage';
 import { PatientDetailPage } from './routes/PatientDetailPage';
 import { PatientRegisterPage } from './routes/PatientRegisterPage';
 import { PatientSearchPage } from './routes/PatientSearchPage';
 import { StaffPage } from './routes/StaffPage';
 import { TerminologyPage } from './routes/TerminologyPage';
+import { WorklistPage } from './routes/WorklistPage';
 
 /**
  * Where each role lands after signing in.
@@ -19,6 +21,8 @@ import { TerminologyPage } from './routes/TerminologyPage';
  * admins and curators on a page that answered every request with a 403.
  */
 function homeFor(role: StaffRole): string {
+  // Clinicians and records staff start from the day's encounters.
+  if (hasPermission(role, 'clinical:read')) return '/encounters';
   if (hasPermission(role, 'patient:search')) return '/patients';
   if (hasPermission(role, 'terminology:curate')) return '/terminology/review';
   if (hasPermission(role, 'staff:read')) return '/staff';
@@ -45,6 +49,8 @@ export function App(): JSX.Element {
         <Route path="/patients" element={<PatientSearchPage />} />
         <Route path="/patients/new" element={<PatientRegisterPage />} />
         <Route path="/patients/:id" element={<PatientDetailPage />} />
+        <Route path="/encounters" element={<WorklistPage />} />
+        <Route path="/encounters/:id" element={<EncounterPage />} />
         <Route path="/merge-queue" element={<MergeQueuePage />} />
         <Route path="/staff" element={<StaffPage />} />
         <Route path="/terminology" element={<TerminologyPage />} />

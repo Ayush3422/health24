@@ -4,6 +4,7 @@ import { BLOOD_GROUPS, hasPermission } from '@health24/shared';
 import { ApiError } from '../api/client';
 import { usePatient, useUpdatePatient } from '../api/hooks';
 import { useAuth } from '../auth/AuthProvider';
+import { PatientClinicalRecord } from '../clinical/PatientClinicalRecord';
 
 export function PatientDetailPage(): JSX.Element {
   const { id } = useParams<{ id: string }>();
@@ -46,7 +47,7 @@ export function PatientDetailPage(): JSX.Element {
   };
 
   return (
-    <div className="page page--narrow">
+    <div className="page">
       {arrival?.linkedExisting ? (
         <p className="alert alert--success">
           This patient already had a record from another hospital. It has been linked, so their
@@ -150,13 +151,7 @@ export function PatientDetailPage(): JSX.Element {
         </section>
       ) : null}
 
-      <section className="card card--muted">
-        <h2>Clinical record</h2>
-        <p className="muted">
-          Encounters, diagnoses and prescriptions arrive in the next stage. This screen currently
-          shows the registry record only.
-        </p>
-      </section>
+      <PatientClinicalRecord patientId={record.id} />
 
       <Link to="/patients">Back to search</Link>
     </div>

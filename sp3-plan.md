@@ -188,10 +188,10 @@ The clinician searches in their own vocabulary using the SP2 terminology search,
 
 ### Phase 6 — Interface for what is built (Decision D)
 
-- [ ] **T29** Encounter screen: the day's worklist, open and close, and diagnosis entry with the three codings shown as recorded
-- [ ] **T30** Prescription entry with the allergy warning and override, and current medications grouped by system of medicine
-- [ ] **T31a** Patient clinical view: allergy banner, problem list and current medications, each naming the hospital that recorded it
-- [ ] **T37** Records staff entry: choose the clinician, then the same forms, with the attribution visible on every entry
+- [x] **T29** Encounter screen: the day’s worklist (`/encounters`, the home screen for clinicians and records staff), open, finish and cancel with a reason, and diagnosis entry — search in any script, a preview of the three codings the server will attach, then record; recorded diagnoses show all three codings as stored
+- [x] **T30** Prescription entry with the allergy warning and override — the form shows each match, where it was recorded and the check’s limitation, and asks for a reason; current medications grouped by system of medicine, with stop-with-reason for the prescribing hospital’s clinicians
+- [x] **T31a** Patient clinical view on the patient page: sticky allergy banner, record an allergy, start an encounter, active problems, current medications and encounter history across hospitals; every entry names its hospital and clinician, and every list says when another hospital’s records are not shared
+- [x] **T37** Records staff entry: a “Transcribing for” clinician picker on every form, defaulting to the encounter’s attending clinician; transcribed entries are tagged with who typed them
 
 ### Phase 7 — Other documentation
 

@@ -832,8 +832,317 @@ button.link {
   margin-top: 0.75rem;
 }
 
+/* ---------- Clinical record ---------- */
+
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.page-header__control {
+  width: 200px;
+}
+
+.clinical-record {
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+}
+
+.clinical-record > .row {
+  margin-bottom: 0.75rem;
+}
+
+.clinical-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+  margin: 1rem 0;
+}
+
+.clinical-record section,
+.clinical-columns section {
+  margin-bottom: 1.25rem;
+}
+
+h3 {
+  font-size: 1rem;
+  margin: 0 0 0.6rem;
+}
+
+h4 {
+  font-size: 0.9rem;
+  margin: 0 0 0.4rem;
+}
+
+/*
+ * The allergy banner stays in view while the rest of the page scrolls: it is
+ * the one thing a prescriber must not scroll past. An alerting banner is
+ * marked by a heavy left rule as well as colour.
+ */
+.allergy-banner {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.9rem;
+  margin: 0 0 1rem;
+}
+
+.allergy-banner--alert {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  border-left-width: 6px;
+  color: var(--danger);
+}
+
+.allergy-banner ul {
+  list-style: none;
+  margin: 0.25rem 0;
+  padding: 0;
+}
+
+.allergy-banner li {
+  padding: 0.1rem 0;
+}
+
+.allergy-banner__title {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.8rem;
+}
+
+.allergy-banner__source {
+  color: var(--ink);
+}
+
+.criticality {
+  font-size: 0.75rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+}
+
+.criticality--high {
+  font-weight: 700;
+}
+
+.allergy-warning {
+  background: var(--danger-soft);
+  border: 1px solid var(--danger);
+  border-left-width: 6px;
+  color: var(--danger);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin-top: 0.5rem;
+}
+
+.allergy-warning ul {
+  margin: 0.4rem 0;
+  padding-left: 1.1rem;
+}
+
+.allergy-warning input {
+  color: var(--ink);
+}
+
+.tag {
+  display: inline-block;
+  font-style: normal;
+  font-size: 0.72rem;
+  padding: 0.05rem 0.4rem;
+  margin-left: 0.35rem;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  color: var(--ink-muted);
+  background: var(--surface);
+  vertical-align: middle;
+}
+
+.tag--primary {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tag--traditional {
+  margin-left: 0;
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.tag--biomedical {
+  margin-left: 0;
+  border-color: var(--ink-muted);
+  color: var(--ink);
+}
+
+.tag--shared {
+  border-style: dashed;
+  border-color: var(--warning);
+  color: var(--warning);
+  background: var(--warning-soft);
+  margin-left: 0;
+}
+
+.tag--transcribed {
+  border-style: dotted;
+}
+
+.provenance {
+  display: inline;
+}
+
+.sharing-note {
+  color: var(--warning);
+  border-left: 3px solid var(--warning);
+  padding-left: 0.5rem;
+  margin: 0.4rem 0 0;
+}
+
+.entries {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.75rem;
+}
+
+.entry {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.entry--ended {
+  background: var(--ground);
+  color: var(--ink-muted);
+}
+
+.entry__header {
+  margin-bottom: 0.2rem;
+}
+
+.entry__codings {
+  margin: 0.4rem 0;
+}
+
+.entry__note {
+  margin: 0.25rem 0;
+}
+
+.advisory-inline {
+  font-style: italic;
+}
+
+.override-note {
+  color: var(--danger);
+  margin: 0.25rem 0;
+}
+
+.medication-group h4 {
+  margin-top: 0.4rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0 0.75rem;
+}
+
+.form-grid--two {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.form-grid--four {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.form-grid--search {
+  grid-template-columns: minmax(160px, 220px) 1fr;
+}
+
+.field--wide {
+  grid-column: span 2;
+}
+
+.transcribing {
+  background: var(--warning-soft);
+  border: 1px dashed var(--warning);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: normal;
+  margin: 0.25rem 0 0.75rem;
+}
+
+.checkbox input {
+  width: auto;
+}
+
+.inline-form {
+  margin-top: 0.5rem;
+}
+
+.inline-form input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.encounter-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.encounter-heading p {
+  margin: 0.2rem 0;
+}
+
+.encounter-actions {
+  min-width: 260px;
+}
+
+.status--in_progress {
+  background: var(--warning-soft);
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+.status--finished,
+.status--stopped,
+.status--completed {
+  background: var(--ground);
+  color: var(--ink-muted);
+}
+
+.status--cancelled {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.auto-code h4 {
+  margin-bottom: 0.4rem;
+}
+
 @media (max-width: 720px) {
   .field-row,
+  .clinical-columns,
+  .form-grid,
+  .form-grid--two,
+  .form-grid--four,
+  .form-grid--search,
   .details,
   .queue__pair,
   .terminology,
