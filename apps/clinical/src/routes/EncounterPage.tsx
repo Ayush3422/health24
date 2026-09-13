@@ -9,19 +9,28 @@ import {
   useEncounterDiagnoses,
   useEncounterPrescriptions,
 } from '../api/clinical';
+import {
+  useEncounterNotes,
+  useEncounterProcedures,
+  useEncounterVitals,
+} from '../api/documentation';
 import { useAuth } from '../auth/AuthProvider';
 import { AllergyBanner } from '../clinical/AllergyBanner';
 import { DiagnosisEntry, DiagnosisList } from '../clinical/Diagnoses';
 import { formatDateTime, humanise } from '../clinical/format';
 import { MedicationList, PrescriptionForm } from '../clinical/Medications';
+import { NoteForm, NoteList } from '../clinical/Notes';
+import { ProcedureForm, ProcedureList } from '../clinical/Procedures';
 import { Provenance, SystemTag } from '../clinical/Provenance';
+import { LoincNotice, VitalsForm, VitalsList } from '../clinical/Vitals';
 
 /**
- * One encounter: the allergy banner, what was diagnosed, what was prescribed.
+ * One encounter: the allergy banner, vitals, what was diagnosed and
+ * prescribed, the notes and any procedures.
  *
  * Another hospital's encounter, shared under consent, is read-only here — and
- * says so. Diagnoses and prescriptions on it appear only where the consent
- * covers them too.
+ * says so. Each kind of entry on it appears only where the consent covers that
+ * kind too.
  */
 export function EncounterPage(): JSX.Element {
   const { id } = useParams<{ id: string }>();
@@ -29,6 +38,9 @@ export function EncounterPage(): JSX.Element {
   const encounter = useEncounter(id);
   const diagnoses = useEncounterDiagnoses(id);
   const prescriptions = useEncounterPrescriptions(id);
+  const vitals = useEncounterVitals(id ?? '');
+  const notes = useEncounterNotes(id ?? '');
+  const procedures = useEncounterProcedures(id ?? '');
   const close = useCloseEncounter();
 
   const [cancelling, setCancelling] = useState(false);
@@ -75,8 +87,10 @@ export function EncounterPage(): JSX.Element {
     }
   };
 
-  const conditionRows = diagnoses.data ?? [];
-  const prescriptionRows = prescriptions.data ?? [];
+  const notShared = (what: string) =>
+    own
+      ? `No ${what} recorded on this encounter yet.`
+      : `No ${what} from this encounter are shared with your hospital.`;
 
   return (
     <div className="page">
@@ -161,6 +175,21 @@ export function EncounterPage(): JSX.Element {
         </p>
       )}
 
+      <section>
+        <h2>Vitals</h2>
+        {vitals.isError ? (
+          <p className="alert alert--error">Could not load vitals.</p>
+        ) : (
+          <VitalsList
+            sets={vitals.data ?? []}
+            emptyText={notShared('vitals')}
+            editable={editable}
+          />
+        )}
+        {editable ? <VitalsForm patientId={record.patientId} encounter={record} /> : null}
+        {(vitals.data ?? []).length > 0 ? <LoincNotice /> : null}
+      </section>
+
       <div className="clinical-columns">
         <section>
           <h2>Diagnoses</h2>
@@ -168,18 +197,15 @@ export function EncounterPage(): JSX.Element {
             <p className="alert alert--error">Could not load diagnoses.</p>
           ) : (
             <DiagnosisList
-              conditions={conditionRows}
-              emptyText={
-                own
-                  ? 'No diagnoses recorded on this encounter yet.'
-                  : 'No diagnoses from this encounter are shared with your hospital.'
-              }
+              conditions={diagnoses.data ?? []}
+              emptyText={notShared('diagnoses')}
+              encounter={editable ? record : undefined}
             />
           )}
           {editable && diagnoses.isSuccess ? (
             <DiagnosisEntry
               encounter={record}
-              hasPrimary={conditionRows.some((condition) => condition.isPrimary)}
+              hasPrimary={diagnoses.data.some((condition) => condition.isPrimary)}
             />
           ) : null}
         </section>
@@ -190,16 +216,39 @@ export function EncounterPage(): JSX.Element {
             <p className="alert alert--error">Could not load prescriptions.</p>
           ) : (
             <MedicationList
-              medications={prescriptionRows}
+              medications={prescriptions.data ?? []}
               canStop={canStop}
-              emptyText={
-                own
-                  ? 'Nothing prescribed on this encounter yet.'
-                  : 'No prescriptions from this encounter are shared with your hospital.'
-              }
+              editable={editable}
+              emptyText={notShared('prescriptions')}
             />
           )}
           {editable ? <PrescriptionForm encounter={record} /> : null}
+        </section>
+      </div>
+
+      <div className="clinical-columns">
+        <section>
+          <h2>Notes</h2>
+          {notes.isError ? (
+            <p className="alert alert--error">Could not load notes.</p>
+          ) : (
+            <NoteList notes={notes.data ?? []} emptyText={notShared('notes')} editable={editable} />
+          )}
+          {editable ? <NoteForm encounter={record} /> : null}
+        </section>
+
+        <section>
+          <h2>Procedures and therapies</h2>
+          {procedures.isError ? (
+            <p className="alert alert--error">Could not load procedures.</p>
+          ) : (
+            <ProcedureList
+              procedures={procedures.data ?? []}
+              emptyText={notShared('procedures')}
+              editable={editable}
+            />
+          )}
+          {editable ? <ProcedureForm encounter={record} /> : null}
         </section>
       </div>
     </div>

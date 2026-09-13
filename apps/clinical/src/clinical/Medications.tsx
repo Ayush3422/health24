@@ -21,23 +21,28 @@ import {
   usePrescribe,
   useStopPrescription,
 } from '../api/clinical';
+import { useCorrectPrescription } from '../api/documentation';
 import { ClinicianPicker, useAttribution } from './attribution';
+import { EntryActions } from './EntryActions';
 import { formatDate, humanise, istToday, optionalText } from './format';
 import { Provenance, SystemTag } from './Provenance';
 
 /**
  * Medicines, grouped by system of medicine so traditional and biomedical
  * treatment read as separate blocks — in the order the systems are declared,
- * which puts the traditional systems first.
+ * which puts the traditional systems first. With `editable`, each can be
+ * corrected or marked in error.
  */
 export function MedicationList({
   medications,
   canStop,
   emptyText,
+  editable = false,
 }: {
   medications: MedicationSummary[];
   canStop: boolean;
   emptyText: string;
+  editable?: boolean;
 }): JSX.Element {
   if (medications.length === 0) {
     return <p className="muted">{emptyText}</p>;
@@ -57,7 +62,12 @@ export function MedicationList({
           </h4>
           <ul className="entries">
             {group.items.map((medication) => (
-              <MedicationItem key={medication.id} medication={medication} canStop={canStop} />
+              <MedicationItem
+                key={medication.id}
+                medication={medication}
+                canStop={canStop}
+                editable={editable}
+              />
             ))}
           </ul>
         </section>
@@ -69,12 +79,15 @@ export function MedicationList({
 function MedicationItem({
   medication,
   canStop,
+  editable,
 }: {
   medication: MedicationSummary;
   canStop: boolean;
+  editable: boolean;
 }): JSX.Element {
   const stop = useStopPrescription();
   const [stopping, setStopping] = useState(false);
+  const [correcting, setCorrecting] = useState(false);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -168,6 +181,21 @@ function MedicationItem({
           </button>
         )
       ) : null}
+
+      <EntryActions
+        kind="prescriptions"
+        id={medication.id}
+        hospital={medication.hospital}
+        entry={medication.entry}
+        supersedesId={medication.supersedesId}
+        editable={editable}
+        // A stopped prescription is not corrected; it can only be marked in error.
+        onCorrect={medication.status === 'active' ? () => setCorrecting(true) : undefined}
+      />
+
+      {correcting ? (
+        <PrescriptionForm correcting={medication} onDone={() => setCorrecting(false)} />
+      ) : null}
     </li>
   );
 }
@@ -189,8 +217,8 @@ interface Draft {
   instructions: string;
 }
 
-const blankDraft = (encounter: EncounterSummary): Draft => ({
-  systemOfMedicine: encounter.systemOfMedicine,
+const blankDraft = (systemOfMedicine: SystemOfMedicine): Draft => ({
+  systemOfMedicine,
   medicineName: '',
   form: '',
   strength: '',
@@ -206,26 +234,60 @@ const blankDraft = (encounter: EncounterSummary): Draft => ({
   instructions: '',
 });
 
-/**
- * Writing a prescription. When the medicine or its vehicle matches a recorded
- * allergy, the server refuses it and this form shows the match — with where
- * it was recorded — and asks for a reason before it can go ahead.
- */
-export function PrescriptionForm({ encounter }: { encounter: EncounterSummary }): JSX.Element {
-  const prescribe = usePrescribe();
-  const attribution = useAttribution(encounter.attending.id);
+const draftFrom = (medication: MedicationSummary): Draft => ({
+  systemOfMedicine: medication.systemOfMedicine,
+  medicineName: medication.medicineName,
+  form: medication.form ?? '',
+  strength: medication.strength ?? '',
+  doseQuantity: medication.dose ? String(medication.dose.quantity) : '',
+  doseUnit: medication.dose?.unit ?? '',
+  frequency: medication.frequency,
+  route: medication.route,
+  durationValue: medication.duration ? String(medication.duration.value) : '',
+  durationUnit: medication.duration?.unit ?? 'days',
+  startDate: medication.startDate,
+  vehicle: medication.vehicle ?? '',
+  foodTiming: medication.foodTiming ?? '',
+  instructions: medication.instructions ?? '',
+});
 
-  const [draft, setDraft] = useState<Draft>(() => blankDraft(encounter));
+/**
+ * Writing a prescription, or correcting one. When the medicine or its vehicle
+ * matches a recorded allergy, the server refuses it and this form shows the
+ * match — with where it was recorded — and asks for a reason before it can go
+ * ahead. A correction is checked exactly as a new prescription is.
+ */
+export function PrescriptionForm({
+  encounter,
+  correcting,
+  onDone,
+}: {
+  encounter?: EncounterSummary;
+  correcting?: MedicationSummary;
+  onDone?: () => void;
+}): JSX.Element {
+  const prescribe = usePrescribe();
+  const correct = useCorrectPrescription();
+  const attribution = useAttribution(encounter?.attending.id);
+
+  const initialDraft = (): Draft =>
+    correcting ? draftFrom(correcting) : blankDraft(encounter?.systemOfMedicine ?? 'allopathy');
+
+  const [draft, setDraft] = useState<Draft>(initialDraft);
   const [warning, setWarning] = useState<{ matches: AllergyMatch[]; limitation: string } | null>(
     null,
   );
   const [overrideReason, setOverrideReason] = useState('');
+  const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [lastWritten, setLastWritten] = useState<{
     name: string;
     shared: boolean;
     limitation: string;
   } | null>(null);
+
+  const formId = correcting ? `rx-${correcting.id}` : 'rx';
+  const pending = prescribe.isPending || correct.isPending;
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -238,33 +300,48 @@ export function PrescriptionForm({ encounter }: { encounter: EncounterSummary })
     draft.medicineName.trim() !== '' &&
     draft.frequency.trim() !== '' &&
     !doseIncomplete &&
-    attribution.ready &&
-    !prescribe.isPending;
+    !pending &&
+    (correcting ? reason.trim().length >= 3 : attribution.ready);
 
   const submit = async (override?: string) => {
     setError(null);
 
-    try {
-      const result = await prescribe.mutateAsync({
-        encounterId: encounter.id,
-        systemOfMedicine: draft.systemOfMedicine,
-        medicineName: draft.medicineName.trim(),
-        form: optionalText(draft.form),
-        strength: optionalText(draft.strength),
-        dose:
-          draft.doseQuantity && draft.doseUnit.trim()
-            ? { quantity: Number(draft.doseQuantity), unit: draft.doseUnit.trim() }
-            : undefined,
-        frequency: draft.frequency.trim(),
-        route: draft.route,
-        duration: draft.durationValue
-          ? { value: Number(draft.durationValue), unit: draft.durationUnit }
+    const content = {
+      systemOfMedicine: draft.systemOfMedicine,
+      medicineName: draft.medicineName.trim(),
+      form: optionalText(draft.form),
+      strength: optionalText(draft.strength),
+      dose:
+        draft.doseQuantity && draft.doseUnit.trim()
+          ? { quantity: Number(draft.doseQuantity), unit: draft.doseUnit.trim() }
           : undefined,
-        startDate: draft.startDate || undefined,
-        vehicle: optionalText(draft.vehicle),
-        foodTiming: draft.foodTiming || undefined,
-        instructions: optionalText(draft.instructions),
-        ...(override ? { allergyOverride: { reason: override } } : {}),
+      frequency: draft.frequency.trim(),
+      route: draft.route,
+      duration: draft.durationValue
+        ? { value: Number(draft.durationValue), unit: draft.durationUnit }
+        : undefined,
+      startDate: draft.startDate || undefined,
+      vehicle: optionalText(draft.vehicle),
+      foodTiming: draft.foodTiming || undefined,
+      instructions: optionalText(draft.instructions),
+      ...(override ? { allergyOverride: { reason: override } } : {}),
+    };
+
+    try {
+      if (correcting) {
+        await correct.mutateAsync({
+          id: correcting.id,
+          body: { ...content, reason: reason.trim() },
+        });
+        onDone?.();
+        return;
+      }
+
+      if (!encounter) return;
+
+      const result = await prescribe.mutateAsync({
+        ...content,
+        encounterId: encounter.id,
         ...attribution.body,
       });
 
@@ -275,7 +352,7 @@ export function PrescriptionForm({ encounter }: { encounter: EncounterSummary })
       });
       setWarning(null);
       setOverrideReason('');
-      setDraft(blankDraft(encounter));
+      setDraft(blankDraft(encounter.systemOfMedicine));
     } catch (caught) {
       const match = allergyMatchesFrom(caught);
 
@@ -284,13 +361,13 @@ export function PrescriptionForm({ encounter }: { encounter: EncounterSummary })
         return;
       }
 
-      setError(caught instanceof ApiError ? caught.message : 'Could not record the prescription');
+      setError(caught instanceof ApiError ? caught.message : 'Could not save the prescription');
     }
   };
 
   return (
     <div className="form card">
-      <h3>Prescribe</h3>
+      <h3>{correcting ? 'Correct this prescription' : 'Prescribe'}</h3>
 
       {lastWritten ? (
         <div className="alert alert--success">
@@ -305,22 +382,24 @@ export function PrescriptionForm({ encounter }: { encounter: EncounterSummary })
       ) : null}
       {error ? <p className="alert alert--error">{error}</p> : null}
 
-      <ClinicianPicker attribution={attribution} id="prescription-clinician" />
+      {correcting ? null : (
+        <ClinicianPicker attribution={attribution} id="prescription-clinician" />
+      )}
 
       <div className="form-grid">
         <div className="field field--wide">
-          <label htmlFor="rx-name">Medicine</label>
+          <label htmlFor={`${formId}-name`}>Medicine</label>
           <input
-            id="rx-name"
+            id={`${formId}-name`}
             value={draft.medicineName}
             onChange={(event) => set('medicineName', event.target.value)}
             placeholder="e.g. Avipattikar churna, Pantoprazole"
           />
         </div>
         <div className="field">
-          <label htmlFor="rx-system">System of medicine</label>
+          <label htmlFor={`${formId}-system`}>System of medicine</label>
           <select
-            id="rx-system"
+            id={`${formId}-system`}
             value={draft.systemOfMedicine}
             onChange={(event) => set('systemOfMedicine', event.target.value as SystemOfMedicine)}
           >
@@ -335,27 +414,27 @@ export function PrescriptionForm({ encounter }: { encounter: EncounterSummary })
 
       <div className="form-grid form-grid--four">
         <div className="field">
-          <label htmlFor="rx-form">Form</label>
+          <label htmlFor={`${formId}-form`}>Form</label>
           <input
-            id="rx-form"
+            id={`${formId}-form`}
             value={draft.form}
             onChange={(event) => set('form', event.target.value)}
             placeholder="tablet, churna…"
           />
         </div>
         <div className="field">
-          <label htmlFor="rx-strength">Strength</label>
+          <label htmlFor={`${formId}-strength`}>Strength</label>
           <input
-            id="rx-strength"
+            id={`${formId}-strength`}
             value={draft.strength}
             onChange={(event) => set('strength', event.target.value)}
             placeholder="40 mg"
           />
         </div>
         <div className="field">
-          <label htmlFor="rx-dose">Dose</label>
+          <label htmlFor={`${formId}-dose`}>Dose</label>
           <input
-            id="rx-dose"
+            id={`${formId}-dose`}
             type="number"
             min="0"
             step="any"
@@ -364,9 +443,9 @@ export function PrescriptionForm({ encounter }: { encounter: EncounterSummary })
           />
         </div>
         <div className="field">
-          <label htmlFor="rx-dose-unit">Dose unit</label>
+          <label htmlFor={`${formId}-dose-unit`}>Dose unit</label>
           <input
-            id="rx-dose-unit"
+            id={`${formId}-dose-unit`}
             value={draft.doseUnit}
             onChange={(event) => set('doseUnit', event.target.value)}
             placeholder="g, ml, tablet"
@@ -379,18 +458,18 @@ export function PrescriptionForm({ encounter }: { encounter: EncounterSummary })
 
       <div className="form-grid form-grid--four">
         <div className="field">
-          <label htmlFor="rx-frequency">Frequency</label>
+          <label htmlFor={`${formId}-frequency`}>Frequency</label>
           <input
-            id="rx-frequency"
+            id={`${formId}-frequency`}
             value={draft.frequency}
             onChange={(event) => set('frequency', event.target.value)}
             placeholder="1-0-1"
           />
         </div>
         <div className="field">
-          <label htmlFor="rx-route">Route</label>
+          <label htmlFor={`${formId}-route`}>Route</label>
           <select
-            id="rx-route"
+            id={`${formId}-route`}
             value={draft.route}
             onChange={(event) => set('route', event.target.value as MedicationRoute)}
           >
@@ -402,9 +481,9 @@ export function PrescriptionForm({ encounter }: { encounter: EncounterSummary })
           </select>
         </div>
         <div className="field">
-          <label htmlFor="rx-duration">For</label>
+          <label htmlFor={`${formId}-duration`}>For</label>
           <input
-            id="rx-duration"
+            id={`${formId}-duration`}
             type="number"
             min="1"
             step="1"
@@ -414,9 +493,9 @@ export function PrescriptionForm({ encounter }: { encounter: EncounterSummary })
           />
         </div>
         <div className="field">
-          <label htmlFor="rx-duration-unit">Unit</label>
+          <label htmlFor={`${formId}-duration-unit`}>Unit</label>
           <select
-            id="rx-duration-unit"
+            id={`${formId}-duration-unit`}
             value={draft.durationUnit}
             onChange={(event) => set('durationUnit', event.target.value as DurationUnit)}
           >
@@ -431,18 +510,18 @@ export function PrescriptionForm({ encounter }: { encounter: EncounterSummary })
 
       <div className="form-grid form-grid--four">
         <div className="field">
-          <label htmlFor="rx-vehicle">Taken with (anupana)</label>
+          <label htmlFor={`${formId}-vehicle`}>Taken with (anupana)</label>
           <input
-            id="rx-vehicle"
+            id={`${formId}-vehicle`}
             value={draft.vehicle}
             onChange={(event) => set('vehicle', event.target.value)}
             placeholder="warm water, honey"
           />
         </div>
         <div className="field">
-          <label htmlFor="rx-food">Timing</label>
+          <label htmlFor={`${formId}-food`}>Timing</label>
           <select
-            id="rx-food"
+            id={`${formId}-food`}
             value={draft.foodTiming}
             onChange={(event) => set('foodTiming', event.target.value as FoodTiming | '')}
           >
@@ -455,23 +534,35 @@ export function PrescriptionForm({ encounter }: { encounter: EncounterSummary })
           </select>
         </div>
         <div className="field">
-          <label htmlFor="rx-start">Starts</label>
+          <label htmlFor={`${formId}-start`}>Starts</label>
           <input
-            id="rx-start"
+            id={`${formId}-start`}
             type="date"
             value={draft.startDate}
             onChange={(event) => set('startDate', event.target.value)}
           />
         </div>
         <div className="field">
-          <label htmlFor="rx-instructions">Instructions</label>
+          <label htmlFor={`${formId}-instructions`}>Instructions</label>
           <input
-            id="rx-instructions"
+            id={`${formId}-instructions`}
             value={draft.instructions}
             onChange={(event) => set('instructions', event.target.value)}
           />
         </div>
       </div>
+
+      {correcting ? (
+        <div className="field">
+          <label htmlFor={`${formId}-reason`}>Why is this being corrected?</label>
+          <input
+            id={`${formId}-reason`}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Required. Kept in the prescription’s history."
+          />
+        </div>
+      ) : null}
 
       {warning ? (
         <div className="allergy-warning" role="alert">
@@ -492,9 +583,9 @@ export function PrescriptionForm({ encounter }: { encounter: EncounterSummary })
           <p className="small">{warning.limitation}</p>
 
           <div className="field">
-            <label htmlFor="rx-override">To prescribe anyway, record why</label>
+            <label htmlFor={`${formId}-override`}>To prescribe anyway, record why</label>
             <input
-              id="rx-override"
+              id={`${formId}-override`}
               value={overrideReason}
               onChange={(event) => setOverrideReason(event.target.value)}
               placeholder="Kept on the prescription, e.g. tolerated under supervision"
@@ -518,8 +609,13 @@ export function PrescriptionForm({ encounter }: { encounter: EncounterSummary })
       ) : (
         <div className="row">
           <button type="button" onClick={() => void submit()} disabled={!canSubmit}>
-            {prescribe.isPending ? 'Checking…' : 'Prescribe'}
+            {pending ? 'Checking…' : correcting ? 'Save correction' : 'Prescribe'}
           </button>
+          {onDone ? (
+            <button type="button" className="ghost" onClick={onDone}>
+              Cancel
+            </button>
+          ) : null}
         </div>
       )}
     </div>

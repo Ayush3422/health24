@@ -69,7 +69,7 @@ export const CODE_SYSTEM_LABELS: Record<string, string> = {
  */
 const CLINICAL = ['clinical'] as const;
 
-function useInvalidateClinical() {
+export function useInvalidateClinical() {
   const queryClient = useQueryClient();
   return () => queryClient.invalidateQueries({ queryKey: CLINICAL });
 }

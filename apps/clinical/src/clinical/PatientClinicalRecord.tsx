@@ -22,6 +22,7 @@ import { ClinicianPicker, useAttribution } from './attribution';
 import { DiagnosisList } from './Diagnoses';
 import { formatDate, humanise, optionalText } from './format';
 import { MedicationList } from './Medications';
+import { PatientAllergies, PatientProcedures, PatientVitals } from './PatientDocumentation';
 import { SharingNote, SystemTag } from './Provenance';
 
 /**
@@ -61,6 +62,13 @@ export function PatientClinicalRecord({ patientId }: { patientId: string }): JSX
         <ProblemList patientId={patientId} />
         <CurrentMedications patientId={patientId} canStop={canStop} />
       </div>
+
+      <div className="clinical-columns">
+        <PatientAllergies patientId={patientId} editable={canWrite} />
+        <PatientVitals patientId={patientId} />
+      </div>
+
+      <PatientProcedures patientId={patientId} />
 
       <EncounterHistory patientId={patientId} />
     </div>

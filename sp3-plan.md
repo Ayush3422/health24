@@ -195,10 +195,10 @@ The clinician searches in their own vocabulary using the SP2 terminology search,
 
 ### Phase 7 — Other documentation
 
-- [ ] **T13** Vitals as observations
-- [ ] **T14** Clinical notes with department templates
-- [ ] **T15** Procedures, including Panchakarma therapies
-- [ ] **T16** Corrections: supersede and entered-in-error, with history — and the screens for all four
+- [x] **T13** Vitals as observations — `POST /vitals` stores a set as LOINC-coded observations sharing a group id; BMI derived; implausible and half readings refused; screens record a set (°C or °F) and list recent sets with the LOINC notice. The codes are the FHIR R4 vital-signs profile’s and must still be checked against the licensed LOINC release before production
+- [x] **T14** Clinical notes with templates — SOAP, Ayurveda initial assessment and follow-up; sections stored individually and composed into the note’s text (migration `0016`). Departments are not modelled yet, so templates are chosen per note rather than per department
+- [x] **T15** Procedures, including Panchakarma therapies — one record for surgery and therapies, with a performer who must be a clinician of the hospital and Panchakarma suggestions in the form
+- [x] **T16** Corrections: supersede and entered-in-error, with history — for diagnoses (re-coded), prescriptions (allergy check re-run), allergies (including resolving), notes (amend) and procedures; vitals are marked in error as a set. `GET /clinical-history/:kind/:id` returns every version. Only the recording hospital changes an entry; records staff only what they typed, in the same clinician’s name
 
 ### Phase 8 — Timeline and consent
 

@@ -9,9 +9,11 @@ import {
 } from '@health24/shared';
 import { ApiError } from '../api/client';
 import { CODE_SYSTEM_LABELS, useRecordDiagnosis } from '../api/clinical';
+import { useCorrectDiagnosis } from '../api/documentation';
 import { useAutoCode, useCodeSystems, useTerminologySearch } from '../api/terminology';
 import { ClinicianPicker, useAttribution } from './attribution';
 import { CodingRow } from './CodingRow';
+import { EntryActions } from './EntryActions';
 import { formatDate, humanise, istToday, optionalText } from './format';
 import { Provenance } from './Provenance';
 import { useDebouncedValue } from './useDebouncedValue';
@@ -22,15 +24,18 @@ const systemLabel = (key: string): string => CODE_SYSTEM_LABELS[key] ?? key;
  * Diagnoses as recorded: the clinician's selection, the TM2 translation and
  * any advisory biomedical code, exactly as they were attached at the time.
  * `compact` is for the problem list, where one line per coding is enough.
+ * With an `encounter`, each diagnosis can be corrected or marked in error.
  */
 export function DiagnosisList({
   conditions,
   compact = false,
   emptyText,
+  encounter,
 }: {
   conditions: ConditionSummary[];
   compact?: boolean;
   emptyText: string;
+  encounter?: EncounterSummary;
 }): JSX.Element {
   if (conditions.length === 0) {
     return <p className="muted">{emptyText}</p>;
@@ -38,108 +43,165 @@ export function DiagnosisList({
 
   return (
     <ul className="entries">
-      {conditions.map((condition) => {
-        const { primary, translated, advisory } = condition.codings;
-
-        return (
-          <li key={condition.id} className="entry">
-            <div className="entry__header">
-              <strong>{primary.display}</strong> <span className="code">{primary.code}</span>
-              {condition.isPrimary ? <em className="tag tag--primary">Primary</em> : null}
-              {condition.verificationStatus === 'provisional' ? (
-                <em className="tag">Provisional</em>
-              ) : null}
-              {condition.clinicalStatus !== 'active' ? (
-                <em className="tag">{humanise(condition.clinicalStatus)}</em>
-              ) : null}
-            </div>
-
-            {compact ? (
-              <div className="small">
-                <span className="muted">{systemLabel(primary.system)}</span>
-                {translated ? (
-                  <>
-                    {' · '}
-                    <span className="muted">TM2</span> {translated.display}{' '}
-                    <span className="code">{translated.code}</span>
-                  </>
-                ) : null}
-                {advisory ? (
-                  <span className="advisory-inline">
-                    {' · '}suggested biomedical: {advisory.display}{' '}
-                    <span className="code">{advisory.code}</span> (not a diagnosis)
-                  </span>
-                ) : null}
-              </div>
-            ) : (
-              <div className="entry__codings">
-                <CodingRow
-                  label={`Clinician’s selection · ${systemLabel(primary.system)}`}
-                  coding={primary}
-                />
-                <CodingRow
-                  label="Translation · ICD-11 TM2"
-                  coding={translated}
-                  emptyText="Not attached"
-                />
-                <CodingRow
-                  label="Advisory · biomedical"
-                  coding={advisory}
-                  emptyText="Not attached"
-                  advisory
-                />
-              </div>
-            )}
-
-            {condition.onsetDate || condition.note ? (
-              <p className="small entry__note">
-                {condition.onsetDate ? `Since ${formatDate(condition.onsetDate)}. ` : ''}
-                {condition.note ?? ''}
-              </p>
-            ) : null}
-
-            <div className="small muted">
-              {formatDate(condition.recordedAt)} ·{' '}
-              <Provenance
-                hospital={condition.hospital}
-                clinician={condition.recordedBy}
-                entry={condition.entry}
-              />
-            </div>
-          </li>
-        );
-      })}
+      {conditions.map((condition) => (
+        <DiagnosisItem
+          key={condition.id}
+          condition={condition}
+          compact={compact}
+          encounter={encounter}
+        />
+      ))}
     </ul>
   );
 }
 
+function DiagnosisItem({
+  condition,
+  compact,
+  encounter,
+}: {
+  condition: ConditionSummary;
+  compact: boolean;
+  encounter?: EncounterSummary;
+}): JSX.Element {
+  const [correcting, setCorrecting] = useState(false);
+  const { primary, translated, advisory } = condition.codings;
+
+  return (
+    <li className="entry">
+      <div className="entry__header">
+        <strong>{primary.display}</strong> <span className="code">{primary.code}</span>
+        {condition.isPrimary ? <em className="tag tag--primary">Primary</em> : null}
+        {condition.verificationStatus === 'provisional' ? (
+          <em className="tag">Provisional</em>
+        ) : null}
+        {condition.clinicalStatus !== 'active' ? (
+          <em className="tag">{humanise(condition.clinicalStatus)}</em>
+        ) : null}
+      </div>
+
+      {compact ? (
+        <div className="small">
+          <span className="muted">{systemLabel(primary.system)}</span>
+          {translated ? (
+            <>
+              {' · '}
+              <span className="muted">TM2</span> {translated.display}{' '}
+              <span className="code">{translated.code}</span>
+            </>
+          ) : null}
+          {advisory ? (
+            <span className="advisory-inline">
+              {' · '}suggested biomedical: {advisory.display}{' '}
+              <span className="code">{advisory.code}</span> (not a diagnosis)
+            </span>
+          ) : null}
+        </div>
+      ) : (
+        <div className="entry__codings">
+          <CodingRow
+            label={`Clinician’s selection · ${systemLabel(primary.system)}`}
+            coding={primary}
+          />
+          <CodingRow
+            label="Translation · ICD-11 TM2"
+            coding={translated}
+            emptyText="Not attached"
+          />
+          <CodingRow
+            label="Advisory · biomedical"
+            coding={advisory}
+            emptyText="Not attached"
+            advisory
+          />
+        </div>
+      )}
+
+      {condition.onsetDate || condition.note ? (
+        <p className="small entry__note">
+          {condition.onsetDate ? `Since ${formatDate(condition.onsetDate)}. ` : ''}
+          {condition.note ?? ''}
+        </p>
+      ) : null}
+
+      <div className="small muted">
+        {formatDate(condition.recordedAt)} ·{' '}
+        <Provenance
+          hospital={condition.hospital}
+          clinician={condition.recordedBy}
+          entry={condition.entry}
+        />
+      </div>
+
+      <EntryActions
+        kind="diagnoses"
+        id={condition.id}
+        hospital={condition.hospital}
+        entry={condition.entry}
+        supersedesId={condition.supersedesId}
+        editable={Boolean(encounter)}
+        onCorrect={encounter ? () => setCorrecting(true) : undefined}
+      />
+
+      {correcting && encounter ? (
+        <DiagnosisEntry
+          encounter={encounter}
+          hasPrimary
+          correcting={condition}
+          onDone={() => setCorrecting(false)}
+        />
+      ) : null}
+    </li>
+  );
+}
+
 /**
- * Recording a diagnosis: search in the clinician's own vocabulary, see what
- * will be attached, then record. The preview is the same auto-coding the
- * server performs, so what the clinician sees before saving is what is saved.
+ * Recording a diagnosis — or correcting one — by searching the clinician's own
+ * vocabulary and seeing what will be attached. The preview is the same
+ * auto-coding the server performs, so what is shown before saving is what is
+ * saved. A correction re-codes the chosen term afresh; the original keeps what
+ * it was recorded with.
  */
 export function DiagnosisEntry({
   encounter,
   hasPrimary,
+  correcting,
+  onDone,
 }: {
   encounter: EncounterSummary;
   hasPrimary: boolean;
+  correcting?: ConditionSummary;
+  onDone?: () => void;
 }): JSX.Element {
   const systems = useCodeSystems();
   const activeSystems = (systems.data ?? []).filter((system) => system.status === 'active');
   const record = useRecordDiagnosis();
+  const correct = useCorrectDiagnosis();
   const attribution = useAttribution(encounter.attending.id);
 
-  const [systemKey, setSystemKey] = useState<string>(TERMINOLOGY_KEYS.namaste);
+  const original = correcting?.codings.primary;
+
+  const [systemKey, setSystemKey] = useState<string>(original?.system ?? TERMINOLOGY_KEYS.namaste);
   const [term, setTerm] = useState('');
-  const [selected, setSelected] = useState<ConceptSummary | null>(null);
-  const [isPrimary, setIsPrimary] = useState(!hasPrimary);
-  const [clinicalStatus, setClinicalStatus] =
-    useState<(typeof CONDITION_CLINICAL_STATUSES)[number]>('active');
-  const [verificationStatus, setVerificationStatus] =
-    useState<(typeof CONDITION_VERIFICATION_STATUSES)[number]>('confirmed');
-  const [onsetDate, setOnsetDate] = useState('');
-  const [note, setNote] = useState('');
+  const [selected, setSelected] = useState<ConceptSummary | null>(
+    original
+      ? ({
+          code: original.code,
+          display: original.display,
+          designations: [],
+        } as unknown as ConceptSummary)
+      : null,
+  );
+  const [isPrimary, setIsPrimary] = useState(correcting ? correcting.isPrimary : !hasPrimary);
+  const [clinicalStatus, setClinicalStatus] = useState<
+    (typeof CONDITION_CLINICAL_STATUSES)[number]
+  >(correcting?.clinicalStatus ?? 'active');
+  const [verificationStatus, setVerificationStatus] = useState<
+    (typeof CONDITION_VERIFICATION_STATUSES)[number]
+  >(correcting?.verificationStatus ?? 'confirmed');
+  const [onsetDate, setOnsetDate] = useState(correcting?.onsetDate ?? '');
+  const [note, setNote] = useState(correcting?.note ?? '');
+  const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [recorded, setRecorded] = useState<{ name: string; notes: string[] } | null>(null);
 
@@ -148,6 +210,8 @@ export function DiagnosisEntry({
   const results = debouncedTerm.trim() && !selected ? (search.data ?? []) : [];
   const preview = useAutoCode(systemKey, selected?.code ?? null, Boolean(selected));
   const system = activeSystems.find((entry) => entry.key === systemKey);
+  const pending = record.isPending || correct.isPending;
+  const idPrefix = correcting ? `diagnosis-${correcting.id}` : 'diagnosis';
 
   const reset = () => {
     setSelected(null);
@@ -163,29 +227,42 @@ export function DiagnosisEntry({
     if (!selected) return;
     setError(null);
 
+    const content = {
+      system: systemKey,
+      code: selected.code,
+      isPrimary,
+      clinicalStatus,
+      verificationStatus,
+      onsetDate: onsetDate || undefined,
+      note: optionalText(note),
+    };
+
     try {
+      if (correcting) {
+        await correct.mutateAsync({
+          id: correcting.id,
+          body: { ...content, reason: reason.trim() },
+        });
+        onDone?.();
+        return;
+      }
+
       const result = await record.mutateAsync({
+        ...content,
         encounterId: encounter.id,
-        system: systemKey,
-        code: selected.code,
-        isPrimary,
-        clinicalStatus,
-        verificationStatus,
-        onsetDate: onsetDate || undefined,
-        note: optionalText(note),
         ...attribution.body,
       });
 
       setRecorded({ name: result.codings.primary.display, notes: result.codingNotes });
       reset();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Could not record the diagnosis');
+      setError(caught instanceof ApiError ? caught.message : 'Could not save the diagnosis');
     }
   };
 
   return (
     <div className="form card">
-      <h3>Add a diagnosis</h3>
+      <h3>{correcting ? 'Correct this diagnosis' : 'Add a diagnosis'}</h3>
 
       {recorded ? (
         <div className="alert alert--success">
@@ -201,13 +278,13 @@ export function DiagnosisEntry({
       ) : null}
       {error ? <p className="alert alert--error">{error}</p> : null}
 
-      <ClinicianPicker attribution={attribution} id="diagnosis-clinician" />
+      {correcting ? null : <ClinicianPicker attribution={attribution} id="diagnosis-clinician" />}
 
       <div className="form-grid form-grid--search">
         <div className="field">
-          <label htmlFor="diagnosis-system">Vocabulary</label>
+          <label htmlFor={`${idPrefix}-system`}>Vocabulary</label>
           <select
-            id="diagnosis-system"
+            id={`${idPrefix}-system`}
             value={systemKey}
             onChange={(event) => {
               setSystemKey(event.target.value);
@@ -223,9 +300,9 @@ export function DiagnosisEntry({
         </div>
 
         <div className="field">
-          <label htmlFor="diagnosis-search">Search</label>
+          <label htmlFor={`${idPrefix}-search`}>Search</label>
           <input
-            id="diagnosis-search"
+            id={`${idPrefix}-search`}
             value={selected ? selected.display : term}
             onChange={(event) => {
               setSelected(null);
@@ -300,9 +377,9 @@ export function DiagnosisEntry({
 
           <div className="form-grid">
             <div className="field">
-              <label htmlFor="diagnosis-status">Status</label>
+              <label htmlFor={`${idPrefix}-status`}>Status</label>
               <select
-                id="diagnosis-status"
+                id={`${idPrefix}-status`}
                 value={clinicalStatus}
                 onChange={(event) => setClinicalStatus(event.target.value as typeof clinicalStatus)}
               >
@@ -314,9 +391,9 @@ export function DiagnosisEntry({
               </select>
             </div>
             <div className="field">
-              <label htmlFor="diagnosis-verification">Certainty</label>
+              <label htmlFor={`${idPrefix}-verification`}>Certainty</label>
               <select
-                id="diagnosis-verification"
+                id={`${idPrefix}-verification`}
                 value={verificationStatus}
                 onChange={(event) =>
                   setVerificationStatus(event.target.value as typeof verificationStatus)
@@ -330,9 +407,9 @@ export function DiagnosisEntry({
               </select>
             </div>
             <div className="field">
-              <label htmlFor="diagnosis-onset">Onset</label>
+              <label htmlFor={`${idPrefix}-onset`}>Onset</label>
               <input
-                id="diagnosis-onset"
+                id={`${idPrefix}-onset`}
                 type="date"
                 max={istToday()}
                 value={onsetDate}
@@ -342,9 +419,9 @@ export function DiagnosisEntry({
           </div>
 
           <div className="field">
-            <label htmlFor="diagnosis-note">Note</label>
+            <label htmlFor={`${idPrefix}-note`}>Note</label>
             <input
-              id="diagnosis-note"
+              id={`${idPrefix}-note`}
               value={note}
               onChange={(event) => setNote(event.target.value)}
             />
@@ -359,19 +436,37 @@ export function DiagnosisEntry({
             Primary diagnosis of this encounter
           </label>
 
+          {correcting ? (
+            <div className="field">
+              <label htmlFor={`${idPrefix}-reason`}>Why is this being corrected?</label>
+              <input
+                id={`${idPrefix}-reason`}
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                placeholder="Required. Kept in the diagnosis history."
+              />
+            </div>
+          ) : null}
+
           <div className="row">
             <button
               type="button"
               onClick={() => void submit()}
-              disabled={!attribution.ready || record.isPending}
+              disabled={pending || (correcting ? reason.trim().length < 3 : !attribution.ready)}
             >
-              {record.isPending ? 'Recording…' : 'Record diagnosis'}
+              {pending ? 'Saving…' : correcting ? 'Save correction' : 'Record diagnosis'}
             </button>
-            <button type="button" className="ghost" onClick={reset}>
-              Choose a different term
+            <button type="button" className="ghost" onClick={correcting ? onDone : reset}>
+              {correcting ? 'Cancel' : 'Choose a different term'}
             </button>
           </div>
         </>
+      ) : correcting ? (
+        <div className="row">
+          <button type="button" className="ghost" onClick={onDone}>
+            Cancel
+          </button>
+        </div>
       ) : null}
     </div>
   );
