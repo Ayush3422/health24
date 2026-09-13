@@ -111,6 +111,9 @@ export function ProcedureForm({
   const [performedAt, setPerformedAt] = useState(
     toLocalInput(correcting ? new Date(correcting.performedAt) : new Date()),
   );
+  // Until the time is changed by hand, a new procedure is recorded at the moment it is
+  // saved — not when the form happened to be opened.
+  const [performedAtTouched, setPerformedAtTouched] = useState(false);
   const [performer, setPerformer] = useState(correcting?.performer.id ?? '');
   const [outcome, setOutcome] = useState(correcting?.outcome ?? '');
   const [notes, setNotes] = useState(correcting?.notes ?? '');
@@ -126,7 +129,10 @@ export function ProcedureForm({
     const content = {
       name: name.trim(),
       systemOfMedicine: system,
-      performedAt: new Date(performedAt).toISOString(),
+      performedAt:
+        correcting || performedAtTouched
+          ? new Date(performedAt).toISOString()
+          : new Date().toISOString(),
       performerClinicianId: performer || undefined,
       outcome: optionalText(outcome),
       notes: optionalText(notes),
@@ -150,6 +156,7 @@ export function ProcedureForm({
       setOutcome('');
       setNotes('');
       setPerformedAt(toLocalInput(new Date()));
+      setPerformedAtTouched(false);
       setSaved(true);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Could not save the procedure');
@@ -207,7 +214,10 @@ export function ProcedureForm({
             type="datetime-local"
             max={toLocalInput(new Date())}
             value={performedAt}
-            onChange={(event) => setPerformedAt(event.target.value)}
+            onChange={(event) => {
+              setPerformedAt(event.target.value);
+              setPerformedAtTouched(true);
+            }}
           />
         </div>
         <div className="field">

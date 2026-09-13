@@ -6,9 +6,11 @@ import {
 } from '@nestjs/common';
 import { sql, type SQL } from 'drizzle-orm';
 import {
+  NOTE_TEMPLATES,
   hasPermission,
   type ClinicalDataCategory,
   type CorrectableKind,
+  type NoteTemplateKey,
   type VersionHistoryEntry,
   type VersionStatus,
 } from '@health24/shared';
@@ -63,6 +65,20 @@ const LABELS: Record<CorrectableKind, SQL> = {
   notes: sql`coalesce(r."title", r."template")`,
   procedures: sql`r."name" || ' · ' || to_char(r."performed_at" AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD HH24:MI')`,
 };
+
+/**
+ * The history label as shown. An untitled note's label is its template key,
+ * which means nothing to a clinician; it is replaced by the template's name.
+ */
+export function historyLabel(kind: CorrectableKind, label: string | null): string {
+  if (!label) return '';
+
+  if (kind === 'notes' && label in NOTE_TEMPLATES) {
+    return NOTE_TEMPLATES[label as NoteTemplateKey].label;
+  }
+
+  return label;
+}
 
 export type ChangeableRow = {
   id: string;
@@ -292,7 +308,7 @@ export class CorrectionsService {
       id: row.id,
       version: Number(row.version),
       versionStatus: row.version_status,
-      label: row.label ?? '',
+      label: historyLabel(kind, row.label),
       hospital: {
         id: row.hospital_id,
         name: row.hospital_name ?? 'Unknown hospital',
