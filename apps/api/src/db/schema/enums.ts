@@ -1,12 +1,29 @@
 import {
   ACCESS_ACTIONS,
   ACTOR_TYPES,
+  ALLERGY_CATEGORIES,
+  ALLERGY_CLINICAL_STATUSES,
+  ALLERGY_CRITICALITIES,
   BLOOD_GROUPS,
+  CLINICAL_DATA_CATEGORIES,
   CODE_SYSTEM_STATUSES,
+  CODING_ROLES,
+  CONDITION_CLINICAL_STATUSES,
+  CONDITION_VERIFICATION_STATUSES,
+  CONSENT_CAPTURE_METHODS,
+  CONSENT_PURPOSES,
+  CONSENT_STATUSES,
   DESIGNATION_USES,
+  DURATION_UNITS,
+  ENCOUNTER_CLASSES,
+  ENCOUNTER_STATUSES,
   FACILITY_TYPES,
+  FOOD_TIMINGS,
   GENDERS,
   HOSPITAL_STATUSES,
+  MEDICATION_REQUEST_STATUSES,
+  MEDICATION_ROUTES,
+  VERSION_STATUSES,
   MAP_ELEMENT_STATUSES,
   MAP_EQUIVALENCES,
   MAP_PROVENANCES,
@@ -71,3 +88,44 @@ export const mapReviewActionEnum = pgEnum('map_review_action', [
   'reject',
   'retire',
 ]);
+
+// Clinical record
+
+export const encounterClassEnum = pgEnum('encounter_class', tuple(ENCOUNTER_CLASSES));
+export const encounterStatusEnum = pgEnum('encounter_status', tuple(ENCOUNTER_STATUSES));
+export const versionStatusEnum = pgEnum('version_status', tuple(VERSION_STATUSES));
+export const conditionClinicalStatusEnum = pgEnum(
+  'condition_clinical_status',
+  tuple(CONDITION_CLINICAL_STATUSES),
+);
+export const conditionVerificationStatusEnum = pgEnum(
+  'condition_verification_status',
+  tuple(CONDITION_VERIFICATION_STATUSES),
+);
+export const codingRoleEnum = pgEnum('coding_role', tuple(CODING_ROLES));
+export const medicationRequestStatusEnum = pgEnum(
+  'medication_request_status',
+  tuple(MEDICATION_REQUEST_STATUSES),
+);
+export const medicationRouteEnum = pgEnum('medication_route', tuple(MEDICATION_ROUTES));
+export const foodTimingEnum = pgEnum('food_timing', tuple(FOOD_TIMINGS));
+export const durationUnitEnum = pgEnum('duration_unit', tuple(DURATION_UNITS));
+export const allergyCategoryEnum = pgEnum('allergy_category', tuple(ALLERGY_CATEGORIES));
+export const allergyCriticalityEnum = pgEnum('allergy_criticality', tuple(ALLERGY_CRITICALITIES));
+export const allergyClinicalStatusEnum = pgEnum(
+  'allergy_clinical_status',
+  tuple(ALLERGY_CLINICAL_STATUSES),
+);
+
+// Consent
+
+export const clinicalDataCategoryEnum = pgEnum(
+  'clinical_data_category',
+  tuple(CLINICAL_DATA_CATEGORIES),
+);
+export const consentPurposeEnum = pgEnum('consent_purpose', tuple(CONSENT_PURPOSES));
+export const consentStatusEnum = pgEnum('consent_status', tuple(CONSENT_STATUSES));
+export const consentCaptureMethodEnum = pgEnum(
+  'consent_capture_method',
+  tuple(CONSENT_CAPTURE_METHODS),
+);

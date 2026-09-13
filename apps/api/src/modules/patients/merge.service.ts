@@ -3,6 +3,7 @@ import { and, desc, eq, isNull, or } from 'drizzle-orm';
 import { DatabaseService } from '../../db/database.service';
 import {
   patientHospitalLinks,
+  patientMergeAliases,
   patientMergeCandidates,
   patientMergeLog,
   patients,
@@ -294,6 +295,13 @@ export class MergeService {
           .where(eq(patients.id, survivorId));
       }
 
+      // Clinical rows keep the patient id they were recorded against. The
+      // alias is what lets consent granted on the survivor cover them, and
+      // what the timeline follows to show one history.
+      await tx
+        .insert(patientMergeAliases)
+        .values({ mergedPatientId: mergedId, survivingPatientId: survivorId });
+
       const [logEntry] = await tx
         .insert(patientMergeLog)
         .values({
@@ -413,6 +421,12 @@ export class MergeService {
           })
           .onConflictDoNothing();
       }
+
+      // The restored record's clinical rows stop resolving to the survivor, so
+      // consent on the survivor no longer reaches them.
+      await tx
+        .delete(patientMergeAliases)
+        .where(eq(patientMergeAliases.mergedPatientId, entry.mergedPatientId));
 
       await tx
         .update(patientMergeLog)

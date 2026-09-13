@@ -1,14 +1,19 @@
 # SP3 — Clinical Record: Implementation Plan
 
-**Status:** Draft for review. **No SP3 code has been written.**
+**Status:** In progress. Decisions A and B answered 2026-09-13: **A1** and **B1**.
 **Scope:** Encounters, dual-coded diagnoses, prescriptions, allergies, vitals, clinical notes, procedures, the cross-hospital timeline, and a read-only offline cache.
 **Design reference:** `planning.md` §5, §6.3, §7.4, §8 · `features.md` SP3 · `sp2-plan.md`
 
 ---
 
-## 0. Read this first: two decisions are yours
+## 0. Decisions A and B
 
-SP3 cannot be built responsibly without these. Each has a recommendation, but both change what gets built, and one of them has legal weight.
+**Answered 2026-09-13: A1, staff-recorded consent; B1, structured prescriptions with free-text medicine names.** The options considered are kept below for the record.
+
+Two refinements came out of designing the model against A1:
+
+- **Consent is recorded at the grantee hospital.** The hospital asking to see a patient's history is the one that must ask the patient — and the hospital holding the record never sees the patient again, so it cannot be the one to ask. In the acceptance scenario, City General's front desk records the consent when the patient arrives. This matches ABDM, where the requesting facility initiates consent.
+- **Merged records resolve through an alias table.** Clinical rows keep the patient id they were recorded against; rewriting them on merge would break both immutability and merge reversal. Consent checks and the timeline resolve ids through `patient_merge_alias`, which holds identifiers only.
 
 ### Decision A — Can Hospital B see what Hospital A recorded, before the consent system exists?
 
@@ -133,10 +138,10 @@ The clinician searches in their own vocabulary using the SP2 terminology search,
 
 ### Phase 1 — Model
 
-- [ ] **T1** Record Decisions A and B in this plan
-- [ ] **T2** Clinical tables, versioning columns, RLS policies
-- [ ] **T3** `consent_artefact` and consent-aware RLS (Decision A1)
-- [ ] **T4** Immutability: no UPDATE of clinical content, no DELETE — by grant and trigger
+- [x] **T1** Record Decisions A and B in this plan
+- [x] **T2** Clinical tables, versioning columns, RLS policies — migrations `0007`, `0008`; composite foreign keys keep every reference within one hospital's record
+- [x] **T3** `consent_artefact` and consent-aware RLS (Decision A1), including merged records via `patient_merge_alias`
+- [x] **T4** Immutability: no UPDATE of clinical content, no DELETE — by grant and trigger; corrections checked at commit. Proven in `test/clinical-rls.e2e-spec.ts` (34 tests, as the application role)
 
 ### Phase 2 — Encounters
 
@@ -196,8 +201,8 @@ The clinician searches in their own vocabulary using the SP2 terminology search,
 
 `planning.md` §1, run as the final smoke test:
 
-1. Sanjeevani Ayurvedic Hospital registers a patient, records patient consent to share with other hospitals, and a vaidya diagnoses Amlapitta and prescribes two formulations over four months.
-2. The patient registers at City General Hospital, is linked to the existing record, and a gastroenterologist opens the timeline.
+1. Sanjeevani Ayurvedic Hospital registers a patient, and a vaidya diagnoses Amlapitta and prescribes two formulations over four months.
+2. The patient registers at City General Hospital and is linked to the existing record. City General's front desk records the patient's consent to see their history from other hospitals, and a gastroenterologist opens the timeline.
 3. The gastroenterologist sees the diagnosis with its TM2 translation and any approved advisory biomedical code; both formulations with dates and durations; and any recorded allergy as a banner.
 4. The patient explains nothing.
 5. With consent revoked, step 3 shows nothing from Sanjeevani, and the attempt is audited.

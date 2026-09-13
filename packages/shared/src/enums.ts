@@ -170,3 +170,125 @@ export type MapReviewPolicy = (typeof MAP_REVIEW_POLICIES)[number];
  */
 export const CODING_ROLES = ['primary', 'translated', 'advisory'] as const;
 export type CodingRole = (typeof CODING_ROLES)[number];
+
+// ---------------------------------------------------------------------------
+// Clinical record
+// ---------------------------------------------------------------------------
+
+/** The setting of an encounter, following FHIR's encounter classes. */
+export const ENCOUNTER_CLASSES = [
+  'outpatient',
+  'inpatient',
+  'emergency',
+  'teleconsultation',
+] as const;
+export type EncounterClass = (typeof ENCOUNTER_CLASSES)[number];
+
+/** An encounter moves only forward: in progress, then finished or cancelled. */
+export const ENCOUNTER_STATUSES = ['in_progress', 'finished', 'cancelled'] as const;
+export type EncounterStatus = (typeof ENCOUNTER_STATUSES)[number];
+
+/**
+ * Where a clinical entry stands in its own history.
+ *
+ * Clinical records are never edited or deleted. A correction is a new row that
+ * supersedes the old one; a mistake is marked entered in error. Both leave the
+ * original readable, because what a clinician believed at the time is part of
+ * the record.
+ */
+export const VERSION_STATUSES = ['current', 'superseded', 'entered_in_error'] as const;
+export type VersionStatus = (typeof VERSION_STATUSES)[number];
+
+export const CONDITION_CLINICAL_STATUSES = ['active', 'inactive', 'remission', 'resolved'] as const;
+export type ConditionClinicalStatus = (typeof CONDITION_CLINICAL_STATUSES)[number];
+
+/** A working diagnosis is common and legitimate; the record should say so. */
+export const CONDITION_VERIFICATION_STATUSES = ['provisional', 'confirmed'] as const;
+export type ConditionVerificationStatus = (typeof CONDITION_VERIFICATION_STATUSES)[number];
+
+export const MEDICATION_REQUEST_STATUSES = ['active', 'stopped', 'completed'] as const;
+export type MedicationRequestStatus = (typeof MEDICATION_REQUEST_STATUSES)[number];
+
+export const MEDICATION_ROUTES = [
+  'oral',
+  'sublingual',
+  'topical',
+  'nasal',
+  'ophthalmic',
+  'otic',
+  'inhalation',
+  'rectal',
+  'vaginal',
+  'intravenous',
+  'intramuscular',
+  'subcutaneous',
+  'other',
+] as const;
+export type MedicationRoute = (typeof MEDICATION_ROUTES)[number];
+
+/**
+ * When a medicine is taken relative to food.
+ *
+ * Carries clinical weight in Ayurveda, where the time of administration
+ * (bheshaja kala) is part of the prescription: empty stomach (abhakta), before
+ * food (pragbhakta), with food (madhyabhakta), after food (adhobhakta), and at
+ * bedtime (nishi).
+ */
+export const FOOD_TIMINGS = [
+  'empty_stomach',
+  'before_food',
+  'with_food',
+  'after_food',
+  'bedtime',
+  'not_applicable',
+] as const;
+export type FoodTiming = (typeof FOOD_TIMINGS)[number];
+
+export const DURATION_UNITS = ['days', 'weeks', 'months'] as const;
+export type DurationUnit = (typeof DURATION_UNITS)[number];
+
+export const ALLERGY_CATEGORIES = ['medication', 'food', 'environment', 'biologic'] as const;
+export type AllergyCategory = (typeof ALLERGY_CATEGORIES)[number];
+
+export const ALLERGY_CRITICALITIES = ['low', 'high', 'unable_to_assess'] as const;
+export type AllergyCriticality = (typeof ALLERGY_CRITICALITIES)[number];
+
+export const ALLERGY_CLINICAL_STATUSES = ['active', 'inactive', 'resolved'] as const;
+export type AllergyClinicalStatus = (typeof ALLERGY_CLINICAL_STATUSES)[number];
+
+// ---------------------------------------------------------------------------
+// Consent
+// ---------------------------------------------------------------------------
+
+/**
+ * The kinds of clinical data a consent can cover. A patient may share their
+ * diagnoses and medicines with a new hospital without sharing their notes.
+ */
+export const CLINICAL_DATA_CATEGORIES = [
+  'encounters',
+  'diagnoses',
+  'medications',
+  'allergies',
+  'observations',
+  'notes',
+  'procedures',
+] as const;
+export type ClinicalDataCategory = (typeof CLINICAL_DATA_CATEGORIES)[number];
+
+/** Why data is shared. ABDM's purpose codes are the model; only care is in scope. */
+export const CONSENT_PURPOSES = ['care_management'] as const;
+export type ConsentPurpose = (typeof CONSENT_PURPOSES)[number];
+
+/** Expiry is a date on the artefact rather than a status, so it cannot be forgotten. */
+export const CONSENT_STATUSES = ['active', 'revoked'] as const;
+export type ConsentStatus = (typeof CONSENT_STATUSES)[number];
+
+/**
+ * How consent was captured.
+ *
+ * Until patients can grant consent themselves (SP5), a staff member attests
+ * that the patient agreed in person: on a signed form, or verbally in front of
+ * a named witness. SP5 adds patient-granted methods to this list.
+ */
+export const CONSENT_CAPTURE_METHODS = ['signed_form', 'verbal_witnessed'] as const;
+export type ConsentCaptureMethod = (typeof CONSENT_CAPTURE_METHODS)[number];

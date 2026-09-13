@@ -50,6 +50,20 @@
       "when": 1789243220889,
       "tag": "0006_terminology_id_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789267784512,
+      "tag": "0007_sp3_clinical_record",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789267796432,
+      "tag": "0008_sp3_clinical_rls_consent_immutability",
+      "breakpoints": true
     }
   ]
 }

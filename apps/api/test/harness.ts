@@ -126,6 +126,16 @@ export async function resetDatabase(): Promise<void> {
 
     await client.unsafe(`
       TRUNCATE TABLE
+        "condition_coding",
+        "condition",
+        "medication_request",
+        "allergy_intolerance",
+        "observation",
+        "clinical_note",
+        "procedure",
+        "encounter",
+        "consent_artefact",
+        "patient_merge_alias",
         "access_log",
         "concept_map_review",
         "concept_map_element",

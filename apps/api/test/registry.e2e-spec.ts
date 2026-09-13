@@ -4,6 +4,7 @@ import {
   resetDatabase,
   seedHospital,
   signIn,
+  testDb,
   type SeededStaff,
   type TestContext,
 } from './harness';
@@ -200,6 +201,22 @@ describe('patient registry', () => {
     expect((await get(`/api/v1/patients/${merged}`, ayushToken)).status).toBe(404);
     expect((await get(`/api/v1/patients/${survivor}`, ayushToken)).status).toBe(200);
 
+    // Clinical rows recorded against the merged record must follow the
+    // survivor for consent and the timeline, and stop following it on revert.
+    const aliasesFor = async () => {
+      const { client, close } = testDb();
+      try {
+        return await client<Array<{ survivor: string }>>`
+          SELECT surviving_patient_id AS survivor
+            FROM patient_merge_alias WHERE merged_patient_id = ${merged}
+        `;
+      } finally {
+        await close();
+      }
+    };
+
+    expect(await aliasesFor()).toEqual([{ survivor }]);
+
     const revert = await post(
       `/api/v1/patients/merges/${resolve.body.mergeLogId}/revert`,
       ayushAdminToken,
@@ -208,6 +225,7 @@ describe('patient registry', () => {
 
     expect(revert.status).toBe(201);
     expect(revert.body.restoredPatientId).toBe(merged);
+    expect(await aliasesFor(), 'a reverted merge must not keep resolving').toEqual([]);
     expect((await get(`/api/v1/patients/${merged}`, ayushToken)).status).toBe(200);
     expect((await get(`/api/v1/patients/${survivor}`, ayushToken)).status).toBe(200);
   });

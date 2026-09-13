@@ -1,4 +1,4 @@
-import { index, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { index, integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { v7 as uuidv7 } from 'uuid';
 import { hospitals } from './hospitals';
 import { staffRoleEnum, systemOfMedicineEnum, userStatusEnum } from './enums';
@@ -54,7 +54,15 @@ export const staffUsers = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('staff_user_hospital_idx').on(table.hospitalId)],
+  (table) => [
+    index('staff_user_hospital_idx').on(table.hospitalId),
+    /**
+     * Redundant as a key — `id` is already unique — and present for the
+     * clinical tables' composite foreign keys, which use it to make the
+     * database refuse a record attributed to another hospital's staff.
+     */
+    unique('staff_user_id_hospital_unique').on(table.id, table.hospitalId),
+  ],
 );
 
 export type StaffUser = typeof staffUsers.$inferSelect;
