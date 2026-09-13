@@ -287,6 +287,52 @@ const ROUTES: RouteExpectation[] = [
     allow: ['clinician', 'records'],
   },
   { method: 'get', path: '/api/v1/clinicians', allow: ['clinician', 'records'] },
+  // Documentation and corrections (Phase 7). Records staff may correct only
+  // what they typed; the service enforces that beyond the permission guard.
+  { method: 'post', path: '/api/v1/vitals', allow: ['clinician', 'records'] },
+  {
+    method: 'post',
+    path: '/api/v1/vitals/:groupId/entered-in-error',
+    allow: ['clinician', 'records'],
+  },
+  { method: 'post', path: '/api/v1/notes', allow: ['clinician', 'records'] },
+  { method: 'post', path: '/api/v1/notes/:id/correct', allow: ['clinician', 'records'] },
+  { method: 'post', path: '/api/v1/notes/:id/entered-in-error', allow: ['clinician', 'records'] },
+  { method: 'post', path: '/api/v1/procedures', allow: ['clinician', 'records'] },
+  { method: 'post', path: '/api/v1/procedures/:id/correct', allow: ['clinician', 'records'] },
+  {
+    method: 'post',
+    path: '/api/v1/procedures/:id/entered-in-error',
+    allow: ['clinician', 'records'],
+  },
+  { method: 'post', path: '/api/v1/diagnoses/:id/correct', allow: ['clinician', 'records'] },
+  {
+    method: 'post',
+    path: '/api/v1/diagnoses/:id/entered-in-error',
+    allow: ['clinician', 'records'],
+  },
+  { method: 'post', path: '/api/v1/prescriptions/:id/correct', allow: ['clinician', 'records'] },
+  {
+    method: 'post',
+    path: '/api/v1/prescriptions/:id/entered-in-error',
+    allow: ['clinician', 'records'],
+  },
+  { method: 'post', path: '/api/v1/allergies/:id/correct', allow: ['clinician', 'records'] },
+  {
+    method: 'post',
+    path: '/api/v1/allergies/:id/entered-in-error',
+    allow: ['clinician', 'records'],
+  },
+  { method: 'get', path: '/api/v1/patients/:patientId/vitals', allow: ['clinician', 'records'] },
+  { method: 'get', path: '/api/v1/encounters/:id/vitals', allow: ['clinician', 'records'] },
+  { method: 'get', path: '/api/v1/encounters/:id/notes', allow: ['clinician', 'records'] },
+  { method: 'get', path: '/api/v1/encounters/:id/procedures', allow: ['clinician', 'records'] },
+  {
+    method: 'get',
+    path: '/api/v1/patients/:patientId/procedures',
+    allow: ['clinician', 'records'],
+  },
+  { method: 'get', path: '/api/v1/clinical-history/:kind/:id', allow: ['clinician', 'records'] },
 ];
 
 const ABSENT_ID = '00000000-0000-4000-8000-000000000000';

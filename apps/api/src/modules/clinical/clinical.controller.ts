@@ -1,12 +1,14 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import {
   cancelEncounterSchema,
+  correctAllergySchema,
   listEncountersQuerySchema,
   openEncounterSchema,
   recordAllergySchema,
   type AllergyBanner,
   type AllergySummary,
   type CancelEncounterInput,
+  type CorrectAllergyInput,
   type EncounterSummary,
   type ListEncountersQuery,
   type OpenEncounterInput,
@@ -88,6 +90,18 @@ export class AllergiesController {
     @CurrentMeta() meta: RequestMeta,
   ): Promise<AllergySummary> {
     return this.allergies.record(actor, body, meta);
+  }
+
+  /** A correction, including resolving the allergy with a new clinical status. */
+  @Post('allergies/:id/correct')
+  @RequirePermission('clinical:write', 'clinical:transcribe')
+  async correct(
+    @CurrentActor() actor: Actor,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(correctAllergySchema)) body: CorrectAllergyInput,
+    @CurrentMeta() meta: RequestMeta,
+  ): Promise<AllergySummary> {
+    return this.allergies.correct(actor, id, body, meta);
   }
 
   /** The banner: active allergies from every record the caller may see. */

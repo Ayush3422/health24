@@ -12,6 +12,7 @@ import type {
   AutoCodeResult,
   Coding,
   ConditionSummary,
+  CorrectDiagnosisInput,
   ProblemList,
   RecordDiagnosisInput,
   RecordedDiagnosis,
@@ -30,6 +31,8 @@ import {
   toIso,
   violatedConstraint,
 } from './clinical-access';
+import type { Attribution } from './clinical-access';
+import { attributionForCorrection, loadForChange, retire } from './corrections.service';
 import { demoTerminologyAllowed } from './demo-terminology';
 
 type ConditionRow = {
@@ -47,6 +50,7 @@ type ConditionRow = {
   recorded_by_staff_id: string;
   recorded_by_name: string | null;
   entry_source: ConditionSummary['entry']['source'];
+  supersedes_id: string | null;
   entered_by_staff_id: string;
   entered_by_name: string | null;
   codings: Coding[];
@@ -63,7 +67,7 @@ const CONDITION_SELECT = sql`
          c."is_primary", to_char(c."onset_date", 'YYYY-MM-DD') AS onset_date, c."note",
          c."recorded_at",
          c."attributed_clinician_id" AS recorded_by_staff_id, s."name" AS recorded_by_name,
-         c."entry_source", c."recorded_by_staff_id" AS entered_by_staff_id,
+         c."entry_source", c."supersedes_id", c."recorded_by_staff_id" AS entered_by_staff_id,
          eb."name" AS entered_by_name,
          coalesce((
            SELECT json_agg(json_build_object(
@@ -162,44 +166,16 @@ export class DiagnosesService {
           input.onBehalfOfClinicianId,
         );
 
-        const [created] = await tx
-          .insert(conditions)
-          .values({
-            patientId: encounter.patientId,
-            hospitalId,
-            encounterId: input.encounterId,
-            clinicalStatus: input.clinicalStatus,
-            verificationStatus: input.verificationStatus,
-            isPrimary: input.isPrimary,
-            onsetDate: input.onsetDate ?? null,
-            note: blankToNull(input.note),
-            recordedByStaffId: actor.staffUserId,
-            attributedClinicianId: attribution.clinicianId,
-            entrySource: attribution.entrySource,
-          })
-          .returning({ id: conditions.id });
-
-        if (!created) throw new Error('Failed to record the diagnosis');
-
-        const attached = [coded.primary, coded.translated, coded.advisory].filter(
-          (coding): coding is Coding => coding !== null,
-        );
-
-        await tx.insert(conditionCodings).values(
-          attached.map((coding) => ({
-            conditionId: created.id,
-            role: coding.role,
-            codeSystemKey: coding.system,
-            codeSystemVersion: coding.systemVersion,
-            code: coding.code,
-            display: coding.display,
-            equivalence: coding.equivalence,
-            confidence: coding.confidence,
-            conceptMapElementId: coding.conceptMapElementId,
-          })),
-        );
-
-        return created.id;
+        return this.insertCondition(tx, {
+          patientId: encounter.patientId,
+          hospitalId,
+          encounterId: input.encounterId,
+          input,
+          coded,
+          actor,
+          attribution,
+          supersedesId: null,
+        });
       });
     } catch (error) {
       if (violatedConstraint(error) === 'condition_one_primary_per_encounter') {
@@ -312,6 +288,142 @@ export class DiagnosesService {
   }
 
   /**
+   * Corrects a diagnosis. The original is marked superseded and a new version
+   * takes its place, coded afresh from the corrected term — so its codings
+   * reflect today's approved mappings, while the original keeps what it was
+   * recorded with.
+   */
+  async correct(
+    actor: Actor,
+    conditionId: string,
+    input: CorrectDiagnosisInput,
+    meta: RequestMeta,
+  ): Promise<RecordedDiagnosis> {
+    const hospitalId = requireHospital(actor);
+
+    // Refused early, before any terminology work, when the change is not allowed.
+    await this.db.asTenant(hospitalId, (tx) =>
+      loadForChange(tx, 'diagnoses', conditionId, actor, hospitalId),
+    );
+
+    const coded = await this.autoCode(input.system, input.code);
+
+    if (!this.allowDemoTerminology && (await this.terminology.usesExperimentalTerminology(coded))) {
+      throw new UnprocessableEntityException(
+        'Demo terminology cannot be used on a patient record. Load a licensed release.',
+      );
+    }
+
+    let corrected: { id: string; patientId: string };
+
+    try {
+      corrected = await this.db.asTenant(hospitalId, async (tx) => {
+        const original = await loadForChange(tx, 'diagnoses', conditionId, actor, hospitalId);
+        const attribution = await attributionForCorrection(tx, actor, hospitalId, original);
+
+        // Superseded before the replacement is written: the one-primary-diagnosis
+        // index is checked immediately, not at commit.
+        await retire(tx, 'diagnoses', conditionId, actor, input.reason, 'superseded');
+
+        const id = await this.insertCondition(tx, {
+          patientId: original.patient_id,
+          hospitalId,
+          encounterId: original.encounter_id as string,
+          input,
+          coded,
+          actor,
+          attribution,
+          supersedesId: conditionId,
+        });
+
+        return { id, patientId: original.patient_id };
+      });
+    } catch (error) {
+      if (violatedConstraint(error) === 'condition_one_primary_per_encounter') {
+        throw new ConflictException('This encounter already has a primary diagnosis');
+      }
+
+      throw error;
+    }
+
+    await this.audit.recordForActor(actor, {
+      resourceType: 'condition',
+      resourceId: conditionId,
+      patientId: corrected.patientId,
+      action: 'update',
+      meta,
+    });
+
+    const [row] = await this.db.asTenant(hospitalId, (tx) =>
+      this.query(tx, sql`WHERE c."id" = ${corrected.id}::uuid`),
+    );
+
+    if (!row) throw new Error('Corrected diagnosis is not readable');
+
+    return { ...this.toSummary(row, hospitalId), codingNotes: coded.notes };
+  }
+
+  /** Writes a diagnosis and its codings, in the caller's transaction. */
+  private async insertCondition(
+    tx: DbTransaction,
+    args: {
+      patientId: string;
+      hospitalId: string;
+      encounterId: string;
+      input: Pick<
+        RecordDiagnosisInput,
+        'clinicalStatus' | 'verificationStatus' | 'isPrimary' | 'onsetDate' | 'note'
+      >;
+      coded: AutoCodeResult;
+      actor: Actor;
+      attribution: Attribution;
+      supersedesId: string | null;
+    },
+  ): Promise<string> {
+    const { input, coded } = args;
+
+    const [created] = await tx
+      .insert(conditions)
+      .values({
+        patientId: args.patientId,
+        hospitalId: args.hospitalId,
+        encounterId: args.encounterId,
+        clinicalStatus: input.clinicalStatus,
+        verificationStatus: input.verificationStatus,
+        isPrimary: input.isPrimary,
+        onsetDate: input.onsetDate ?? null,
+        note: blankToNull(input.note),
+        recordedByStaffId: args.actor.staffUserId,
+        attributedClinicianId: args.attribution.clinicianId,
+        entrySource: args.attribution.entrySource,
+        supersedesId: args.supersedesId,
+      })
+      .returning({ id: conditions.id });
+
+    if (!created) throw new Error('Failed to record the diagnosis');
+
+    const attached = [coded.primary, coded.translated, coded.advisory].filter(
+      (coding): coding is Coding => coding !== null,
+    );
+
+    await tx.insert(conditionCodings).values(
+      attached.map((coding) => ({
+        conditionId: created.id,
+        role: coding.role,
+        codeSystemKey: coding.system,
+        codeSystemVersion: coding.systemVersion,
+        code: coding.code,
+        display: coding.display,
+        equivalence: coding.equivalence,
+        confidence: coding.confidence,
+        conceptMapElementId: coding.conceptMapElementId,
+      })),
+    );
+
+    return created.id;
+  }
+
+  /**
    * A code the terminology service cannot resolve is the client's mistake —
    * a wrong code or an inactive system — so it is a 400 here, not a 404.
    */
@@ -355,6 +467,7 @@ export class DiagnosesService {
       },
       clinicalStatus: row.clinical_status,
       verificationStatus: row.verification_status,
+      supersedesId: row.supersedes_id,
       isPrimary: row.is_primary,
       onsetDate: row.onset_date,
       note: row.note,

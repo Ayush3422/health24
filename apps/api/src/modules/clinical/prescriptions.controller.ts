@@ -1,7 +1,9 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import {
+  correctPrescriptionSchema,
   prescribeSchema,
   stopPrescriptionSchema,
+  type CorrectPrescriptionInput,
   type CurrentMedications,
   type MedicationSummary,
   type PrescribeInput,
@@ -26,6 +28,18 @@ export class PrescriptionsController {
     @CurrentMeta() meta: RequestMeta,
   ): Promise<PrescriptionResult> {
     return this.prescriptions.prescribe(actor, body, meta);
+  }
+
+  /** A new version replaces the prescription, checked against allergies afresh. */
+  @Post('prescriptions/:id/correct')
+  @RequirePermission('clinical:write', 'clinical:transcribe')
+  async correct(
+    @CurrentActor() actor: Actor,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(correctPrescriptionSchema)) body: CorrectPrescriptionInput,
+    @CurrentMeta() meta: RequestMeta,
+  ): Promise<PrescriptionResult> {
+    return this.prescriptions.correct(actor, id, body, meta);
   }
 
   /** Clinicians only: stopping a medicine is a new clinical decision, not transcription. */

@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { and, eq, sql } from 'drizzle-orm';
 import {
   hasPermission,
@@ -8,7 +13,7 @@ import {
 } from '@health24/shared';
 import type { Actor } from '../../common/actor';
 import type { DbTransaction } from '../../db/client';
-import { patientHospitalLinks, patients, staffUsers } from '../../db/schema';
+import { encounters, patientHospitalLinks, patients, staffUsers } from '../../db/schema';
 
 /**
  * Access helpers shared by the clinical services. Each runs inside the
@@ -172,4 +177,62 @@ export async function resolveAttribution(
     clinicianSystemOfMedicine: clinician.systemOfMedicine,
     entrySource: 'transcribed',
   };
+}
+
+/**
+ * An encounter the caller may add entries to: their own hospital's, and not
+ * cancelled. `what` completes the refusal: "A note is recorded against…".
+ */
+export async function requireWritableEncounter(
+  tx: DbTransaction,
+  hospitalId: string,
+  encounterId: string,
+  what: string,
+): Promise<{ patientId: string; systemOfMedicine: SystemOfMedicine }> {
+  const [found] = await tx
+    .select({
+      hospitalId: encounters.hospitalId,
+      patientId: encounters.patientId,
+      status: encounters.status,
+      systemOfMedicine: encounters.systemOfMedicine,
+    })
+    .from(encounters)
+    .where(eq(encounters.id, encounterId))
+    .limit(1);
+
+  if (!found) throw new NotFoundException('Encounter not found');
+
+  if (found.hospitalId !== hospitalId) {
+    throw new ForbiddenException(`${what} recorded against one of your own hospital’s encounters`);
+  }
+
+  if (found.status === 'cancelled') {
+    throw new ConflictException('This encounter was cancelled; open a new one');
+  }
+
+  return { patientId: found.patientId, systemOfMedicine: found.systemOfMedicine };
+}
+
+/** Refuses a performer who is not a clinician of the caller's hospital. */
+export async function requireClinicianOfHospital(
+  tx: DbTransaction,
+  hospitalId: string,
+  staffId: string,
+  field: string,
+): Promise<void> {
+  const [clinician] = await tx
+    .select({ id: staffUsers.id })
+    .from(staffUsers)
+    .where(
+      and(
+        eq(staffUsers.id, staffId),
+        eq(staffUsers.hospitalId, hospitalId),
+        eq(staffUsers.role, 'clinician'),
+      ),
+    )
+    .limit(1);
+
+  if (!clinician) {
+    throw new BadRequestException(`${field} must be a clinician at your hospital`);
+  }
 }

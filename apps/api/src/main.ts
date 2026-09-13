@@ -39,6 +39,10 @@ async function bootstrap(): Promise<void> {
 }
 
 bootstrap().catch((error: unknown) => {
-  Logger.error('Failed to start', error instanceof Error ? error.stack : String(error), 'Bootstrap');
+  Logger.error(
+    'Failed to start',
+    error instanceof Error ? error.stack : String(error),
+    'Bootstrap',
+  );
   process.exit(1);
 });

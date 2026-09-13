@@ -26,7 +26,7 @@ function toKey(rawKey: string): Buffer {
   if (key.length !== 32) {
     throw new CryptoError(
       `Encryption key must decode to 32 bytes, got ${key.length}. ` +
-        'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'base64url\'))"',
+        "Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('base64url'))\"",
     );
   }
 
@@ -41,9 +41,12 @@ export function encryptSecret(plaintext: string, rawKey: string): string {
   const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
 
-  return [VERSION, iv.toString('base64url'), ciphertext.toString('base64url'), tag.toString('base64url')].join(
-    '.',
-  );
+  return [
+    VERSION,
+    iv.toString('base64url'),
+    ciphertext.toString('base64url'),
+    tag.toString('base64url'),
+  ].join('.');
 }
 
 export function decryptSecret(encoded: string, rawKey: string): string {

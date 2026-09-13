@@ -102,7 +102,11 @@ export class TotpService {
    */
   async createRecoveryCodes(): Promise<RecoveryCodes> {
     const plaintext = Array.from({ length: TotpService.RECOVERY_CODE_COUNT }, () =>
-      generateToken(8).replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 10).padEnd(10, 'X'),
+      generateToken(8)
+        .replace(/[^A-Za-z0-9]/g, '')
+        .toUpperCase()
+        .slice(0, 10)
+        .padEnd(10, 'X'),
     );
 
     const hashes = await Promise.all(plaintext.map((code) => argon2.hash(code)));

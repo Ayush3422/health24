@@ -113,6 +113,13 @@
       "when": 1789301788771,
       "tag": "0015_clinical_attribution_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1789305308732,
+      "tag": "0016_clinical_note_sections",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,9 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import {
+  correctDiagnosisSchema,
   recordDiagnosisSchema,
   type ConditionSummary,
+  type CorrectDiagnosisInput,
   type ProblemList,
   type RecordDiagnosisInput,
   type RecordedDiagnosis,
@@ -23,6 +25,18 @@ export class DiagnosesController {
     @CurrentMeta() meta: RequestMeta,
   ): Promise<RecordedDiagnosis> {
     return this.diagnoses.record(actor, body, meta);
+  }
+
+  /** A new version replaces the diagnosis; the original stays in its history. */
+  @Post('diagnoses/:id/correct')
+  @RequirePermission('clinical:write', 'clinical:transcribe')
+  async correct(
+    @CurrentActor() actor: Actor,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(correctDiagnosisSchema)) body: CorrectDiagnosisInput,
+    @CurrentMeta() meta: RequestMeta,
+  ): Promise<RecordedDiagnosis> {
+    return this.diagnoses.correct(actor, id, body, meta);
   }
 
   @Get('encounters/:id/diagnoses')

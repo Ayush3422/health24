@@ -1,7 +1,13 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { and, eq, sql } from 'drizzle-orm';
-import type { AllergyBanner, AllergySummary, RecordAllergyInput } from '@health24/shared';
+import type {
+  AllergyBanner,
+  AllergySummary,
+  CorrectAllergyInput,
+  RecordAllergyInput,
+} from '@health24/shared';
 import { DatabaseService } from '../../db/database.service';
+import type { DbTransaction } from '../../db/client';
 import { allergyIntolerances, encounters } from '../../db/schema';
 import { requireHospital, type Actor, type RequestMeta } from '../../common/actor';
 import { AuditService } from '../audit/audit.service';
@@ -12,6 +18,8 @@ import {
   resolveAttribution,
   toIso,
 } from './clinical-access';
+import type { Attribution } from './clinical-access';
+import { attributionForCorrection, loadForChange, retire } from './corrections.service';
 
 type AllergyRow = {
   id: string;
@@ -28,6 +36,7 @@ type AllergyRow = {
   recorded_by_staff_id: string;
   recorded_by_name: string | null;
   entry_source: AllergySummary['entry']['source'];
+  supersedes_id: string | null;
   entered_by_staff_id: string;
   entered_by_name: string | null;
 };
@@ -37,7 +46,7 @@ const ALLERGY_SELECT = sql`
          a."substance", a."category", a."criticality", a."clinical_status",
          a."reaction", a."note", a."recorded_at",
          a."attributed_clinician_id" AS recorded_by_staff_id, s."name" AS recorded_by_name,
-         a."entry_source", a."recorded_by_staff_id" AS entered_by_staff_id,
+         a."entry_source", a."supersedes_id", a."recorded_by_staff_id" AS entered_by_staff_id,
          eb."name" AS entered_by_name
     FROM "allergy_intolerance" a
     LEFT JOIN "hospital_directory" d ON d."id" = a."hospital_id"
@@ -98,24 +107,15 @@ export class AllergiesService {
         }
       }
 
-      const [created] = await tx
-        .insert(allergyIntolerances)
-        .values({
-          patientId: input.patientId,
-          hospitalId,
-          encounterId: input.encounterId ?? null,
-          substance: input.substance.trim(),
-          category: input.category,
-          criticality: input.criticality,
-          reaction: blankToNull(input.reaction),
-          note: blankToNull(input.note),
-          recordedByStaffId: actor.staffUserId,
-          attributedClinicianId: attribution.clinicianId,
-          entrySource: attribution.entrySource,
-        })
-        .returning({ id: allergyIntolerances.id });
-
-      if (!created) throw new Error('Failed to record the allergy');
+      const created = await this.insertAllergy(tx, {
+        input,
+        patientId: input.patientId,
+        hospitalId,
+        encounterId: input.encounterId ?? null,
+        actor,
+        attribution,
+        supersedesId: null,
+      });
 
       const [inserted] = await tx.execute<AllergyRow>(sql`
         ${ALLERGY_SELECT}
@@ -179,6 +179,100 @@ export class AllergiesService {
     };
   }
 
+  /**
+   * Corrects an allergy — including resolving it, which is a correction with a
+   * new clinical status. A resolved allergy leaves the banner; its history
+   * still shows that it was recorded, by whom, and why it was resolved.
+   */
+  async correct(
+    actor: Actor,
+    allergyId: string,
+    input: CorrectAllergyInput,
+    meta: RequestMeta,
+  ): Promise<AllergySummary> {
+    const hospitalId = requireHospital(actor);
+
+    const row = await this.db.asTenant(hospitalId, async (tx) => {
+      const original = await loadForChange(tx, 'allergies', allergyId, actor, hospitalId);
+      const attribution = await attributionForCorrection(tx, actor, hospitalId, original);
+
+      await retire(tx, 'allergies', allergyId, actor, input.reason, 'superseded');
+
+      const created = await this.insertAllergy(tx, {
+        input,
+        patientId: original.patient_id,
+        hospitalId,
+        encounterId: original.encounter_id,
+        actor,
+        attribution,
+        supersedesId: allergyId,
+      });
+
+      const [inserted] = await tx.execute<AllergyRow>(sql`
+        ${ALLERGY_SELECT}
+         WHERE a."id" = ${created.id}::uuid
+      `);
+
+      if (!inserted) throw new Error('Corrected allergy is not readable');
+
+      return inserted;
+    });
+
+    await this.audit.recordForActor(actor, {
+      resourceType: 'allergy_intolerance',
+      resourceId: allergyId,
+      patientId: row.patient_id,
+      action: 'update',
+      meta,
+    });
+
+    return this.toSummary(row, hospitalId);
+  }
+
+  /** Writes an allergy in the caller's transaction. */
+  private async insertAllergy(
+    tx: DbTransaction,
+    args: {
+      input: Pick<
+        RecordAllergyInput,
+        'substance' | 'category' | 'criticality' | 'reaction' | 'note'
+      > & {
+        clinicalStatus?: AllergySummary['clinicalStatus'];
+      };
+      patientId: string;
+      hospitalId: string;
+      encounterId: string | null;
+      actor: Actor;
+      attribution: Attribution;
+      supersedesId: string | null;
+    },
+  ): Promise<{ id: string }> {
+    const { input } = args;
+
+    const [created] = await tx
+      .insert(allergyIntolerances)
+      .values({
+        patientId: args.patientId,
+        hospitalId: args.hospitalId,
+        encounterId: args.encounterId,
+        substance: input.substance.trim(),
+        category: input.category,
+        criticality: input.criticality,
+        clinicalStatus: input.clinicalStatus ?? 'active',
+        reaction: blankToNull(input.reaction),
+        note: blankToNull(input.note),
+        recordedByStaffId: args.actor.staffUserId,
+        attributedClinicianId: args.attribution.clinicianId,
+        entrySource: args.attribution.entrySource,
+        supersedesId: args.supersedesId,
+      })
+      .returning({ id: allergyIntolerances.id });
+
+    if (!created) throw new Error('Failed to record the allergy');
+
+    return created;
+  }
+
   private toSummary(row: AllergyRow, hospitalId: string): AllergySummary {
     return {
       id: row.id,
@@ -192,6 +286,7 @@ export class AllergiesService {
       category: row.category,
       criticality: row.criticality,
       clinicalStatus: row.clinical_status,
+      supersedesId: row.supersedes_id,
       reaction: row.reaction,
       note: row.note,
       recordedAt: toIso(row.recorded_at),

@@ -1,0 +1,1 @@
+ALTER TABLE "clinical_note" ADD COLUMN "sections" jsonb;

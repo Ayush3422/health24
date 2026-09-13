@@ -49,8 +49,6 @@ export const CurrentMeta = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): RequestMeta => {
     const request = ctx.switchToHttp().getRequest<{ meta?: RequestMeta }>();
 
-    return (
-      request.meta ?? { requestId: 'unknown', ipAddress: null, userAgent: null, route: null }
-    );
+    return request.meta ?? { requestId: 'unknown', ipAddress: null, userAgent: null, route: null };
   },
 );

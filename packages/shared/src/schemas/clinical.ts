@@ -14,6 +14,7 @@ import {
   MEDICATION_ROUTES,
   SYSTEMS_OF_MEDICINE,
   USER_STATUSES,
+  VERSION_STATUSES,
 } from '../enums.js';
 import { paginationSchema, uuidSchema } from '../primitives.js';
 import { codingSchema, conceptCodeSchema, terminologyKeySchema } from './terminology.js';
@@ -154,6 +155,8 @@ export const allergySummarySchema = z.object({
   category: z.enum(ALLERGY_CATEGORIES),
   criticality: z.enum(ALLERGY_CRITICALITIES),
   clinicalStatus: z.enum(ALLERGY_CLINICAL_STATUSES),
+  /** The entry this one corrected, when it is a correction. */
+  supersedesId: uuidSchema.nullable(),
   reaction: z.string().nullable(),
   note: z.string().nullable(),
   recordedAt: z.string(),
@@ -210,6 +213,7 @@ export const conditionSummarySchema = z.object({
   hospital: hospitalRefSchema,
   clinicalStatus: z.enum(CONDITION_CLINICAL_STATUSES),
   verificationStatus: z.enum(CONDITION_VERIFICATION_STATUSES),
+  supersedesId: uuidSchema.nullable(),
   isPrimary: z.boolean(),
   onsetDate: z.string().nullable(),
   note: z.string().nullable(),
@@ -314,6 +318,7 @@ export const medicationSummarySchema = z.object({
   foodTiming: z.enum(FOOD_TIMINGS).nullable(),
   instructions: z.string().nullable(),
   status: z.enum(MEDICATION_REQUEST_STATUSES),
+  supersedesId: uuidSchema.nullable(),
   endedAt: z.string().nullable(),
   endReason: z.string().nullable(),
   allergyOverrideReason: z.string().nullable(),
@@ -357,3 +362,406 @@ export const currentMedicationsSchema = z.object({
   sharedFromOtherHospitals: z.boolean(),
 });
 export type CurrentMedications = z.infer<typeof currentMedicationsSchema>;
+
+/** A date-time that has already happened, give or take a workstation's clock drift. */
+const pastDateTimeSchema = z
+  .string()
+  .datetime({ offset: true })
+  .refine((value) => Date.parse(value) <= Date.now() + 5 * 60_000, {
+    message: 'Cannot be in the future',
+  });
+
+// ---------------------------------------------------------------------------
+// Vitals
+// ---------------------------------------------------------------------------
+
+export const LOINC_SYSTEM = 'http://loinc.org';
+
+/**
+ * The vital signs panel, with the LOINC codes of the FHIR R4 vital signs
+ * profile. To be checked against the licensed LOINC release loaded in
+ * production; LOINC's licence requires {@link LOINC_ATTRIBUTION} wherever the
+ * codes are shown.
+ *
+ * The bounds reject typing errors — a pulse of 720 — not unusual patients.
+ */
+export const VITAL_SIGNS = {
+  systolic: {
+    code: '8480-6',
+    display: 'Systolic blood pressure',
+    label: 'Systolic BP',
+    unit: 'mm[Hg]',
+    min: 40,
+    max: 300,
+  },
+  diastolic: {
+    code: '8462-4',
+    display: 'Diastolic blood pressure',
+    label: 'Diastolic BP',
+    unit: 'mm[Hg]',
+    min: 20,
+    max: 200,
+  },
+  heartRate: {
+    code: '8867-4',
+    display: 'Heart rate',
+    label: 'Pulse',
+    unit: '/min',
+    min: 20,
+    max: 300,
+  },
+  respiratoryRate: {
+    code: '9279-1',
+    display: 'Respiratory rate',
+    label: 'Respiratory rate',
+    unit: '/min',
+    min: 4,
+    max: 80,
+  },
+  temperature: {
+    code: '8310-5',
+    display: 'Body temperature',
+    label: 'Temperature',
+    unit: 'Cel',
+    min: 30,
+    max: 45,
+  },
+  oxygenSaturation: {
+    code: '59408-5',
+    display: 'Oxygen saturation in Arterial blood by Pulse oximetry',
+    label: 'SpO₂',
+    unit: '%',
+    min: 50,
+    max: 100,
+  },
+  height: {
+    code: '8302-2',
+    display: 'Body height',
+    label: 'Height',
+    unit: 'cm',
+    min: 30,
+    max: 250,
+  },
+  weight: {
+    code: '29463-7',
+    display: 'Body weight',
+    label: 'Weight',
+    unit: 'kg',
+    min: 0.5,
+    max: 400,
+  },
+  /** Derived by the server from height and weight; never entered. */
+  bmi: {
+    code: '39156-5',
+    display: 'Body mass index (BMI) [Ratio]',
+    label: 'BMI',
+    unit: 'kg/m2',
+    min: 5,
+    max: 150,
+  },
+} as const;
+export type VitalSignKey = keyof typeof VITAL_SIGNS;
+export const VITAL_SIGN_KEYS = Object.keys(VITAL_SIGNS) as [VitalSignKey, ...VitalSignKey[]];
+
+export const LOINC_ATTRIBUTION =
+  'This material contains content from LOINC (http://loinc.org). LOINC is copyright © Regenstrief Institute, Inc. and the Logical Observation Identifiers Names and Codes (LOINC) Committee and is available at no cost under the license at http://loinc.org/license. LOINC® is a registered United States trademark of Regenstrief Institute, Inc.';
+
+const vitalReading = (key: Exclude<VitalSignKey, 'bmi'>) =>
+  z.number().min(VITAL_SIGNS[key].min).max(VITAL_SIGNS[key].max).optional();
+
+export const recordVitalsSchema = z.object({
+  patientId: uuidSchema,
+  encounterId: uuidSchema.optional(),
+  /** When the readings were taken. Defaults to now. */
+  effectiveAt: pastDateTimeSchema.optional(),
+  onBehalfOfClinicianId: onBehalfOfSchema,
+  readings: z
+    .object({
+      systolic: vitalReading('systolic'),
+      diastolic: vitalReading('diastolic'),
+      heartRate: vitalReading('heartRate'),
+      respiratoryRate: vitalReading('respiratoryRate'),
+      /** Celsius. */
+      temperature: vitalReading('temperature'),
+      oxygenSaturation: vitalReading('oxygenSaturation'),
+      height: vitalReading('height'),
+      weight: vitalReading('weight'),
+    })
+    .refine((readings) => Object.values(readings).some((value) => value !== undefined), {
+      message: 'Record at least one reading',
+    })
+    .refine(
+      (readings) => (readings.systolic === undefined) === (readings.diastolic === undefined),
+      {
+        message: 'A blood pressure needs both systolic and diastolic',
+        path: ['diastolic'],
+      },
+    )
+    .refine(
+      (readings) =>
+        readings.systolic === undefined ||
+        readings.diastolic === undefined ||
+        readings.systolic > readings.diastolic,
+      { message: 'Systolic must be higher than diastolic', path: ['systolic'] },
+    ),
+});
+export type RecordVitalsInput = z.infer<typeof recordVitalsSchema>;
+
+/** One set of readings taken together, such as at the start of a consultation. */
+export const vitalSetSchema = z.object({
+  /** The set's group id; also what marks the whole set entered in error. */
+  id: uuidSchema,
+  patientId: uuidSchema,
+  encounterId: uuidSchema.nullable(),
+  hospital: hospitalRefSchema,
+  effectiveAt: z.string(),
+  recordedAt: z.string(),
+  recordedBy: staffRefSchema,
+  entry: entryRefSchema,
+  readings: z.array(
+    z.object({
+      key: z.enum(VITAL_SIGN_KEYS),
+      observationId: uuidSchema,
+      code: z.string(),
+      display: z.string(),
+      value: z.number(),
+      unit: z.string(),
+    }),
+  ),
+});
+export type VitalSet = z.infer<typeof vitalSetSchema>;
+
+export const vitalsListSchema = z.object({
+  sets: z.array(vitalSetSchema),
+  sharedFromOtherHospitals: z.boolean(),
+});
+export type VitalsList = z.infer<typeof vitalsListSchema>;
+
+// ---------------------------------------------------------------------------
+// Clinical notes
+// ---------------------------------------------------------------------------
+
+/**
+ * Note templates. Sections are stored separately as well as composed into the
+ * note's text, so a later discharge summary can draw on "Plan" without parsing
+ * prose.
+ */
+export const NOTE_TEMPLATES = {
+  general: {
+    label: 'Consultation (SOAP)',
+    sections: [
+      { key: 'subjective', label: 'Subjective' },
+      { key: 'objective', label: 'Objective' },
+      { key: 'assessment', label: 'Assessment' },
+      { key: 'plan', label: 'Plan' },
+    ],
+  },
+  ayurveda_initial: {
+    label: 'Ayurveda initial assessment',
+    sections: [
+      { key: 'pradhana_vedana', label: 'Pradhana vedana (chief complaints)' },
+      { key: 'vyadhi_vrittanta', label: 'Vyadhi vrittanta (history of illness)' },
+      { key: 'ashtavidha_pariksha', label: 'Ashtavidha pariksha (eightfold examination)' },
+      { key: 'dashavidha_pariksha', label: 'Dashavidha pariksha (tenfold assessment)' },
+      { key: 'assessment', label: 'Assessment' },
+      { key: 'ahara_vihara', label: 'Ahara-vihara (diet and lifestyle advice)' },
+      { key: 'plan', label: 'Plan' },
+    ],
+  },
+  follow_up: {
+    label: 'Follow-up',
+    sections: [
+      { key: 'progress', label: 'Progress since last visit' },
+      { key: 'findings', label: 'Findings' },
+      { key: 'plan', label: 'Plan' },
+      { key: 'next_visit', label: 'Next visit' },
+    ],
+  },
+} as const;
+export type NoteTemplateKey = keyof typeof NOTE_TEMPLATES;
+export const NOTE_TEMPLATE_KEYS = Object.keys(NOTE_TEMPLATES) as [
+  NoteTemplateKey,
+  ...NoteTemplateKey[],
+];
+
+const noteContentSchema = z.object({
+  template: z.enum(NOTE_TEMPLATE_KEYS),
+  title: optionalText(200),
+  /** Section key to text. Empty sections are left out of the note. */
+  sections: z.record(z.string(), z.string().trim().max(10_000)),
+});
+
+function checkNoteSections(
+  value: { template: NoteTemplateKey; sections: Record<string, string> },
+  ctx: z.RefinementCtx,
+): void {
+  const template = NOTE_TEMPLATES[value.template];
+  const allowed = new Set<string>(template.sections.map((section) => section.key));
+
+  for (const key of Object.keys(value.sections)) {
+    if (!allowed.has(key)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['sections', key],
+        message: `Not a section of the ${template.label} template`,
+      });
+    }
+  }
+
+  if (!Object.values(value.sections).some((text) => text.trim() !== '')) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['sections'],
+      message: 'Write at least one section',
+    });
+  }
+}
+
+export const writeNoteSchema = noteContentSchema
+  .extend({ encounterId: uuidSchema, onBehalfOfClinicianId: onBehalfOfSchema })
+  .superRefine(checkNoteSections);
+export type WriteNoteInput = z.infer<typeof writeNoteSchema>;
+
+export const correctNoteSchema = noteContentSchema
+  .extend({ reason: clinicalReasonSchema })
+  .superRefine(checkNoteSections);
+export type CorrectNoteInput = z.infer<typeof correctNoteSchema>;
+
+export const noteSummarySchema = z.object({
+  id: uuidSchema,
+  patientId: uuidSchema,
+  encounterId: uuidSchema,
+  hospital: hospitalRefSchema,
+  template: z.string(),
+  templateLabel: z.string(),
+  title: z.string().nullable(),
+  sections: z.array(z.object({ key: z.string(), label: z.string(), text: z.string() })),
+  recordedAt: z.string(),
+  recordedBy: staffRefSchema,
+  entry: entryRefSchema,
+  supersedesId: uuidSchema.nullable(),
+});
+export type NoteSummary = z.infer<typeof noteSummarySchema>;
+
+// ---------------------------------------------------------------------------
+// Procedures
+// ---------------------------------------------------------------------------
+
+/** Suggestions for the procedure name on Ayurvedic encounters. The name stays free text. */
+export const PANCHAKARMA_THERAPIES = [
+  'Abhyanga (therapeutic oil massage)',
+  'Pizhichil',
+  'Patra pinda pottali (herbal bolus)',
+  'Shirodhara',
+  'Kati dhara',
+  'Bashpa snana (herbal steam)',
+  'Nasya',
+  'Lepa application',
+  'Ksharasutra',
+  'Agnikarma',
+  'Jalaukavacharana (leech therapy)',
+] as const;
+
+const procedureContentSchema = z.object({
+  /** Defaults to the encounter's system of medicine. */
+  systemOfMedicine: z.enum(SYSTEMS_OF_MEDICINE).optional(),
+  name: z.string().trim().min(1, 'Name the procedure').max(200),
+  /** Defaults to now. */
+  performedAt: pastDateTimeSchema.optional(),
+  /** A clinician of the same hospital. Defaults to the clinician the entry is attributed to. */
+  performerClinicianId: uuidSchema.optional(),
+  outcome: optionalText(500),
+  notes: optionalText(2000),
+});
+
+export const recordProcedureSchema = procedureContentSchema.extend({
+  encounterId: uuidSchema,
+  onBehalfOfClinicianId: onBehalfOfSchema,
+});
+export type RecordProcedureInput = z.infer<typeof recordProcedureSchema>;
+
+export const correctProcedureSchema = procedureContentSchema.extend({
+  reason: clinicalReasonSchema,
+});
+export type CorrectProcedureInput = z.infer<typeof correctProcedureSchema>;
+
+export const procedureSummarySchema = z.object({
+  id: uuidSchema,
+  patientId: uuidSchema,
+  encounterId: uuidSchema,
+  hospital: hospitalRefSchema,
+  systemOfMedicine: z.enum(SYSTEMS_OF_MEDICINE),
+  name: z.string(),
+  performedAt: z.string(),
+  performer: staffRefSchema,
+  outcome: z.string().nullable(),
+  notes: z.string().nullable(),
+  recordedAt: z.string(),
+  recordedBy: staffRefSchema,
+  entry: entryRefSchema,
+  supersedesId: uuidSchema.nullable(),
+});
+export type ProcedureSummary = z.infer<typeof procedureSummarySchema>;
+
+export const procedureListSchema = z.object({
+  procedures: z.array(procedureSummarySchema),
+  sharedFromOtherHospitals: z.boolean(),
+});
+export type ProcedureList = z.infer<typeof procedureListSchema>;
+
+// ---------------------------------------------------------------------------
+// Corrections
+// ---------------------------------------------------------------------------
+
+/**
+ * Nothing clinical is edited or deleted. A correction replaces an entry with a
+ * new version; a mistake is marked entered in error. Either way the original
+ * stays in the entry's history, with who changed it, when, and why.
+ */
+export const markEnteredInErrorSchema = z.object({ reason: clinicalReasonSchema });
+export type MarkEnteredInErrorInput = z.infer<typeof markEnteredInErrorSchema>;
+
+export const correctDiagnosisSchema = recordDiagnosisSchema
+  .omit({ encounterId: true, onBehalfOfClinicianId: true })
+  .extend({ reason: clinicalReasonSchema });
+export type CorrectDiagnosisInput = z.infer<typeof correctDiagnosisSchema>;
+
+export const correctPrescriptionSchema = prescribeSchema
+  .omit({ encounterId: true, onBehalfOfClinicianId: true })
+  .extend({ reason: clinicalReasonSchema });
+export type CorrectPrescriptionInput = z.infer<typeof correctPrescriptionSchema>;
+
+/** Also how an allergy is resolved: a correction with a new clinical status. */
+export const correctAllergySchema = recordAllergySchema
+  .omit({ patientId: true, encounterId: true, onBehalfOfClinicianId: true })
+  .extend({
+    clinicalStatus: z.enum(ALLERGY_CLINICAL_STATUSES).default('active'),
+    reason: clinicalReasonSchema,
+  });
+export type CorrectAllergyInput = z.infer<typeof correctAllergySchema>;
+
+export const CORRECTABLE_KINDS = [
+  'diagnoses',
+  'prescriptions',
+  'allergies',
+  'notes',
+  'procedures',
+] as const;
+export type CorrectableKind = (typeof CORRECTABLE_KINDS)[number];
+
+export const versionHistoryEntrySchema = z.object({
+  id: uuidSchema,
+  /** 1 for the original, counting up through each correction. */
+  version: z.number().int(),
+  versionStatus: z.enum(VERSION_STATUSES),
+  /** A one-line description of the version, so versions can be compared at a glance. */
+  label: z.string(),
+  hospital: hospitalRefSchema,
+  recordedAt: z.string(),
+  recordedBy: staffRefSchema,
+  entry: entryRefSchema,
+  statusChangedAt: z.string().nullable(),
+  statusChangedBy: staffRefSchema.nullable(),
+  statusReason: z.string().nullable(),
+});
+export type VersionHistoryEntry = z.infer<typeof versionHistoryEntrySchema>;

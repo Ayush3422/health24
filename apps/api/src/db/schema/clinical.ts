@@ -6,6 +6,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   primaryKey,
@@ -488,6 +489,8 @@ export const clinicalNotes = pgTable(
     template: text('template').notNull(),
     title: text('title'),
     body: text('body').notNull(),
+    /** The template's sections as written; `body` is the same note composed as text. */
+    sections: jsonb('sections').$type<Array<{ key: string; label: string; text: string }>>(),
 
     ...versioning(),
   },

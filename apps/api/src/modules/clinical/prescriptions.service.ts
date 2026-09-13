@@ -8,6 +8,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import {
   ALLERGY_CHECK_LIMITATION,
   type AllergyMatch,
+  type CorrectPrescriptionInput,
   type CurrentMedications,
   type MedicationSummary,
   type PrescribeInput,
@@ -26,6 +27,8 @@ import {
   resolveAttribution,
   toIso,
 } from './clinical-access';
+import type { Attribution } from './clinical-access';
+import { attributionForCorrection, loadForChange, retire } from './corrections.service';
 
 type MedicationRow = {
   id: string;
@@ -56,6 +59,7 @@ type MedicationRow = {
   recorded_by_staff_id: string;
   recorded_by_name: string | null;
   entry_source: MedicationSummary['entry']['source'];
+  supersedes_id: string | null;
   entered_by_staff_id: string;
   entered_by_name: string | null;
 };
@@ -81,7 +85,7 @@ const MEDICATION_SELECT = sql`
          r."vehicle", r."food_timing", r."instructions", r."status", r."ended_at",
          r."end_reason", r."allergy_override_reason", r."recorded_at",
          r."attributed_clinician_id" AS recorded_by_staff_id, s."name" AS recorded_by_name,
-         r."entry_source", r."recorded_by_staff_id" AS entered_by_staff_id,
+         r."entry_source", r."supersedes_id", r."recorded_by_staff_id" AS entered_by_staff_id,
          eb."name" AS entered_by_name
     FROM "medication_request" r
     LEFT JOIN "hospital_directory" d ON d."id" = r."hospital_id"
@@ -164,58 +168,26 @@ export class PrescriptionsService {
       },
     );
 
-    const matchSummaries = matches.map((row) => this.toMatch(row, hospitalId));
-
-    // The check disclosed another hospital's allergy to this prescriber: that
-    // is a read of the shared record, whatever happens next.
-    if (matches.some((row) => row.hospital_id !== hospitalId)) {
-      await this.audit.recordForActor(actor, {
-        resourceType: 'allergy_intolerance',
-        patientId: encounter.patientId,
-        action: 'read',
-        consentArtefactId: allergyConsentId,
-        meta,
-      });
-    }
-
-    if (matches.length > 0 && !input.allergyOverride) {
-      throw new ConflictException({
-        message: 'This patient has a recorded allergy matching this prescription',
-        code: 'ALLERGY_MATCH',
-        matches: matchSummaries,
-        limitation: ALLERGY_CHECK_LIMITATION,
-      });
-    }
+    const matchSummaries = await this.enforceAllergyCheck(actor, meta, {
+      hospitalId,
+      patientId: encounter.patientId,
+      matches,
+      allergyConsentId,
+      overridden: Boolean(input.allergyOverride),
+    });
 
     const row = await this.db.asTenant(hospitalId, async (tx) => {
-      const [created] = await tx
-        .insert(medicationRequests)
-        .values({
-          patientId: encounter.patientId,
-          hospitalId,
-          encounterId: input.encounterId,
-          systemOfMedicine: input.systemOfMedicine ?? encounter.systemOfMedicine,
-          medicineName: input.medicineName.trim(),
-          form: blankToNull(input.form),
-          strength: blankToNull(input.strength),
-          doseQuantity: input.dose ? String(input.dose.quantity) : null,
-          doseUnit: input.dose ? input.dose.unit.trim() : null,
-          frequency: input.frequency.trim(),
-          route: input.route,
-          durationValue: input.duration?.value ?? null,
-          durationUnit: input.duration?.unit ?? null,
-          startDate: input.startDate ?? istToday(),
-          vehicle: blankToNull(input.vehicle),
-          foodTiming: input.foodTiming ?? null,
-          instructions: blankToNull(input.instructions),
-          // An override is meaningful only when something matched.
-          allergyOverrideReason:
-            matches.length > 0 ? (input.allergyOverride?.reason ?? null) : null,
-          recordedByStaffId: actor.staffUserId,
-          attributedClinicianId: attribution.clinicianId,
-          entrySource: attribution.entrySource,
-        })
-        .returning({ id: medicationRequests.id });
+      const created = await this.insertPrescription(tx, {
+        input,
+        patientId: encounter.patientId,
+        hospitalId,
+        encounterId: input.encounterId,
+        systemOfMedicine: input.systemOfMedicine ?? encounter.systemOfMedicine,
+        matched: matches.length > 0,
+        actor,
+        attribution,
+        supersedesId: null,
+      });
 
       if (!created) throw new Error('Failed to record the prescription');
 
@@ -402,6 +374,196 @@ export class PrescriptionsService {
     };
   }
 
+  /**
+   * Corrects an active prescription: a wrong dose, a misspelt name. The
+   * corrected version is checked against allergies exactly as a new
+   * prescription is. A stopped prescription is not corrected — it is marked
+   * entered in error if it should never have been written.
+   */
+  async correct(
+    actor: Actor,
+    prescriptionId: string,
+    input: CorrectPrescriptionInput,
+    meta: RequestMeta,
+  ): Promise<PrescriptionResult> {
+    const hospitalId = requireHospital(actor);
+
+    const { original, matches, allergyConsentId } = await this.db.asTenant(
+      hospitalId,
+      async (tx) => {
+        const found = await loadForChange(tx, 'prescriptions', prescriptionId, actor, hospitalId);
+
+        const [current] = await tx
+          .select({
+            status: medicationRequests.status,
+            systemOfMedicine: medicationRequests.systemOfMedicine,
+          })
+          .from(medicationRequests)
+          .where(eq(medicationRequests.id, prescriptionId))
+          .limit(1);
+
+        if (current?.status !== 'active') {
+          throw new ConflictException(
+            'Only an active prescription can be corrected; mark a stopped one entered in error instead',
+          );
+        }
+
+        return {
+          original: { ...found, systemOfMedicine: current.systemOfMedicine },
+          matches: await this.allergyMatches(
+            tx,
+            found.patient_id,
+            input.medicineName,
+            input.vehicle,
+          ),
+          allergyConsentId: await coveringConsentId(tx, found.patient_id, 'allergies'),
+        };
+      },
+    );
+
+    const matchSummaries = await this.enforceAllergyCheck(actor, meta, {
+      hospitalId,
+      patientId: original.patient_id,
+      matches,
+      allergyConsentId,
+      overridden: Boolean(input.allergyOverride),
+    });
+
+    const row = await this.db.asTenant(hospitalId, async (tx) => {
+      const current = await loadForChange(tx, 'prescriptions', prescriptionId, actor, hospitalId);
+      const attribution = await attributionForCorrection(tx, actor, hospitalId, current);
+
+      await retire(tx, 'prescriptions', prescriptionId, actor, input.reason, 'superseded');
+
+      const created = await this.insertPrescription(tx, {
+        input,
+        patientId: current.patient_id,
+        hospitalId,
+        encounterId: current.encounter_id as string,
+        systemOfMedicine: input.systemOfMedicine ?? original.systemOfMedicine,
+        matched: matches.length > 0,
+        actor,
+        attribution,
+        supersedesId: prescriptionId,
+      });
+
+      if (!created) throw new Error('Failed to record the corrected prescription');
+
+      const [inserted] = await this.query(tx, sql`WHERE r."id" = ${created.id}::uuid`);
+      if (!inserted) throw new Error('Corrected prescription is not readable');
+
+      return inserted;
+    });
+
+    await this.audit.recordForActor(actor, {
+      resourceType: 'medication_request',
+      resourceId: prescriptionId,
+      patientId: original.patient_id,
+      action: 'update',
+      meta,
+    });
+
+    return {
+      ...this.toSummary(row, hospitalId),
+      allergyCheck: {
+        matches: matchSummaries,
+        sharedFromOtherHospitals: allergyConsentId !== null,
+        limitation: ALLERGY_CHECK_LIMITATION,
+      },
+    };
+  }
+
+  /**
+   * Applies the allergy check's outcome: audits the disclosure of another
+   * hospital's allergy, and refuses the prescription when something matched
+   * and no override reason was given.
+   */
+  private async enforceAllergyCheck(
+    actor: Actor,
+    meta: RequestMeta,
+    args: {
+      hospitalId: string;
+      patientId: string;
+      matches: AllergyMatchRow[];
+      allergyConsentId: string | null;
+      overridden: boolean;
+    },
+  ): Promise<AllergyMatch[]> {
+    const matchSummaries = args.matches.map((row) => this.toMatch(row, args.hospitalId));
+
+    // The check disclosed another hospital's allergy to this prescriber: that
+    // is a read of the shared record, whatever happens next.
+    if (args.matches.some((row) => row.hospital_id !== args.hospitalId)) {
+      await this.audit.recordForActor(actor, {
+        resourceType: 'allergy_intolerance',
+        patientId: args.patientId,
+        action: 'read',
+        consentArtefactId: args.allergyConsentId,
+        meta,
+      });
+    }
+
+    if (args.matches.length > 0 && !args.overridden) {
+      throw new ConflictException({
+        message: 'This patient has a recorded allergy matching this prescription',
+        code: 'ALLERGY_MATCH',
+        matches: matchSummaries,
+        limitation: ALLERGY_CHECK_LIMITATION,
+      });
+    }
+
+    return matchSummaries;
+  }
+
+  /** Writes a prescription in the caller's transaction. */
+  private async insertPrescription(
+    tx: DbTransaction,
+    args: {
+      input: Omit<PrescribeInput, 'encounterId' | 'onBehalfOfClinicianId'>;
+      patientId: string;
+      hospitalId: string;
+      encounterId: string;
+      systemOfMedicine: MedicationSummary['systemOfMedicine'];
+      matched: boolean;
+      actor: Actor;
+      attribution: Attribution;
+      supersedesId: string | null;
+    },
+  ): Promise<{ id: string } | undefined> {
+    const { input } = args;
+
+    const [created] = await tx
+      .insert(medicationRequests)
+      .values({
+        patientId: args.patientId,
+        hospitalId: args.hospitalId,
+        encounterId: args.encounterId,
+        systemOfMedicine: args.systemOfMedicine,
+        medicineName: input.medicineName.trim(),
+        form: blankToNull(input.form),
+        strength: blankToNull(input.strength),
+        doseQuantity: input.dose ? String(input.dose.quantity) : null,
+        doseUnit: input.dose ? input.dose.unit.trim() : null,
+        frequency: input.frequency.trim(),
+        route: input.route,
+        durationValue: input.duration?.value ?? null,
+        durationUnit: input.duration?.unit ?? null,
+        startDate: input.startDate ?? istToday(),
+        vehicle: blankToNull(input.vehicle),
+        foodTiming: input.foodTiming ?? null,
+        instructions: blankToNull(input.instructions),
+        // An override is meaningful only when something matched.
+        allergyOverrideReason: args.matched ? (input.allergyOverride?.reason ?? null) : null,
+        recordedByStaffId: args.actor.staffUserId,
+        attributedClinicianId: args.attribution.clinicianId,
+        entrySource: args.attribution.entrySource,
+        supersedesId: args.supersedesId,
+      })
+      .returning({ id: medicationRequests.id });
+
+    return created;
+  }
+
   /** Active allergies the caller may see whose substance names this medicine or its vehicle. */
   private async allergyMatches(
     tx: DbTransaction,
@@ -480,6 +642,7 @@ export class PrescriptionsService {
       foodTiming: row.food_timing,
       instructions: row.instructions,
       status: row.status,
+      supersedesId: row.supersedes_id,
       endedAt: row.ended_at ? toIso(row.ended_at) : null,
       endReason: row.end_reason,
       allergyOverrideReason: row.allergy_override_reason,

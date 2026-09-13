@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import crypto from 'node:crypto';
-import { CryptoError, decryptSecret, encryptSecret, generateToken, hashToken, safeEqual } from './crypto';
+import {
+  CryptoError,
+  decryptSecret,
+  encryptSecret,
+  generateToken,
+  hashToken,
+  safeEqual,
+} from './crypto';
 
 const KEY = crypto.randomBytes(32).toString('base64url');
 const OTHER_KEY = crypto.randomBytes(32).toString('base64url');
@@ -33,7 +40,9 @@ describe('secret encryption', () => {
     // rather than decrypting to garbage that the caller then trusts.
     const encrypted = encryptSecret('secret', KEY);
     const parts = encrypted.split('.');
-    const tampered = [parts[0], parts[1], Buffer.from('evil').toString('base64url'), parts[3]].join('.');
+    const tampered = [parts[0], parts[1], Buffer.from('evil').toString('base64url'), parts[3]].join(
+      '.',
+    );
 
     expect(() => decryptSecret(tampered, KEY)).toThrow(CryptoError);
   });
