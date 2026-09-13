@@ -276,6 +276,12 @@ export const medicationRequests = pgTable(
     foodTiming: foodTimingEnum('food_timing'),
     instructions: text('instructions'),
 
+    /**
+     * Why the prescriber went ahead despite a recorded allergy matching this
+     * medicine or its vehicle. Null when nothing matched.
+     */
+    allergyOverrideReason: text('allergy_override_reason'),
+
     status: medicationRequestStatusEnum('status').notNull().default('active'),
     /** Set once, when a medicine is stopped or its course completed. */
     endedAt: timestamp('ended_at', { withTimezone: true }),

@@ -255,6 +255,25 @@ const ROUTES: RouteExpectation[] = [
   },
   { method: 'get', path: '/api/v1/encounters/:id/diagnoses', allow: ['clinician'] },
   { method: 'get', path: '/api/v1/patients/:patientId/problems', allow: ['clinician'] },
+  {
+    method: 'post',
+    path: '/api/v1/prescriptions',
+    allow: ['clinician'],
+    body: {
+      encounterId: '00000000-0000-4000-8000-000000000000',
+      medicineName: 'Probe',
+      frequency: '1-0-1',
+      route: 'oral',
+    },
+  },
+  {
+    method: 'post',
+    path: '/api/v1/prescriptions/:id/stop',
+    allow: ['clinician'],
+    body: { reason: 'authorisation probe' },
+  },
+  { method: 'get', path: '/api/v1/encounters/:id/prescriptions', allow: ['clinician'] },
+  { method: 'get', path: '/api/v1/patients/:patientId/medications', allow: ['clinician'] },
 ];
 
 const ABSENT_ID = '00000000-0000-4000-8000-000000000000';

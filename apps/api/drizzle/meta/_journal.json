@@ -85,6 +85,20 @@
       "when": 1789299823564,
       "tag": "0011_one_primary_diagnosis_per_encounter",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789300586796,
+      "tag": "0012_prescription_allergy_override",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789300588417,
+      "tag": "0013_medication_end_date",
+      "breakpoints": true
     }
   ]
 }

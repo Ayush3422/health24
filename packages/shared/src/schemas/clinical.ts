@@ -5,8 +5,12 @@ import {
   ALLERGY_CRITICALITIES,
   CONDITION_CLINICAL_STATUSES,
   CONDITION_VERIFICATION_STATUSES,
+  DURATION_UNITS,
   ENCOUNTER_CLASSES,
   ENCOUNTER_STATUSES,
+  FOOD_TIMINGS,
+  MEDICATION_REQUEST_STATUSES,
+  MEDICATION_ROUTES,
   SYSTEMS_OF_MEDICINE,
 } from '../enums.js';
 import { paginationSchema, uuidSchema } from '../primitives.js';
@@ -198,3 +202,121 @@ export const problemListSchema = z.object({
   sharedFromOtherHospitals: z.boolean(),
 });
 export type ProblemList = z.infer<typeof problemListSchema>;
+
+// ---------------------------------------------------------------------------
+// Prescriptions
+// ---------------------------------------------------------------------------
+
+const optionalText = (max: number) => z.string().trim().max(max).optional();
+
+/**
+ * Prescribing a medicine, Ayurvedic or allopathic (Decision B1).
+ *
+ * The medicine name is free text; everything a "currently taking" view needs
+ * is structured. Dose and duration are objects so that a quantity cannot
+ * arrive without its unit.
+ */
+export const prescribeSchema = z.object({
+  encounterId: uuidSchema,
+  /** Defaults to the encounter's system of medicine. */
+  systemOfMedicine: z.enum(SYSTEMS_OF_MEDICINE).optional(),
+  medicineName: z.string().trim().min(1, 'Name the medicine').max(200),
+  /** Tablet, syrup, churna, kashayam, vati. */
+  form: optionalText(100),
+  strength: optionalText(100),
+  dose: z
+    .object({
+      quantity: z.number().positive().max(100_000),
+      unit: z.string().trim().min(1).max(50),
+    })
+    .optional(),
+  /** As written on the prescription: `1-0-1`, `twice daily`, `SOS`. */
+  frequency: z.string().trim().min(1).max(100),
+  route: z.enum(MEDICATION_ROUTES),
+  duration: z
+    .object({
+      value: z.number().int().positive().max(3650),
+      unit: z.enum(DURATION_UNITS),
+    })
+    .optional(),
+  /** Defaults to today, India Standard Time. */
+  startDate: clinicalDateSchema.optional(),
+  /** Anupana: warm water, honey, ghee, milk. */
+  vehicle: optionalText(200),
+  foodTiming: z.enum(FOOD_TIMINGS).optional(),
+  instructions: optionalText(1000),
+  /**
+   * Required to prescribe when a recorded allergy matches. The reason is kept
+   * on the prescription.
+   */
+  allergyOverride: z.object({ reason: clinicalReasonSchema }).optional(),
+});
+export type PrescribeInput = z.infer<typeof prescribeSchema>;
+
+export const stopPrescriptionSchema = z.object({
+  reason: clinicalReasonSchema,
+});
+export type StopPrescriptionInput = z.infer<typeof stopPrescriptionSchema>;
+
+export const medicationSummarySchema = z.object({
+  id: uuidSchema,
+  patientId: uuidSchema,
+  encounterId: uuidSchema,
+  hospital: hospitalRefSchema,
+  systemOfMedicine: z.enum(SYSTEMS_OF_MEDICINE),
+  medicineName: z.string(),
+  form: z.string().nullable(),
+  strength: z.string().nullable(),
+  dose: z.object({ quantity: z.number(), unit: z.string() }).nullable(),
+  frequency: z.string(),
+  route: z.enum(MEDICATION_ROUTES),
+  duration: z.object({ value: z.number(), unit: z.enum(DURATION_UNITS) }).nullable(),
+  startDate: z.string(),
+  /** The last day of the course, inclusive. Null for an open-ended prescription. */
+  endDate: z.string().nullable(),
+  vehicle: z.string().nullable(),
+  foodTiming: z.enum(FOOD_TIMINGS).nullable(),
+  instructions: z.string().nullable(),
+  status: z.enum(MEDICATION_REQUEST_STATUSES),
+  endedAt: z.string().nullable(),
+  endReason: z.string().nullable(),
+  allergyOverrideReason: z.string().nullable(),
+  prescribedAt: z.string(),
+  prescriber: staffRefSchema,
+});
+export type MedicationSummary = z.infer<typeof medicationSummarySchema>;
+
+/** A recorded allergy that matched a prescription by name. */
+export const allergyMatchSchema = z.object({
+  allergyId: uuidSchema,
+  substance: z.string(),
+  criticality: z.enum(ALLERGY_CRITICALITIES),
+  reaction: z.string().nullable(),
+  /** Whether the medicine itself or its vehicle matched. */
+  matchedField: z.enum(['medicine', 'vehicle']),
+  hospital: hospitalRefSchema,
+});
+export type AllergyMatch = z.infer<typeof allergyMatchSchema>;
+
+/**
+ * What the allergy check at prescribing can and cannot see. It compares
+ * names exactly — a penicillin allergy does not flag amoxicillin — and only
+ * allergies the caller may see.
+ */
+export const ALLERGY_CHECK_LIMITATION =
+  'Checked by exact name against allergies visible to your hospital. Related medicines and interactions are not checked.';
+
+export const prescriptionResultSchema = medicationSummarySchema.extend({
+  allergyCheck: z.object({
+    matches: z.array(allergyMatchSchema),
+    sharedFromOtherHospitals: z.boolean(),
+    limitation: z.string(),
+  }),
+});
+export type PrescriptionResult = z.infer<typeof prescriptionResultSchema>;
+
+export const currentMedicationsSchema = z.object({
+  medications: z.array(medicationSummarySchema),
+  sharedFromOtherHospitals: z.boolean(),
+});
+export type CurrentMedications = z.infer<typeof currentMedicationsSchema>;

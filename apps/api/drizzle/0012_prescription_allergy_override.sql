@@ -1,0 +1,1 @@
+ALTER TABLE "medication_request" ADD COLUMN "allergy_override_reason" text;

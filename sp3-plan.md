@@ -156,9 +156,11 @@ The clinician searches in their own vocabulary using the SP2 terminology search,
 
 ### Phase 4 — Prescriptions
 
-- [ ] **T10** Ayurvedic and allopathic prescriptions (Decision B)
-- [ ] **T11** Current medications across permitted hospitals
-- [ ] **T12** Allergy check at the point of prescribing — a warning on exact substance match only, not interaction checking
+- [x] **T10** Ayurvedic and allopathic prescriptions (Decision B) — `POST /prescriptions` with structured dose, frequency, route, duration, vehicle and food timing; `POST /prescriptions/:id/stop` with a reason, by the prescribing hospital only; course end dates from one database function (migration `0013`)
+- [x] **T11** Current medications across permitted hospitals — `GET /patients/:id/medications` (active, within course, grouped by system of medicine) and `GET /encounters/:id/prescriptions`
+- [x] **T12** Allergy check at the point of prescribing — a warning on exact substance match only, not interaction checking. Checks the medicine and its vehicle (anupana) against every allergy the prescriber may see; a match returns 409 `ALLERGY_MATCH` unless overridden with a reason, which is kept on the prescription (migration `0012`)
+
+> **Open question for a clinical and legal reviewer:** the API lets any clinician prescribe under any system of medicine. Whether an AYUSH practitioner may prescribe allopathic medicines (and the reverse) varies by state. Health24 records the system of medicine on every prescription but does not enforce a rule until one is confirmed.
 
 ### Phase 5 — Other documentation
 
