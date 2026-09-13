@@ -26,9 +26,9 @@ The second gap is the one nobody has solved, and it is this project's reason to 
 
 ### The scenario the system must serve
 
-A patient is treated for *Amlapitta* by an Ayurvedic doctor for four months. Results are unsatisfactory. They consult a gastroenterologist. Today, that physician starts from zero — and does not learn what formulations the patient has been taking, which matters both diagnostically and for interaction safety.
+A patient is treated for _Amlapitta_ by an Ayurvedic doctor for four months. Results are unsatisfactory. They consult a gastroenterologist. Today, that physician starts from zero — and does not learn what formulations the patient has been taking, which matters both diagnostically and for interaction safety.
 
-With Health24, the physician opens the patient's timeline and sees: the diagnosis, rendered in *their* vocabulary (ICD-11); the exact formulations prescribed, with dates and durations; the tests already run and their values; and the reports already taken. The patient explains nothing.
+With Health24, the physician opens the patient's timeline and sees: the diagnosis, rendered in _their_ vocabulary (ICD-11); the exact formulations prescribed, with dates and durations; the tests already run and their values; and the reports already taken. The patient explains nothing.
 
 ---
 
@@ -55,24 +55,26 @@ With Health24, the physician opens the patient's timeline and sees: the diagnosi
 
 ## 3. Decisions already made
 
-| # | Decision | Rationale |
-|---|---|---|
-| D1 | Real product for hospitals, not a prototype | Sets the compliance and security bar from day one |
-| D2 | Central multi-tenant cloud; Health24 holds the data | Fastest path to the cross-hospital value; accepts Data Fiduciary obligations |
-| D3 | ABDM-federated architecture deferred, not abandoned | Data modelled FHIR-shaped from the start so HIP/HIU adapters are additive |
-| D4 | Clinician selects NAMASTE; system auto-attaches ICD-11 codes | Zero extra work for the practitioner; one entry, three codings |
-| D5 | TM2 mapping authoritative; biomedical (MMS) mapping advisory only | NAMASTE→TM2 is curated; NAMASTE→MMS is frequently not a clean equivalence |
-| D6 | Four user families: clinicians, front-desk/records, patients, admins | Two app surfaces on one API |
-| D7 | Reports stored as files **and** key results as LOINC-coded observations | Enables cross-hospital trend graphs — a second real differentiator |
-| D8 | Custom relational schema, FHIR-shaped, translated at the API edge | Normal SQL for the timeline query; FHIR without FHIR's per-screen tax |
-| D9 | TypeScript end to end | Solo developer; shared types between server and clients |
-| D10 | `allergy_intolerance` and `system_of_medicine` included in v1 | Cross-system care without allergy visibility is worse than paper |
+| #   | Decision                                                                | Rationale                                                                                                                                                 |
+| --- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Real product for hospitals, not a prototype                             | Sets the compliance and security bar from day one                                                                                                         |
+| D2  | Central multi-tenant cloud; Health24 holds the data                     | Fastest path to the cross-hospital value; accepts Data Fiduciary obligations                                                                              |
+| D3  | ABDM-federated architecture deferred, not abandoned                     | Data modelled FHIR-shaped from the start so HIP/HIU adapters are additive                                                                                 |
+| D4  | Clinician selects NAMASTE; system auto-attaches ICD-11 codes            | Zero extra work for the practitioner; one entry, three codings                                                                                            |
+| D5  | TM2 mapping authoritative; biomedical (MMS) mapping advisory only       | NAMASTE→TM2 is curated; NAMASTE→MMS is frequently not a clean equivalence                                                                                 |
+| D6  | Four user families: clinicians, front-desk/records, patients, admins    | Two app surfaces on one API                                                                                                                               |
+| D7  | Reports stored as files **and** key results as LOINC-coded observations | Enables cross-hospital trend graphs — a second real differentiator                                                                                        |
+| D8  | Custom relational schema, FHIR-shaped, translated at the API edge       | Normal SQL for the timeline query; FHIR without FHIR's per-screen tax                                                                                     |
+| D9  | TypeScript end to end                                                   | Solo developer; shared types between server and clients                                                                                                   |
+| D10 | `allergy_intolerance` and `system_of_medicine` included in v1           | Cross-system care without allergy visibility is worse than paper                                                                                          |
+| D11 | Records staff enter clinical data on behalf of a named clinician        | Hospitals transcribe from paper; every entry records who typed it and whose clinical decision it is. Admins still never read records (decided 2026-09-13) |
+| D12 | Patients sign in with phone number and OTP, no password                 | Every patient has a phone; nobody forgets an OTP. SMS provider needed for production (decided 2026-09-13)                                                 |
 
 ### Approaches considered and rejected
 
 **Full FHIR server (HAPI FHIR / Medplum).** Genuinely tempting: instant standards compliance, auth and access policies included, ABDM far closer. Rejected because FHIR's complexity leaks into every screen — a simple timeline becomes several resource queries — and because it couples the most critical part of the system to an external roadmap. Revisit if ABDM certification becomes urgent.
 
-**Document store / EAV clinical model.** Rejected. The core value is querying *across* records — every event, every hospital, ordered, filtered by code. That is a relational problem, and unstructured clinical data degrades quickly without schema enforcement.
+**Document store / EAV clinical model.** Rejected. The core value is querying _across_ records — every event, every hospital, ordered, filtered by code. That is a relational problem, and unstructured clinical data degrades quickly without schema enforcement.
 
 ---
 
@@ -80,14 +82,14 @@ With Health24, the physician opens the patient's timeline and sees: the diagnosi
 
 The full vision is not one project. It is six, and they must be built in order.
 
-| # | Sub-project | Contains |
-|---|---|---|
-| SP1 | **Foundation** | Tenancy, identity, auth, patient registry, audit skeleton |
-| SP2 | **Terminology service** | NAMASTE + ICD-11 ingestion, search, concept maps, translate API |
-| SP3 | **Clinical record** | Encounters, dual-coded conditions, prescriptions, procedures, timeline |
-| SP4 | **Documents & results** | Report upload/storage, LOINC observations, trend views |
-| SP5 | **Patient portal & consent** | Patient login, consent grant/revoke, access history |
-| SP6 | **Operations** | Orders, surgery detail, billing, reporting |
+| #   | Sub-project                  | Contains                                                               |
+| --- | ---------------------------- | ---------------------------------------------------------------------- |
+| SP1 | **Foundation**               | Tenancy, identity, auth, patient registry, audit skeleton              |
+| SP2 | **Terminology service**      | NAMASTE + ICD-11 ingestion, search, concept maps, translate API        |
+| SP3 | **Clinical record**          | Encounters, dual-coded conditions, prescriptions, procedures, timeline |
+| SP4 | **Documents & results**      | Report upload/storage, LOINC observations, trend views                 |
+| SP5 | **Patient portal & consent** | Patient login, consent grant/revoke, access history                    |
+| SP6 | **Operations**               | Orders, surgery detail, billing, reporting                             |
 
 SP1 + SP2 + SP3 together constitute the minimum system that delivers the core promise. SP4–SP6 are additive on the same encounter model and require no redesign.
 
@@ -101,15 +103,15 @@ Each sub-project gets its own detailed implementation plan before its code is wr
 
 Seven modules. Each owns its tables, exposes a service interface, and never reads another module's tables directly.
 
-| Module | Owns | Depends on |
-|---|---|---|
-| 1. Identity & Access | hospitals (tenants), staff accounts, patient accounts, sessions, roles | — |
-| 2. Patient Registry | patient identity, ABHA linkage, per-hospital MRN mapping, duplicate detection & merge | Identity |
-| 3. Terminology | code systems, concepts, designations, concept maps, search, translate | — |
-| 4. Clinical Records | encounters, conditions, prescriptions, procedures, observations | Registry, Terminology |
-| 5. Documents | uploads, object storage, retrieval, encounter linking | Registry |
-| 6. Consent & Audit | consent artefacts, access enforcement, append-only access log | Identity, Registry |
-| 7. Timeline (read model) | the composed cross-hospital patient view | 4, 5, 6 |
+| Module                   | Owns                                                                                  | Depends on            |
+| ------------------------ | ------------------------------------------------------------------------------------- | --------------------- |
+| 1. Identity & Access     | hospitals (tenants), staff accounts, patient accounts, sessions, roles                | —                     |
+| 2. Patient Registry      | patient identity, ABHA linkage, per-hospital MRN mapping, duplicate detection & merge | Identity              |
+| 3. Terminology           | code systems, concepts, designations, concept maps, search, translate                 | —                     |
+| 4. Clinical Records      | encounters, conditions, prescriptions, procedures, observations                       | Registry, Terminology |
+| 5. Documents             | uploads, object storage, retrieval, encounter linking                                 | Registry              |
+| 6. Consent & Audit       | consent artefacts, access enforcement, append-only access log                         | Identity, Registry    |
+| 7. Timeline (read model) | the composed cross-hospital patient view                                              | 4, 5, 6               |
 
 Two boundaries carry unusual weight:
 
@@ -200,13 +202,13 @@ access_log        actor_id, actor_type, patient_id, resource_type,
 
 ### 7.1 Source vocabularies
 
-| System | Source | Role |
-|---|---|---|
-| **NAMASTE** | Ministry of Ayush NAMASTE portal — standardised terminologies for Ayurveda, Siddha, Unani | What the traditional practitioner selects |
-| **ICD-11 TM2** | WHO ICD-11, Traditional Medicine Module 2 | Authoritative international rendering of traditional diagnoses |
-| **ICD-11 MMS** | WHO ICD-11 Mortality & Morbidity Statistics linearisation | Biomedical rendering (advisory) |
-| **LOINC** | Regenstrief | Lab and observation codes |
-| **SNOMED CT** | India holds a national licence via NRCeS | Optional later; clinical findings |
+| System         | Source                                                                                    | Role                                                           |
+| -------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| **NAMASTE**    | Ministry of Ayush NAMASTE portal — standardised terminologies for Ayurveda, Siddha, Unani | What the traditional practitioner selects                      |
+| **ICD-11 TM2** | WHO ICD-11, Traditional Medicine Module 2                                                 | Authoritative international rendering of traditional diagnoses |
+| **ICD-11 MMS** | WHO ICD-11 Mortality & Morbidity Statistics linearisation                                 | Biomedical rendering (advisory)                                |
+| **LOINC**      | Regenstrief                                                                               | Lab and observation codes                                      |
+| **SNOMED CT**  | India holds a national licence via NRCeS                                                  | Optional later; clinical findings                              |
 
 > **To verify before implementation:** exact NAMASTE release version, concept counts, distribution format, and licensing terms for commercial redistribution. ICD-11 API access requires registration with WHO; confirm the terms that apply to a commercial product.
 
@@ -226,7 +228,7 @@ concept_map_element   concept_map_id, source_code, target_code,
                       confidence, comment, reviewed_by, reviewed_at
 ```
 
-`concept_designation` matters more than it looks: a vaidya searching for *अम्लपित्त*, `amlapitta`, and `Amlapitta` must all reach the same concept. Search must be script-aware and transliteration-tolerant.
+`concept_designation` matters more than it looks: a vaidya searching for _अम्लपित्त_, `amlapitta`, and `Amlapitta` must all reach the same concept. Search must be script-aware and transliteration-tolerant.
 
 ### 7.3 Search
 
@@ -259,8 +261,8 @@ Vocabularies version. Ingestion is idempotent, versioned, and never mutates exis
 Three layers, all enforced server-side:
 
 1. **Tenant isolation** — Postgres row-level security. A staff user's queries are scoped to their hospital by the database, not by application `WHERE` clauses. Application bugs then cannot leak across tenants.
-2. **Role permissions** — what a role may do within its tenant. Front-desk registers and uploads but does not read clinical notes; clinicians read and write clinical data; admins manage users and never read records.
-3. **Patient consent** — what a hospital may see of a patient's history from *other* hospitals. Data created by Hospital A is visible to Hospital A; visibility to Hospital B requires an active `consent_artefact`.
+2. **Role permissions** — what a role may do within its tenant. Front-desk registers and uploads but does not read clinical notes; clinicians read and write clinical data; medical records staff read clinical data and enter it on behalf of a named clinician (D11); admins manage users and never read records.
+3. **Patient consent** — what a hospital may see of a patient's history from _other_ hospitals. Data created by Hospital A is visible to Hospital A; visibility to Hospital B requires an active `consent_artefact`.
 
 **Consent granularity:** by data category (diagnoses / prescriptions / reports / labs), by date range, and time-boxed with an expiry. The default grant at registration is a bounded, explicit choice by the patient, not a silent opt-in.
 
@@ -292,17 +294,17 @@ The timeline view is the product's centrepiece and deserves disproportionate des
 
 ### Tech stack summary
 
-| Layer | Choice |
-|---|---|
-| Language | TypeScript (server + both clients) |
-| API framework | NestJS |
-| Database | PostgreSQL (RLS, `pg_trgm`, FTS, JSONB) |
-| ORM / migrations | Drizzle |
-| Frontend | React + Vite + TanStack Query |
-| Object storage | S3 (ap-south-1) |
-| Jobs | BullMQ on Redis |
-| Auth | Custom on Postgres — OTP + TOTP; ABHA login later |
-| Testing | Vitest, Testcontainers, Playwright |
+| Layer            | Choice                                            |
+| ---------------- | ------------------------------------------------- |
+| Language         | TypeScript (server + both clients)                |
+| API framework    | NestJS                                            |
+| Database         | PostgreSQL (RLS, `pg_trgm`, FTS, JSONB)           |
+| ORM / migrations | Drizzle                                           |
+| Frontend         | React + Vite + TanStack Query                     |
+| Object storage   | S3 (ap-south-1)                                   |
+| Jobs             | BullMQ on Redis                                   |
+| Auth             | Custom on Postgres — OTP + TOTP; ABHA login later |
+| Testing          | Vitest, Testcontainers, Playwright                |
 
 ---
 
@@ -339,16 +341,16 @@ Baseline requirements, all treated as functional requirements rather than harden
 
 ## 13. Infrastructure
 
-| Concern | Choice |
-|---|---|
-| Hosting | AWS Mumbai (`ap-south-1`) — data residency is a legal requirement |
-| Compute | Containers on ECS Fargate, or a managed platform; not hand-managed VMs |
-| Database | RDS PostgreSQL, multi-AZ, PITR enabled |
-| Object storage | S3, SSE, versioning on, no public access |
-| Jobs | BullMQ on Redis (scans, thumbnails, timeline projection rebuilds) |
-| CI/CD | GitHub Actions — lint, typecheck, test, migrate, deploy |
-| Errors | Sentry |
-| Metrics / logs | CloudWatch initially; structured JSON logs with PHI scrubbed |
+| Concern        | Choice                                                                 |
+| -------------- | ---------------------------------------------------------------------- |
+| Hosting        | AWS Mumbai (`ap-south-1`) — data residency is a legal requirement      |
+| Compute        | Containers on ECS Fargate, or a managed platform; not hand-managed VMs |
+| Database       | RDS PostgreSQL, multi-AZ, PITR enabled                                 |
+| Object storage | S3, SSE, versioning on, no public access                               |
+| Jobs           | BullMQ on Redis (scans, thumbnails, timeline projection rebuilds)      |
+| CI/CD          | GitHub Actions — lint, typecheck, test, migrate, deploy                |
+| Errors         | Sentry                                                                 |
+| Metrics / logs | CloudWatch initially; structured JSON logs with PHI scrubbed           |
 
 Environments: local (Docker Compose), staging (synthetic data only), production. **Real patient data never leaves production and is never copied to any other environment.** Test data is synthetic, always.
 
@@ -358,18 +360,18 @@ Environments: local (Docker Compose), staging (synthetic data only), production.
 
 Estimates assume one developer working consistently. They are ranges because solo estimates that are not ranges are fiction.
 
-| Stage | Sub-project | Outcome | Estimate |
-|---|---|---|---|
-| 1 | SP1 Foundation | Hospitals, staff, patients, auth, RLS, audit skeleton, CI, deploys | 6–10 weeks |
-| 2 | SP2 Terminology | NAMASTE + ICD-11 ingested, search, concept maps, translate API, curation tool | 6–10 weeks |
-| 3 | SP3 Clinical record | Encounters, dual-coded diagnoses, prescriptions, the timeline | 8–12 weeks |
-| — | **Milestone A** | **The core promise is demonstrable end to end** | **~5–8 months** |
-| 4 | SP4 Documents & results | Report upload, storage, LOINC observations, trends | 5–8 weeks |
-| 5 | SP5 Patient portal & consent | Patient login, consent grant/revoke, access history | 6–9 weeks |
-| — | **Milestone B** | **Pilot-ready with one hospital, real consent** | **~8–12 months** |
-| 6 | SP6 Operations | Orders, procedures, billing, reporting | 8–12 weeks |
-| 7 | Compliance & pilot | Security review, pen test, legal, DPA, runbooks | 6–10 weeks |
-| 8 | ABDM | ABHA linking, HIP/HIU adapters, sandbox certification | Scoped after Milestone B |
+| Stage | Sub-project                  | Outcome                                                                       | Estimate                 |
+| ----- | ---------------------------- | ----------------------------------------------------------------------------- | ------------------------ |
+| 1     | SP1 Foundation               | Hospitals, staff, patients, auth, RLS, audit skeleton, CI, deploys            | 6–10 weeks               |
+| 2     | SP2 Terminology              | NAMASTE + ICD-11 ingested, search, concept maps, translate API, curation tool | 6–10 weeks               |
+| 3     | SP3 Clinical record          | Encounters, dual-coded diagnoses, prescriptions, the timeline                 | 8–12 weeks               |
+| —     | **Milestone A**              | **The core promise is demonstrable end to end**                               | **~5–8 months**          |
+| 4     | SP4 Documents & results      | Report upload, storage, LOINC observations, trends                            | 5–8 weeks                |
+| 5     | SP5 Patient portal & consent | Patient login, consent grant/revoke, access history                           | 6–9 weeks                |
+| —     | **Milestone B**              | **Pilot-ready with one hospital, real consent**                               | **~8–12 months**         |
+| 6     | SP6 Operations               | Orders, procedures, billing, reporting                                        | 8–12 weeks               |
+| 7     | Compliance & pilot           | Security review, pen test, legal, DPA, runbooks                               | 6–10 weeks               |
+| 8     | ABDM                         | ABHA linking, HIP/HIU adapters, sandbox certification                         | Scoped after Milestone B |
 
 **Recommendation on sequencing:** find a pilot hospital — ideally an integrated Ayush + allopathic facility — before Stage 3 completes. Building Stages 4–6 without a real clinician using Stage 3 daily is the most likely way to spend a year building the wrong thing.
 
@@ -392,17 +394,17 @@ Answers to these change the design. They are not blocking this plan, but they bl
 
 ## 16. Risks
 
-| Risk | Severity | Response |
-|---|---|---|
-| Mapping quality is poor or unverifiable | **Critical** | Advisory codes clearly labelled; qualified clinical review; never present a mapping as a diagnosis |
-| Hospitals will not adopt a system that duplicates their existing HIS | **Critical** | Import / integration path via the FHIR surface; target facilities without an incumbent HIS first |
-| PHI breach | **Critical** | Defence in depth, RLS, read-logging, external pen test before pilot, tested incident runbook |
-| Wrong-patient record merge | **Critical** | No auto-merge below high confidence; human review queue; reversible merges with full log |
-| Solo-developer scope collapse | **High** | Strict sub-project staging; Milestone A before anything in SP4–SP6 |
-| DPDP obligations underestimated | **High** | Engage counsel before pilot, not after |
-| Clinicians reject the data-entry burden | **High** | Time the diagnosis-entry flow with a real clinician at Stage 3; if it exceeds paper, redesign it |
-| Terminology release changes break records | **Medium** | Versioned concepts; records reference version; never mutate in place |
-| Cloud cost outruns funding | **Medium** | Modest baseline; cost alarms from day one |
+| Risk                                                                 | Severity     | Response                                                                                           |
+| -------------------------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------- |
+| Mapping quality is poor or unverifiable                              | **Critical** | Advisory codes clearly labelled; qualified clinical review; never present a mapping as a diagnosis |
+| Hospitals will not adopt a system that duplicates their existing HIS | **Critical** | Import / integration path via the FHIR surface; target facilities without an incumbent HIS first   |
+| PHI breach                                                           | **Critical** | Defence in depth, RLS, read-logging, external pen test before pilot, tested incident runbook       |
+| Wrong-patient record merge                                           | **Critical** | No auto-merge below high confidence; human review queue; reversible merges with full log           |
+| Solo-developer scope collapse                                        | **High**     | Strict sub-project staging; Milestone A before anything in SP4–SP6                                 |
+| DPDP obligations underestimated                                      | **High**     | Engage counsel before pilot, not after                                                             |
+| Clinicians reject the data-entry burden                              | **High**     | Time the diagnosis-entry flow with a real clinician at Stage 3; if it exceeds paper, redesign it   |
+| Terminology release changes break records                            | **Medium**   | Versioned concepts; records reference version; never mutate in place                               |
+| Cloud cost outruns funding                                           | **Medium**   | Modest baseline; cost alarms from day one                                                          |
 
 ---
 

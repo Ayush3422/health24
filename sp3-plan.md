@@ -15,6 +15,21 @@ Two refinements came out of designing the model against A1:
 - **Consent is recorded at the grantee hospital.** The hospital asking to see a patient's history is the one that must ask the patient — and the hospital holding the record never sees the patient again, so it cannot be the one to ask. In the acceptance scenario, City General's front desk records the consent when the patient arrives. This matches ABDM, where the requesting facility initiates consent.
 - **Merged records resolve through an alias table.** Clinical rows keep the patient id they were recorded against; rewriting them on merge would break both immutability and merge reversal. Consent checks and the timeline resolve ids through `patient_merge_alias`, which holds identifiers only.
 
+### Decisions C and D — answered 2026-09-13, after Phase 4
+
+Asked when the intended day-to-day flow was described: a hospital enters everything that goes into a paper file, and a patient signs in to see their whole history.
+
+**Decision C — who enters clinical data: a records staff role.** Busy hospitals do not have doctors type; records staff transcribe from the doctor's file. A new `medical_records` role may enter encounters, diagnoses, prescriptions, allergies and the rest **on behalf of a named clinician of the same hospital**. Every such entry records both people: who typed it and whose clinical decision it is. Clinicians keep entering directly. The hospital admin still never reads clinical data. Considered and rejected: the hospital admin entering everything (every admin would see every record, and a diagnosis would belong to no doctor); clinicians only (paper-file entry would stall).
+
+**Decision D — next priority: screens for what is built.** Phases 1–4 are API only. The interface for encounters, diagnoses, prescriptions and the allergy banner moves ahead of the remaining documentation, timeline and offline work, so the product can be used and judged in the browser.
+
+Patient portal sign-in was also settled — phone number and OTP, no patient password — and is recorded in `planning.md` as D12 for SP5.
+
+**Open questions from Decision C, to settle in Phase 5:**
+
+1. **Co-signature.** Should a transcribed entry show as unverified until the named clinician confirms it? Safer; adds a step for the doctor.
+2. **Doctors who are not users.** A legacy paper file names a doctor who left years ago, or a visiting consultant. Allow a free-text name in place of a staff account, clearly marked?
+
 ### Decision A — Can Hospital B see what Hospital A recorded, before the consent system exists?
 
 This is the product's core promise, and it collides with sequencing. `planning.md` §8 says cross-hospital visibility requires a consent artefact, but the consent system — patient login, grant, revoke — is SP5. Built strictly in order, SP3 would deliver a clinical record that only its own hospital can read, and Milestone A ("the core promise is demonstrable end to end") would not actually be demonstrable.
@@ -162,40 +177,49 @@ The clinician searches in their own vocabulary using the SP2 terminology search,
 
 > **Open question for a clinical and legal reviewer:** the API lets any clinician prescribe under any system of medicine. Whether an AYUSH practitioner may prescribe allopathic medicines (and the reverse) varies by state. Health24 records the system of medicine on every prescription but does not enforce a rule until one is confirmed.
 
-### Phase 5 — Other documentation
+### Phase 5 — Records staff and attribution (Decision C)
+
+- [ ] **T33** `medical_records` role and a `clinical:transcribe` permission in the shared matrix
+- [ ] **T34** Attribution on every clinical table: the attributed clinician and the entry's source (`direct` or `transcribed`); the database refuses a transcribed entry attributed to anyone but an active clinician of the same hospital
+- [ ] **T35** Records staff open encounters for a named clinician, and enter diagnoses, prescriptions and allergies on their behalf; the allergy check applies unchanged
+- [ ] **T36** Authorisation and row-level security tests for the new role; every read and write audited as the records staff member, naming the clinician
+
+### Phase 6 — Interface for what is built (Decision D)
+
+- [ ] **T29** Encounter screen: the day's worklist, open and close, and diagnosis entry with the three codings shown as recorded
+- [ ] **T30** Prescription entry with the allergy warning and override, and current medications grouped by system of medicine
+- [ ] **T31a** Patient clinical view: allergy banner, problem list and current medications, each naming the hospital that recorded it
+- [ ] **T37** Records staff entry: choose the clinician, then the same forms, with the attribution visible on every entry
+
+### Phase 7 — Other documentation
 
 - [ ] **T13** Vitals as observations
 - [ ] **T14** Clinical notes with department templates
 - [ ] **T15** Procedures, including Panchakarma therapies
-- [ ] **T16** Corrections: supersede and entered-in-error, with history
+- [ ] **T16** Corrections: supersede and entered-in-error, with history — and the screens for all four
 
-### Phase 6 — Timeline and consent
+### Phase 8 — Timeline and consent
 
 - [ ] **T17** `TimelineService`: one stream, consent-filtered
 - [ ] **T18** Patient summary card
 - [ ] **T19** Staff-recorded consent: record, expire, revoke (Decision A1)
 - [ ] **T20** Break-glass access with reason, notification flag and review queue
 - [ ] **T21** Retired-mapping flagging job for existing diagnoses
+- [ ] **T31b** Timeline and summary card screens
+- [ ] **T32** Consent recording at the front desk
 
-### Phase 7 — Offline
+### Phase 9 — Offline
 
 - [ ] **T22** Service worker and encrypted IndexedDB cache
 - [ ] **T23** Offline banner, disabled writes, cache revalidation
 - [ ] **T24** Queued offline audit upload
 
-### Phase 8 — Verification
+### Phase 10 — Verification
 
 - [ ] **T25** Unit: versioning rules, consent evaluation, cache encryption lifecycle
 - [ ] **T26** Integration: every endpoint; RLS with and without consent; audit of cross-hospital reads
 - [ ] **T27** Timeline performance test at realistic synthetic volume
 - [ ] **T28** Smoke: the Amlapitta scenario from `planning.md` §1, end to end
-
-### Phase 9 — Interface
-
-- [ ] **T29** Encounter screen and diagnosis entry
-- [ ] **T30** Prescription entry and current medications
-- [ ] **T31** Timeline and summary card, with the allergy banner
-- [ ] **T32** Consent recording at the front desk
 
 ---
 
