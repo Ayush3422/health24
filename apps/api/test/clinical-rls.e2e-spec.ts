@@ -723,4 +723,46 @@ describe('clinical record: consent, immutability and correction', () => {
       ).rejects.toThrow(/row-level security/);
     });
   });
+  describe('hospital directory', () => {
+    it('lets every hospital read every facility name', async () => {
+      const names = await asTenant(
+        hospitalB,
+        (tx) => tx<Array<{ id: string }>>`
+        SELECT id FROM hospital_directory
+      `,
+      );
+
+      expect(names.map((row) => row.id).sort()).toEqual([hospitalA, hospitalB, hospitalC].sort());
+    });
+
+    it('cannot be written by the application', async () => {
+      await expect(
+        asTenant(
+          hospitalB,
+          (tx) => tx`UPDATE hospital_directory SET name = 'Renamed' WHERE id = ${hospitalA}`,
+        ),
+      ).rejects.toThrow(/permission denied/);
+
+      await expect(
+        asTenant(hospitalB, (tx) => tx`DELETE FROM hospital_directory WHERE id = ${hospitalA}`),
+      ).rejects.toThrow(/permission denied/);
+    });
+
+    it('follows a hospital renamed through the platform', async () => {
+      // As the platform service does it: the application role, in system context.
+      await app.begin(async (tx) => {
+        await tx`SELECT set_config('app.system_context', 'on', true)`;
+        await tx`UPDATE hospital SET name = 'Third Hospital Renamed' WHERE id = ${hospitalC}`;
+      });
+
+      const [entry] = await asTenant(
+        hospitalA,
+        (tx) => tx<Array<{ name: string }>>`
+        SELECT name FROM hospital_directory WHERE id = ${hospitalC}
+      `,
+      );
+
+      expect(entry?.name).toBe('Third Hospital Renamed');
+    });
+  });
 });

@@ -41,3 +41,22 @@ export const hospitals = pgTable('hospital', {
 
 export type Hospital = typeof hospitals.$inferSelect;
 export type NewHospital = typeof hospitals.$inferInsert;
+
+/**
+ * The public face of a hospital: its name and kind of facility.
+ *
+ * Row-level security confines `hospital` to its own tenant, which is right for
+ * contact details and MRN sequences but leaves a clinician unable to say where
+ * a shared allergy was recorded. Facility names are public information — the
+ * ABDM facility registry publishes them — so this narrow copy is readable by
+ * every tenant. A trigger on `hospital` keeps it current (migration 0010); the
+ * application cannot write it.
+ */
+export const hospitalDirectory = pgTable('hospital_directory', {
+  id: uuid('id')
+    .primaryKey()
+    .references(() => hospitals.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  facilityType: facilityTypeEnum('facility_type').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});

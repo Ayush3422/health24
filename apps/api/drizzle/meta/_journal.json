@@ -64,6 +64,20 @@
       "when": 1789267796432,
       "tag": "0008_sp3_clinical_rls_consent_immutability",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789298333137,
+      "tag": "0009_hospital_directory",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789298334903,
+      "tag": "0010_hospital_directory_sync",
+      "breakpoints": true
     }
   ]
 }

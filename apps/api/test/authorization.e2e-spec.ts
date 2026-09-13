@@ -218,6 +218,35 @@ const ROUTES: RouteExpectation[] = [
   },
   { method: 'get', path: '/api/v1/terminology/map-elements/:id/history', allow: ['curator'] },
   { method: 'get', path: '/api/v1/terminology/coverage', allow: ['curator', 'platformAdmin'] },
+
+  // Clinical record: clinicians only. Front desk, hospital admins, platform
+  // admins and curators never read or write clinical entries.
+  {
+    method: 'post',
+    path: '/api/v1/encounters',
+    allow: ['clinician'],
+    body: { patientId: '00000000-0000-4000-8000-000000000000', class: 'outpatient' },
+  },
+  { method: 'get', path: '/api/v1/encounters', allow: ['clinician'] },
+  { method: 'get', path: '/api/v1/encounters/:id', allow: ['clinician'] },
+  { method: 'post', path: '/api/v1/encounters/:id/finish', allow: ['clinician'] },
+  {
+    method: 'post',
+    path: '/api/v1/encounters/:id/cancel',
+    allow: ['clinician'],
+    body: { reason: 'authorisation probe' },
+  },
+  {
+    method: 'post',
+    path: '/api/v1/allergies',
+    allow: ['clinician'],
+    body: {
+      patientId: '00000000-0000-4000-8000-000000000000',
+      substance: 'Probe',
+      category: 'food',
+    },
+  },
+  { method: 'get', path: '/api/v1/patients/:patientId/allergies', allow: ['clinician'] },
 ];
 
 const ABSENT_ID = '00000000-0000-4000-8000-000000000000';

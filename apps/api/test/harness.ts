@@ -136,6 +136,7 @@ export async function resetDatabase(): Promise<void> {
         "encounter",
         "consent_artefact",
         "patient_merge_alias",
+        "hospital_directory",
         "access_log",
         "concept_map_review",
         "concept_map_element",

@@ -48,6 +48,12 @@ export const PERMISSIONS = [
   'terminology:curate',
   /** Activate and retire terminology releases. */
   'terminology:manage',
+
+  // Clinical record
+  /** Encounters, diagnoses, prescriptions and allergies: the hospital's own, and others' under consent. */
+  'clinical:read',
+  /** Open encounters and record clinical entries at the caller's own hospital. */
+  'clinical:write',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -106,6 +112,8 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'patient:update',
     'patient:lookup_global',
     'terminology:read',
+    'clinical:read',
+    'clinical:write',
   ],
 
   front_desk: [

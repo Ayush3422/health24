@@ -15,6 +15,8 @@ export interface AuditEntry {
   action: AccessAction;
   outcome?: 'allowed' | 'denied';
   breakGlassReason?: string | null;
+  /** The consent artefact a read of another hospital's record rested on. */
+  consentArtefactId?: string | null;
   meta?: Partial<RequestMeta>;
 }
 
@@ -60,6 +62,7 @@ export class AuditService {
           action: entry.action,
           outcome: entry.outcome ?? 'allowed',
           breakGlassReason: entry.breakGlassReason ?? null,
+          consentArtefactId: entry.consentArtefactId ?? null,
           requestId: entry.meta?.requestId ?? null,
           route: entry.meta?.route ?? null,
           ipAddress: entry.meta?.ipAddress ?? null,

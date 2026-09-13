@@ -145,8 +145,8 @@ The clinician searches in their own vocabulary using the SP2 terminology search,
 
 ### Phase 2 — Encounters
 
-- [ ] **T5** Open, close, list encounters
-- [ ] **T6** Allergy recording and the patient allergy banner endpoint
+- [x] **T5** Open, close, list encounters — `POST /encounters`, `GET /encounters` (day worklist, or one patient across permitted hospitals), `GET /encounters/:id`, `POST /encounters/:id/finish|cancel`
+- [x] **T6** Allergy recording and the patient allergy banner endpoint — `POST /allergies`, `GET /patients/:id/allergies`, highest criticality first, with the recording hospital named via a read-only `hospital_directory`; cross-hospital reads audit the consent they rest on
 
 ### Phase 3 — Diagnoses
 
