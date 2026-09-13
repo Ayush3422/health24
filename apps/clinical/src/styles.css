@@ -99,6 +99,20 @@ a {
   color: var(--ink-muted);
 }
 
+/* White ground whatever the theme: phone cameras read dark-on-light codes reliably. */
+.qr-box {
+  display: flex;
+  justify-content: center;
+  margin: 0.75rem 0;
+}
+
+.qr-box svg {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.5rem;
+}
+
 .secret-box {
   background: var(--ground);
   border: 1px solid var(--line);

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import type { AuthenticatedStaff } from '@health24/shared';
 import { ApiError, postPublic } from '../api/client';
 import { useAuth } from './AuthProvider';
@@ -144,16 +145,21 @@ export function LoginPage(): JSX.Element {
               it every time you sign in.
             </p>
 
+            {/* Drawn in the browser. The setup link carries the secret, so it
+                must never be sent to an online QR image service. */}
+            <div className="qr-box">
+              <QRCodeSVG
+                value={step.otpauthUrl}
+                size={200}
+                marginSize={2}
+                title="Authenticator setup QR code"
+              />
+            </div>
+
+            <p className="muted small">Can’t scan? Enter this key in the app instead:</p>
             <div className="secret-box">
               <code>{step.secret}</code>
             </div>
-
-            <p className="muted small">
-              If your app supports links:{' '}
-              <a href={step.otpauthUrl} rel="noreferrer">
-                open setup link
-              </a>
-            </p>
 
             <label htmlFor="code">6-digit code</label>
             <input
