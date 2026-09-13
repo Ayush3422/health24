@@ -552,6 +552,8 @@ button.danger {
   font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
   font-size: 0.8rem;
   color: var(--ink-muted);
+  /* A code or MRN broken across lines at its hyphen misreads as two values. */
+  white-space: nowrap;
 }
 
 .terminology {
