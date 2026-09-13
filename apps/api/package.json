@@ -20,7 +20,8 @@
     "db:clean": "tsx src/db/clean-dev-data.ts",
     "terminology:import": "tsx src/modules/terminology/cli/import.ts",
     "terminology:load-demo": "tsx src/modules/terminology/cli/import.ts data/terminology/demo/demo-namaste.json data/terminology/demo/demo-icd11-tm2.json data/terminology/demo/demo-icd11-mms.json data/terminology/demo/map-namaste-icd11-tm2.json data/terminology/demo/map-namaste-icd11-mms.json --activate --by demo-loader",
-    "smoke:terminology": "node scripts/smoke-terminology.mjs"
+    "smoke:terminology": "node scripts/smoke-terminology.mjs",
+    "mfa:code": "node scripts/mfa-code.mjs"
   },
   "dependencies": {
     "@health24/shared": "workspace:*",
