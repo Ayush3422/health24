@@ -16,7 +16,7 @@ export class DiagnosesController {
   constructor(private readonly diagnoses: DiagnosesService) {}
 
   @Post('diagnoses')
-  @RequirePermission('clinical:write')
+  @RequirePermission('clinical:write', 'clinical:transcribe')
   async record(
     @CurrentActor() actor: Actor,
     @Body(zodBody(recordDiagnosisSchema)) body: RecordDiagnosisInput,

@@ -26,6 +26,7 @@ import {
   blankToNull,
   coveringConsentId,
   requireLinkedPatient,
+  resolveAttribution,
   toIso,
   violatedConstraint,
 } from './clinical-access';
@@ -45,6 +46,9 @@ type ConditionRow = {
   recorded_at: string | Date;
   recorded_by_staff_id: string;
   recorded_by_name: string | null;
+  entry_source: ConditionSummary['entry']['source'];
+  entered_by_staff_id: string;
+  entered_by_name: string | null;
   codings: Coding[];
 };
 
@@ -57,7 +61,10 @@ const CONDITION_SELECT = sql`
   SELECT c."id", c."patient_id", c."encounter_id", c."hospital_id",
          d."name" AS hospital_name, c."clinical_status", c."verification_status",
          c."is_primary", to_char(c."onset_date", 'YYYY-MM-DD') AS onset_date, c."note",
-         c."recorded_at", c."recorded_by_staff_id", s."name" AS recorded_by_name,
+         c."recorded_at",
+         c."attributed_clinician_id" AS recorded_by_staff_id, s."name" AS recorded_by_name,
+         c."entry_source", c."recorded_by_staff_id" AS entered_by_staff_id,
+         eb."name" AS entered_by_name,
          coalesce((
            SELECT json_agg(json_build_object(
                     'role', cc."role",
@@ -74,7 +81,8 @@ const CONDITION_SELECT = sql`
          ), '[]'::json) AS codings
     FROM "condition" c
     LEFT JOIN "hospital_directory" d ON d."id" = c."hospital_id"
-    LEFT JOIN "staff_user" s ON s."id" = c."recorded_by_staff_id"
+    LEFT JOIN "staff_user" s ON s."id" = c."attributed_clinician_id"
+    LEFT JOIN "staff_user" eb ON eb."id" = c."recorded_by_staff_id"
 `;
 
 /**
@@ -147,6 +155,13 @@ export class DiagnosesService {
 
     try {
       conditionId = await this.db.asTenant(hospitalId, async (tx) => {
+        const attribution = await resolveAttribution(
+          tx,
+          actor,
+          hospitalId,
+          input.onBehalfOfClinicianId,
+        );
+
         const [created] = await tx
           .insert(conditions)
           .values({
@@ -159,6 +174,8 @@ export class DiagnosesService {
             onsetDate: input.onsetDate ?? null,
             note: blankToNull(input.note),
             recordedByStaffId: actor.staffUserId,
+            attributedClinicianId: attribution.clinicianId,
+            entrySource: attribution.entrySource,
           })
           .returning({ id: conditions.id });
 
@@ -343,6 +360,10 @@ export class DiagnosesService {
       note: row.note,
       recordedAt: toIso(row.recorded_at),
       recordedBy: { id: row.recorded_by_staff_id, name: row.recorded_by_name },
+      entry: {
+        source: row.entry_source,
+        enteredBy: { id: row.entered_by_staff_id, name: row.entered_by_name },
+      },
       codings: {
         primary,
         translated: byRole('translated'),

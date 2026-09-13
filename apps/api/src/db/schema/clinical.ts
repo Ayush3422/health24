@@ -33,6 +33,7 @@ import {
   durationUnitEnum,
   encounterClassEnum,
   encounterStatusEnum,
+  entrySourceEnum,
   foodTimingEnum,
   mapEquivalenceEnum,
   medicationRequestStatusEnum,
@@ -86,7 +87,14 @@ const ownership = () => ({
  * why. They are set once, when that happens, and never again.
  */
 const versioning = () => ({
+  /** Who typed the entry: the clinician, or medical records staff transcribing for them. */
   recordedByStaffId: uuid('recorded_by_staff_id').notNull(),
+  /**
+   * Whose clinical decision this is (Decision C). The recorder, for a direct
+   * entry — the database fills it in when left out.
+   */
+  attributedClinicianId: uuid('attributed_clinician_id').notNull(),
+  entrySource: entrySourceEnum('entry_source').notNull().default('direct'),
   recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull().defaultNow(),
 
   versionStatus: versionStatusEnum('version_status').notNull().default('current'),
@@ -111,6 +119,9 @@ export const encounters = pgTable(
     /** Carried on the encounter so the timeline can separate systems without inference. */
     systemOfMedicine: systemOfMedicineEnum('system_of_medicine').notNull(),
     attendingStaffId: uuid('attending_staff_id').notNull(),
+    /** Who opened the encounter: the attending clinician, or records staff for them. */
+    recordedByStaffId: uuid('recorded_by_staff_id').notNull(),
+    entrySource: entrySourceEnum('entry_source').notNull().default('direct'),
 
     startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
     endedAt: timestamp('ended_at', { withTimezone: true }),
@@ -128,6 +139,11 @@ export const encounters = pgTable(
     foreignKey({
       name: 'encounter_attending_staff_same_hospital_fk',
       columns: [table.attendingStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    foreignKey({
+      name: 'encounter_recorded_by_same_hospital_fk',
+      columns: [table.recordedByStaffId, table.hospitalId],
       foreignColumns: [staffUsers.id, staffUsers.hospitalId],
     }),
     index('encounter_patient_started_idx').on(table.patientId, table.startedAt),
@@ -175,6 +191,11 @@ export const conditions = pgTable(
     foreignKey({
       name: 'condition_recorded_by_same_hospital_fk',
       columns: [table.recordedByStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    foreignKey({
+      name: 'condition_attributed_clinician_same_hospital_fk',
+      columns: [table.attributedClinicianId, table.hospitalId],
       foreignColumns: [staffUsers.id, staffUsers.hospitalId],
     }),
     foreignKey({
@@ -309,6 +330,11 @@ export const medicationRequests = pgTable(
       foreignColumns: [staffUsers.id, staffUsers.hospitalId],
     }),
     foreignKey({
+      name: 'medication_request_attributed_clinician_same_hospital_fk',
+      columns: [table.attributedClinicianId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    foreignKey({
       name: 'medication_request_status_changed_by_fk',
       columns: [table.statusChangedByStaffId],
       foreignColumns: [staffUsers.id],
@@ -362,6 +388,11 @@ export const allergyIntolerances = pgTable(
     foreignKey({
       name: 'allergy_intolerance_recorded_by_same_hospital_fk',
       columns: [table.recordedByStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    foreignKey({
+      name: 'allergy_intolerance_attributed_clinician_same_hospital_fk',
+      columns: [table.attributedClinicianId, table.hospitalId],
       foreignColumns: [staffUsers.id, staffUsers.hospitalId],
     }),
     foreignKey({
@@ -426,6 +457,11 @@ export const observations = pgTable(
       foreignColumns: [staffUsers.id, staffUsers.hospitalId],
     }),
     foreignKey({
+      name: 'observation_attributed_clinician_same_hospital_fk',
+      columns: [table.attributedClinicianId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    foreignKey({
       name: 'observation_status_changed_by_fk',
       columns: [table.statusChangedByStaffId],
       foreignColumns: [staffUsers.id],
@@ -471,6 +507,11 @@ export const clinicalNotes = pgTable(
     foreignKey({
       name: 'clinical_note_recorded_by_same_hospital_fk',
       columns: [table.recordedByStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    foreignKey({
+      name: 'clinical_note_attributed_clinician_same_hospital_fk',
+      columns: [table.attributedClinicianId, table.hospitalId],
       foreignColumns: [staffUsers.id, staffUsers.hospitalId],
     }),
     foreignKey({
@@ -528,6 +569,11 @@ export const procedures = pgTable(
     foreignKey({
       name: 'procedure_recorded_by_same_hospital_fk',
       columns: [table.recordedByStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    foreignKey({
+      name: 'procedure_attributed_clinician_same_hospital_fk',
+      columns: [table.attributedClinicianId, table.hospitalId],
       foreignColumns: [staffUsers.id, staffUsers.hospitalId],
     }),
     foreignKey({

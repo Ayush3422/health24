@@ -219,6 +219,7 @@ export async function seedHospital(options: {
         { key: 'admin', role: 'hospital_admin' },
         { key: 'clinician', role: 'clinician', systemOfMedicine: 'ayurveda' },
         { key: 'frontDesk', role: 'front_desk' },
+        { key: 'records', role: 'medical_records' },
       ];
 
       for (const definition of definitions) {

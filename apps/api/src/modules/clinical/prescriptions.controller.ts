@@ -19,7 +19,7 @@ export class PrescriptionsController {
 
   /** 409 with `code: ALLERGY_MATCH` when a recorded allergy matches and no override is given. */
   @Post('prescriptions')
-  @RequirePermission('clinical:write')
+  @RequirePermission('clinical:write', 'clinical:transcribe')
   async prescribe(
     @CurrentActor() actor: Actor,
     @Body(zodBody(prescribeSchema)) body: PrescribeInput,
@@ -28,6 +28,7 @@ export class PrescriptionsController {
     return this.prescriptions.prescribe(actor, body, meta);
   }
 
+  /** Clinicians only: stopping a medicine is a new clinical decision, not transcription. */
   @Post('prescriptions/:id/stop')
   @HttpCode(200)
   @RequirePermission('clinical:write')

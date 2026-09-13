@@ -4,6 +4,7 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { loadEnv } from '../config/load-env';
 import * as schema from './schema';
+import type { DbTransaction } from './client';
 
 loadEnv();
 
@@ -18,6 +19,42 @@ loadEnv();
  */
 
 const SEED_PASSWORD = 'health24-dev-password';
+
+/**
+ * Medical records staff for each seeded hospital. Ensured on every run, so a
+ * database seeded before the role existed gains them.
+ */
+async function ensureRecordsStaff(tx: DbTransaction, passwordHash: string): Promise<void> {
+  const hospitals = await tx
+    .select({ id: schema.hospitals.id, mrnPrefix: schema.hospitals.mrnPrefix })
+    .from(schema.hospitals);
+
+  const byPrefix = new Map(hospitals.map((hospital) => [hospital.mrnPrefix, hospital.id]));
+
+  const accounts = [
+    { prefix: 'SAH', name: 'Sunita Pawar (records)', email: 'records@sanjeevani.example.in' },
+    { prefix: 'CGH', name: 'Ravi Kulkarni (records)', email: 'records@citygeneral.example.in' },
+  ].flatMap((account) => {
+    const hospitalId = byPrefix.get(account.prefix);
+
+    return hospitalId
+      ? [
+          {
+            hospitalId,
+            name: account.name,
+            email: account.email,
+            role: 'medical_records' as const,
+            status: 'active' as const,
+            passwordHash,
+          },
+        ]
+      : [];
+  });
+
+  if (accounts.length > 0) {
+    await tx.insert(schema.staffUsers).values(accounts).onConflictDoNothing();
+  }
+}
 
 async function main(): Promise<void> {
   if (process.env.NODE_ENV === 'production') {
@@ -76,7 +113,8 @@ async function main(): Promise<void> {
     const existing = await tx.select({ id: schema.hospitals.id }).from(schema.hospitals).limit(1);
 
     if (existing.length > 0) {
-      console.log('Database already seeded; nothing to do.');
+      await ensureRecordsStaff(tx, passwordHash);
+      console.log('Hospitals already seeded; records staff ensured.');
       return;
     }
 
@@ -163,7 +201,8 @@ async function main(): Promise<void> {
       },
     ]);
 
-    console.log('Seeded 2 hospitals and 6 staff accounts.');
+    await ensureRecordsStaff(tx, passwordHash);
+    console.log('Seeded 2 hospitals, 6 staff accounts and 2 records staff.');
     console.log(`All seed accounts use the password: ${SEED_PASSWORD}`);
     console.log('Each will be required to enrol a second factor on first sign-in.');
   });

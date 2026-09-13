@@ -25,10 +25,12 @@ Asked when the intended day-to-day flow was described: a hospital enters everyth
 
 Patient portal sign-in was also settled — phone number and OTP, no patient password — and is recorded in `planning.md` as D12 for SP5.
 
-**Open questions from Decision C, to settle in Phase 5:**
+**Open questions from Decision C — defaults taken in Phase 5, both reversible:**
 
 1. **Co-signature.** Should a transcribed entry show as unverified until the named clinician confirms it? Safer; adds a step for the doctor.
 2. **Doctors who are not users.** A legacy paper file names a doctor who left years ago, or a visiting consultant. Allow a free-text name in place of a staff account, clearly marked?
+
+**Defaults taken:** no co-signature yet — a transcribed entry is labelled as transcribed and names its clinician, and a confirmation step can be added without reshaping the data. Entries are attributed only to clinicians with an account, of any status, so a doctor who has left can still be named; free-text external doctors are deferred to SP4’s legacy-file import.
 
 ### Decision A — Can Hospital B see what Hospital A recorded, before the consent system exists?
 
@@ -179,10 +181,10 @@ The clinician searches in their own vocabulary using the SP2 terminology search,
 
 ### Phase 5 — Records staff and attribution (Decision C)
 
-- [ ] **T33** `medical_records` role and a `clinical:transcribe` permission in the shared matrix
-- [ ] **T34** Attribution on every clinical table: the attributed clinician and the entry's source (`direct` or `transcribed`); the database refuses a transcribed entry attributed to anyone but an active clinician of the same hospital
-- [ ] **T35** Records staff open encounters for a named clinician, and enter diagnoses, prescriptions and allergies on their behalf; the allergy check applies unchanged
-- [ ] **T36** Authorisation and row-level security tests for the new role; every read and write audited as the records staff member, naming the clinician
+- [x] **T33** `medical_records` role and a `clinical:transcribe` permission in the shared matrix — records staff also register patients, resolve duplicates and read clinical data; they never stop a medicine
+- [x] **T34** Attribution on every clinical table — `attributed_clinician_id` and `entry_source`, plus `recorded_by_staff_id` on encounters (migrations `0014`, `0015`). The database refuses an entry attributed to a non-clinician or another hospital, a transcribed entry typed by anyone but records staff, and a "direct" entry naming someone else; a direct entry left unattributed is filled in. Existing rows backfilled as direct
+- [x] **T35** Records staff open encounters for a named clinician (under that clinician’s system of medicine), and enter diagnoses, prescriptions and allergies on their behalf via `onBehalfOfClinicianId`; the allergy check applies unchanged. `GET /clinicians` lists whom they may transcribe for, deactivated clinicians included. Every clinical response carries `entry: { source, enteredBy }`
+- [x] **T36** Authorisation and row-level security tests for the new role (`records-staff.e2e-spec.ts`, attribution block in `clinical-rls.e2e-spec.ts`, the role across every route in the authorisation suite). The access log records the records staff member as the actor; the clinician is named on the entry itself
 
 ### Phase 6 — Interface for what is built (Decision D)
 

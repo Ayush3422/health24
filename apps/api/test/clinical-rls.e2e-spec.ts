@@ -26,6 +26,8 @@ describe('clinical record: consent, immutability and correction', () => {
   let clinicianB: SeededStaff;
   let frontDeskB: SeededStaff;
   let clinicianC: SeededStaff;
+  let frontDeskA: SeededStaff;
+  let recordsA: SeededStaff;
 
   /** Linked to A, B and C. */
   let patient: string;
@@ -147,6 +149,8 @@ describe('clinical record: consent, immutability and correction', () => {
     clinicianB = b.staff.clinician as SeededStaff;
     frontDeskB = b.staff.frontDesk as SeededStaff;
     clinicianC = c.staff.clinician as SeededStaff;
+    frontDeskA = a.staff.frontDesk as SeededStaff;
+    recordsA = a.staff.records as SeededStaff;
 
     const appConnection = appRoleDb();
     app = appConnection.client;
@@ -723,6 +727,93 @@ describe('clinical record: consent, immutability and correction', () => {
       ).rejects.toThrow(/row-level security/);
     });
   });
+  describe('attribution', () => {
+    it('fills in the clinician for a direct entry', async () => {
+      const [row] = await rolledBack(
+        hospitalA,
+        (tx) => tx<Array<{ attributed: string; source: string }>>`
+        INSERT INTO allergy_intolerance (patient_id, hospital_id, substance, category, recorded_by_staff_id)
+        VALUES (${patient}, ${hospitalA}, 'Latex', 'environment', ${clinicianA.id})
+        RETURNING attributed_clinician_id AS attributed, entry_source AS source
+      `,
+      );
+
+      expect(row).toEqual({ attributed: clinicianA.id, source: 'direct' });
+    });
+
+    it('refuses a direct entry by anyone but a clinician', async () => {
+      await expect(
+        rolledBack(
+          hospitalA,
+          (tx) => tx`
+          INSERT INTO allergy_intolerance (patient_id, hospital_id, substance, category, recorded_by_staff_id)
+          VALUES (${patient}, ${hospitalA}, 'Latex', 'environment', ${recordsA.id})
+        `,
+        ),
+      ).rejects.toThrow(/attributed to a clinician/);
+    });
+
+    it('refuses a transcribed entry attributed to a non-clinician', async () => {
+      await expect(
+        rolledBack(
+          hospitalA,
+          (tx) => tx`
+          INSERT INTO allergy_intolerance
+            (patient_id, hospital_id, substance, category, recorded_by_staff_id,
+             attributed_clinician_id, entry_source)
+          VALUES (${patient}, ${hospitalA}, 'Latex', 'environment', ${recordsA.id},
+                  ${frontDeskA.id}, 'transcribed')
+        `,
+        ),
+      ).rejects.toThrow(/attributed to a clinician/);
+    });
+
+    it('refuses a transcribed entry typed by anyone but records staff', async () => {
+      await expect(
+        rolledBack(
+          hospitalA,
+          (tx) => tx`
+          INSERT INTO allergy_intolerance
+            (patient_id, hospital_id, substance, category, recorded_by_staff_id,
+             attributed_clinician_id, entry_source)
+          VALUES (${patient}, ${hospitalA}, 'Latex', 'environment', ${frontDeskA.id},
+                  ${clinicianA.id}, 'transcribed')
+        `,
+        ),
+      ).rejects.toThrow(/only medical records staff/);
+    });
+
+    it('refuses an entry that calls itself direct but names someone else', async () => {
+      await expect(
+        rolledBack(
+          hospitalA,
+          (tx) => tx`
+          INSERT INTO allergy_intolerance
+            (patient_id, hospital_id, substance, category, recorded_by_staff_id,
+             attributed_clinician_id, entry_source)
+          VALUES (${patient}, ${hospitalA}, 'Latex', 'environment', ${recordsA.id},
+                  ${clinicianA.id}, 'direct')
+        `,
+        ),
+      ).rejects.toThrow(/allergy_intolerance_entry_source_consistent/);
+    });
+
+    it('refuses an encounter opened for a non-clinician', async () => {
+      await expect(
+        rolledBack(
+          hospitalA,
+          (tx) => tx`
+          INSERT INTO encounter
+            (patient_id, hospital_id, class, system_of_medicine, attending_staff_id,
+             recorded_by_staff_id, entry_source)
+          VALUES (${patient}, ${hospitalA}, 'outpatient', 'ayurveda', ${frontDeskA.id},
+                  ${recordsA.id}, 'transcribed')
+        `,
+        ),
+      ).rejects.toThrow(/attended by a clinician/);
+    });
+  });
+
   describe('hospital directory', () => {
     it('lets every hospital read every facility name', async () => {
       const names = await asTenant(

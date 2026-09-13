@@ -23,7 +23,7 @@ export class EncountersController {
   constructor(private readonly encounters: EncountersService) {}
 
   @Post()
-  @RequirePermission('clinical:write')
+  @RequirePermission('clinical:write', 'clinical:transcribe')
   async open(
     @CurrentActor() actor: Actor,
     @Body(zodBody(openEncounterSchema)) body: OpenEncounterInput,
@@ -54,7 +54,7 @@ export class EncountersController {
 
   @Post(':id/finish')
   @HttpCode(200)
-  @RequirePermission('clinical:write')
+  @RequirePermission('clinical:write', 'clinical:transcribe')
   async finish(
     @CurrentActor() actor: Actor,
     @Param('id', ParseUUIDPipe) id: string,
@@ -65,7 +65,7 @@ export class EncountersController {
 
   @Post(':id/cancel')
   @HttpCode(200)
-  @RequirePermission('clinical:write')
+  @RequirePermission('clinical:write', 'clinical:transcribe')
   async cancel(
     @CurrentActor() actor: Actor,
     @Param('id', ParseUUIDPipe) id: string,
@@ -81,7 +81,7 @@ export class AllergiesController {
   constructor(private readonly allergies: AllergiesService) {}
 
   @Post('allergies')
-  @RequirePermission('clinical:write')
+  @RequirePermission('clinical:write', 'clinical:transcribe')
   async record(
     @CurrentActor() actor: Actor,
     @Body(zodBody(recordAllergySchema)) body: RecordAllergyInput,

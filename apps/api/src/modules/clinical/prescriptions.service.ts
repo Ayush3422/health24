@@ -23,6 +23,7 @@ import {
   coveringConsentId,
   istToday,
   requireLinkedPatient,
+  resolveAttribution,
   toIso,
 } from './clinical-access';
 
@@ -54,6 +55,9 @@ type MedicationRow = {
   recorded_at: string | Date;
   recorded_by_staff_id: string;
   recorded_by_name: string | null;
+  entry_source: MedicationSummary['entry']['source'];
+  entered_by_staff_id: string;
+  entered_by_name: string | null;
 };
 
 type AllergyMatchRow = {
@@ -76,10 +80,13 @@ const MEDICATION_SELECT = sql`
                  'YYYY-MM-DD') AS end_date,
          r."vehicle", r."food_timing", r."instructions", r."status", r."ended_at",
          r."end_reason", r."allergy_override_reason", r."recorded_at",
-         r."recorded_by_staff_id", s."name" AS recorded_by_name
+         r."attributed_clinician_id" AS recorded_by_staff_id, s."name" AS recorded_by_name,
+         r."entry_source", r."recorded_by_staff_id" AS entered_by_staff_id,
+         eb."name" AS entered_by_name
     FROM "medication_request" r
     LEFT JOIN "hospital_directory" d ON d."id" = r."hospital_id"
-    LEFT JOIN "staff_user" s ON s."id" = r."recorded_by_staff_id"
+    LEFT JOIN "staff_user" s ON s."id" = r."attributed_clinician_id"
+    LEFT JOIN "staff_user" eb ON eb."id" = r."recorded_by_staff_id"
 `;
 
 /** Case and spacing do not make a different substance. */
@@ -110,7 +117,7 @@ export class PrescriptionsService {
   ): Promise<PrescriptionResult> {
     const hospitalId = requireHospital(actor);
 
-    const { encounter, matches, allergyConsentId } = await this.db.asTenant(
+    const { attribution, encounter, matches, allergyConsentId } = await this.db.asTenant(
       hospitalId,
       async (tx) => {
         const [found] = await tx
@@ -136,7 +143,15 @@ export class PrescriptionsService {
           throw new ConflictException('This encounter was cancelled; open a new one');
         }
 
+        const resolved = await resolveAttribution(
+          tx,
+          actor,
+          hospitalId,
+          input.onBehalfOfClinicianId,
+        );
+
         return {
+          attribution: resolved,
           encounter: found,
           matches: await this.allergyMatches(
             tx,
@@ -197,6 +212,8 @@ export class PrescriptionsService {
           allergyOverrideReason:
             matches.length > 0 ? (input.allergyOverride?.reason ?? null) : null,
           recordedByStaffId: actor.staffUserId,
+          attributedClinicianId: attribution.clinicianId,
+          entrySource: attribution.entrySource,
         })
         .returning({ id: medicationRequests.id });
 
@@ -468,6 +485,10 @@ export class PrescriptionsService {
       allergyOverrideReason: row.allergy_override_reason,
       prescribedAt: toIso(row.recorded_at),
       prescriber: { id: row.recorded_by_staff_id, name: row.recorded_by_name },
+      entry: {
+        source: row.entry_source,
+        enteredBy: { id: row.entered_by_staff_id, name: row.entered_by_name },
+      },
     };
   }
 }

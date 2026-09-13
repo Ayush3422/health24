@@ -44,6 +44,9 @@ export type FacilityType = (typeof FACILITY_TYPES)[number];
  * - clinician:           Reads and writes clinical data for their hospital.
  * - front_desk:          Registers patients and uploads documents. Cannot read
  *                        clinical notes.
+ * - medical_records:     Transcribes clinical entries from a doctor's file, on
+ *                        behalf of a named clinician of the same hospital.
+ *                        Every such entry records both people.
  */
 export const STAFF_ROLES = [
   'platform_admin',
@@ -51,11 +54,17 @@ export const STAFF_ROLES = [
   'hospital_admin',
   'clinician',
   'front_desk',
+  'medical_records',
 ] as const;
 export type StaffRole = (typeof STAFF_ROLES)[number];
 
 /** Roles that belong to a hospital tenant (everything except platform-level roles). */
-export const TENANT_ROLES = ['hospital_admin', 'clinician', 'front_desk'] as const;
+export const TENANT_ROLES = [
+  'hospital_admin',
+  'clinician',
+  'front_desk',
+  'medical_records',
+] as const;
 export type TenantRole = (typeof TENANT_ROLES)[number];
 
 export const USER_STATUSES = ['invited', 'active', 'suspended', 'deactivated'] as const;
@@ -292,3 +301,13 @@ export type ConsentStatus = (typeof CONSENT_STATUSES)[number];
  */
 export const CONSENT_CAPTURE_METHODS = ['signed_form', 'verbal_witnessed'] as const;
 export type ConsentCaptureMethod = (typeof CONSENT_CAPTURE_METHODS)[number];
+
+/**
+ * How a clinical entry reached the record.
+ *
+ * - direct:      the clinician entered it themselves
+ * - transcribed: medical records staff entered it from the clinician's file,
+ *                on their behalf
+ */
+export const ENTRY_SOURCES = ['direct', 'transcribed'] as const;
+export type EntrySource = (typeof ENTRY_SOURCES)[number];

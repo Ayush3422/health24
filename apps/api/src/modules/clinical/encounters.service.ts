@@ -9,7 +9,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import type { EncounterSummary, ListEncountersQuery, OpenEncounterInput } from '@health24/shared';
 import { DatabaseService } from '../../db/database.service';
 import type { DbTransaction } from '../../db/client';
-import { encounters, staffUsers } from '../../db/schema';
+import { encounters } from '../../db/schema';
 import { requireHospital, type Actor, type RequestMeta } from '../../common/actor';
 import { AuditService } from '../audit/audit.service';
 import {
@@ -17,6 +17,7 @@ import {
   coveringConsentId,
   istToday,
   requireLinkedPatient,
+  resolveAttribution,
   toIso,
 } from './clinical-access';
 
@@ -34,6 +35,9 @@ type EncounterRow = {
   status_reason: string | null;
   attending_staff_id: string;
   attending_name: string | null;
+  entry_source: EncounterSummary['entry']['source'];
+  entered_by_staff_id: string;
+  entered_by_name: string | null;
   patient_name: string | null;
   mrn: string | null;
   total: string;
@@ -48,11 +52,13 @@ const ENCOUNTER_SELECT = sql`
   SELECT e."id", e."patient_id", e."hospital_id", d."name" AS hospital_name,
          e."class", e."system_of_medicine", e."status", e."started_at", e."ended_at",
          e."chief_complaint", e."status_reason", e."attending_staff_id",
-         s."name" AS attending_name, p."name" AS patient_name, l."mrn",
+         s."name" AS attending_name, e."entry_source",
+         e."recorded_by_staff_id" AS entered_by_staff_id, eb."name" AS entered_by_name, p."name" AS patient_name, l."mrn",
          count(*) OVER () AS total
     FROM "encounter" e
     LEFT JOIN "hospital_directory" d ON d."id" = e."hospital_id"
     LEFT JOIN "staff_user" s ON s."id" = e."attending_staff_id"
+    LEFT JOIN "staff_user" eb ON eb."id" = e."recorded_by_staff_id"
     LEFT JOIN "patient" p ON p."id" = e."patient_id"
     LEFT JOIN "patient_hospital_link" l
            ON l."patient_id" = e."patient_id"
@@ -84,13 +90,15 @@ export class EncountersService {
     const encounterId = await this.db.asTenant(hospitalId, async (tx) => {
       await requireLinkedPatient(tx, hospitalId, input.patientId);
 
-      const [staff] = await tx
-        .select({ systemOfMedicine: staffUsers.systemOfMedicine })
-        .from(staffUsers)
-        .where(eq(staffUsers.id, actor.staffUserId))
-        .limit(1);
+      const attribution = await resolveAttribution(
+        tx,
+        actor,
+        hospitalId,
+        input.onBehalfOfClinicianId,
+      );
 
-      const systemOfMedicine = input.systemOfMedicine ?? staff?.systemOfMedicine;
+      // The attending clinician's system, not the records clerk's.
+      const systemOfMedicine = input.systemOfMedicine ?? attribution.clinicianSystemOfMedicine;
 
       if (!systemOfMedicine) {
         throw new BadRequestException('Choose the system of medicine this encounter is under');
@@ -103,7 +111,9 @@ export class EncountersService {
           hospitalId,
           class: input.class,
           systemOfMedicine,
-          attendingStaffId: actor.staffUserId,
+          attendingStaffId: attribution.clinicianId,
+          recordedByStaffId: actor.staffUserId,
+          entrySource: attribution.entrySource,
           chiefComplaint: blankToNull(input.chiefComplaint),
         })
         .returning({ id: encounters.id });
@@ -317,6 +327,10 @@ export class EncountersService {
       chiefComplaint: row.chief_complaint,
       statusReason: row.status_reason,
       attending: { id: row.attending_staff_id, name: row.attending_name },
+      entry: {
+        source: row.entry_source,
+        enteredBy: { id: row.entered_by_staff_id, name: row.entered_by_name },
+      },
       patient: row.patient_name ? { name: row.patient_name, mrn: row.mrn } : null,
     };
   }

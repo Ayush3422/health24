@@ -54,6 +54,8 @@ export const PERMISSIONS = [
   'clinical:read',
   /** Open encounters and record clinical entries at the caller's own hospital. */
   'clinical:write',
+  /** Enter clinical data on behalf of a named clinician of the same hospital. */
+  'clinical:transcribe',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -126,6 +128,27 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'patient:lookup_global',
     'merge:read',
     'merge:resolve',
+  ],
+
+  /**
+   * Records staff transcribe from the doctor's file. They read clinical data
+   * and enter it in a named clinician's name, never their own — so every
+   * diagnosis and prescription still belongs to a doctor. They do not stop
+   * medicines: that is a fresh clinical decision, not transcription.
+   */
+  medical_records: [
+    ...BASELINE,
+    'hospital:read:own',
+    'patient:create',
+    'patient:read',
+    'patient:search',
+    'patient:update',
+    'patient:lookup_global',
+    'merge:read',
+    'merge:resolve',
+    'terminology:read',
+    'clinical:read',
+    'clinical:transcribe',
   ],
 };
 

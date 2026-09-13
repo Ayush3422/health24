@@ -17,6 +17,7 @@ import {
   DURATION_UNITS,
   ENCOUNTER_CLASSES,
   ENCOUNTER_STATUSES,
+  ENTRY_SOURCES,
   FACILITY_TYPES,
   FOOD_TIMINGS,
   GENDERS,
@@ -129,3 +130,4 @@ export const consentCaptureMethodEnum = pgEnum(
   'consent_capture_method',
   tuple(CONSENT_CAPTURE_METHODS),
 );
+export const entrySourceEnum = pgEnum('entry_source', tuple(ENTRY_SOURCES));

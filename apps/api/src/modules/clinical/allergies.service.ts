@@ -5,7 +5,13 @@ import { DatabaseService } from '../../db/database.service';
 import { allergyIntolerances, encounters } from '../../db/schema';
 import { requireHospital, type Actor, type RequestMeta } from '../../common/actor';
 import { AuditService } from '../audit/audit.service';
-import { blankToNull, coveringConsentId, requireLinkedPatient, toIso } from './clinical-access';
+import {
+  blankToNull,
+  coveringConsentId,
+  requireLinkedPatient,
+  resolveAttribution,
+  toIso,
+} from './clinical-access';
 
 type AllergyRow = {
   id: string;
@@ -21,16 +27,22 @@ type AllergyRow = {
   recorded_at: string | Date;
   recorded_by_staff_id: string;
   recorded_by_name: string | null;
+  entry_source: AllergySummary['entry']['source'];
+  entered_by_staff_id: string;
+  entered_by_name: string | null;
 };
 
 const ALLERGY_SELECT = sql`
   SELECT a."id", a."patient_id", a."hospital_id", d."name" AS hospital_name,
          a."substance", a."category", a."criticality", a."clinical_status",
-         a."reaction", a."note", a."recorded_at", a."recorded_by_staff_id",
-         s."name" AS recorded_by_name
+         a."reaction", a."note", a."recorded_at",
+         a."attributed_clinician_id" AS recorded_by_staff_id, s."name" AS recorded_by_name,
+         a."entry_source", a."recorded_by_staff_id" AS entered_by_staff_id,
+         eb."name" AS entered_by_name
     FROM "allergy_intolerance" a
     LEFT JOIN "hospital_directory" d ON d."id" = a."hospital_id"
-    LEFT JOIN "staff_user" s ON s."id" = a."recorded_by_staff_id"
+    LEFT JOIN "staff_user" s ON s."id" = a."attributed_clinician_id"
+    LEFT JOIN "staff_user" eb ON eb."id" = a."recorded_by_staff_id"
 `;
 
 /**
@@ -58,6 +70,13 @@ export class AllergiesService {
 
     const row = await this.db.asTenant(hospitalId, async (tx) => {
       await requireLinkedPatient(tx, hospitalId, input.patientId);
+
+      const attribution = await resolveAttribution(
+        tx,
+        actor,
+        hospitalId,
+        input.onBehalfOfClinicianId,
+      );
 
       if (input.encounterId) {
         const [encounter] = await tx
@@ -91,6 +110,8 @@ export class AllergiesService {
           reaction: blankToNull(input.reaction),
           note: blankToNull(input.note),
           recordedByStaffId: actor.staffUserId,
+          attributedClinicianId: attribution.clinicianId,
+          entrySource: attribution.entrySource,
         })
         .returning({ id: allergyIntolerances.id });
 
@@ -175,6 +196,10 @@ export class AllergiesService {
       note: row.note,
       recordedAt: toIso(row.recorded_at),
       recordedBy: { id: row.recorded_by_staff_id, name: row.recorded_by_name },
+      entry: {
+        source: row.entry_source,
+        enteredBy: { id: row.entered_by_staff_id, name: row.entered_by_name },
+      },
     };
   }
 }

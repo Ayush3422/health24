@@ -21,13 +21,20 @@ import {
  */
 
 type RoleKey =
-  'platformAdmin' | 'admin' | 'clinician' | 'frontDesk' | 'otherHospitalAdmin' | 'curator';
+  | 'platformAdmin'
+  | 'admin'
+  | 'clinician'
+  | 'frontDesk'
+  | 'records'
+  | 'otherHospitalAdmin'
+  | 'curator';
 
 const ALL_ROLES: RoleKey[] = [
   'platformAdmin',
   'admin',
   'clinician',
   'frontDesk',
+  'records',
   'otherHospitalAdmin',
   'curator',
 ];
@@ -64,7 +71,7 @@ interface RouteExpectation {
 const EVERY_ROLE = ALL_ROLES;
 
 /** Terminology is reference data, read by those who code diagnoses or curate mappings. */
-const TERMINOLOGY_READERS: RoleKey[] = ['platformAdmin', 'clinician', 'curator'];
+const TERMINOLOGY_READERS: RoleKey[] = ['platformAdmin', 'clinician', 'records', 'curator'];
 
 const ROUTES: RouteExpectation[] = [
   { method: 'get', path: '/health', allow: [], public: true },
@@ -105,7 +112,7 @@ const ROUTES: RouteExpectation[] = [
   {
     method: 'get',
     path: '/api/v1/hospitals/me',
-    allow: ['admin', 'clinician', 'frontDesk', 'otherHospitalAdmin'],
+    allow: ['admin', 'clinician', 'frontDesk', 'records', 'otherHospitalAdmin'],
   },
   { method: 'get', path: '/api/v1/hospitals/:id', allow: ['platformAdmin'], param: 'ownHospital' },
   {
@@ -153,44 +160,44 @@ const ROUTES: RouteExpectation[] = [
   {
     method: 'post',
     path: '/api/v1/patients',
-    allow: ['clinician', 'frontDesk'],
+    allow: ['clinician', 'frontDesk', 'records'],
     body: { name: 'Probe Patient', gender: 'male', approximateAgeYears: 30, forceCreate: true },
   },
-  { method: 'get', path: '/api/v1/patients', allow: ['clinician', 'frontDesk'] },
+  { method: 'get', path: '/api/v1/patients', allow: ['clinician', 'frontDesk', 'records'] },
   {
     method: 'post',
     path: '/api/v1/patients/lookup',
-    allow: ['clinician', 'frontDesk'],
+    allow: ['clinician', 'frontDesk', 'records'],
     body: { name: 'Probe Patient' },
   },
   {
     method: 'get',
     path: '/api/v1/patients/merge-queue',
-    allow: ['admin', 'frontDesk', 'otherHospitalAdmin'],
+    allow: ['admin', 'frontDesk', 'records', 'otherHospitalAdmin'],
   },
   {
     method: 'post',
     path: '/api/v1/patients/merge-queue/:id/resolve',
-    allow: ['admin', 'frontDesk', 'otherHospitalAdmin'],
+    allow: ['admin', 'frontDesk', 'records', 'otherHospitalAdmin'],
     body: { decision: 'reject', reason: 'authorisation probe' },
   },
   {
     method: 'post',
     path: '/api/v1/patients/merges/:id/revert',
-    allow: ['admin', 'frontDesk', 'otherHospitalAdmin'],
+    allow: ['admin', 'frontDesk', 'records', 'otherHospitalAdmin'],
     body: { reason: 'authorisation probe' },
   },
-  { method: 'get', path: '/api/v1/patients/:id', allow: ['clinician', 'frontDesk'] },
+  { method: 'get', path: '/api/v1/patients/:id', allow: ['clinician', 'frontDesk', 'records'] },
   {
     method: 'patch',
     path: '/api/v1/patients/:id',
-    allow: ['clinician', 'frontDesk'],
+    allow: ['clinician', 'frontDesk', 'records'],
     body: { bloodGroup: 'O+', reason: 'authorisation probe' },
   },
   {
     method: 'post',
     path: '/api/v1/patients/:id/link',
-    allow: ['clinician', 'frontDesk'],
+    allow: ['clinician', 'frontDesk', 'records'],
     body: { name: 'Probe Patient' },
   },
 
@@ -224,41 +231,41 @@ const ROUTES: RouteExpectation[] = [
   {
     method: 'post',
     path: '/api/v1/encounters',
-    allow: ['clinician'],
+    allow: ['clinician', 'records'],
     body: { patientId: '00000000-0000-4000-8000-000000000000', class: 'outpatient' },
   },
-  { method: 'get', path: '/api/v1/encounters', allow: ['clinician'] },
-  { method: 'get', path: '/api/v1/encounters/:id', allow: ['clinician'] },
-  { method: 'post', path: '/api/v1/encounters/:id/finish', allow: ['clinician'] },
+  { method: 'get', path: '/api/v1/encounters', allow: ['clinician', 'records'] },
+  { method: 'get', path: '/api/v1/encounters/:id', allow: ['clinician', 'records'] },
+  { method: 'post', path: '/api/v1/encounters/:id/finish', allow: ['clinician', 'records'] },
   {
     method: 'post',
     path: '/api/v1/encounters/:id/cancel',
-    allow: ['clinician'],
+    allow: ['clinician', 'records'],
     body: { reason: 'authorisation probe' },
   },
   {
     method: 'post',
     path: '/api/v1/allergies',
-    allow: ['clinician'],
+    allow: ['clinician', 'records'],
     body: {
       patientId: '00000000-0000-4000-8000-000000000000',
       substance: 'Probe',
       category: 'food',
     },
   },
-  { method: 'get', path: '/api/v1/patients/:patientId/allergies', allow: ['clinician'] },
+  { method: 'get', path: '/api/v1/patients/:patientId/allergies', allow: ['clinician', 'records'] },
   {
     method: 'post',
     path: '/api/v1/diagnoses',
-    allow: ['clinician'],
+    allow: ['clinician', 'records'],
     body: { encounterId: '00000000-0000-4000-8000-000000000000', code: 'DEMO-NAM-001' },
   },
-  { method: 'get', path: '/api/v1/encounters/:id/diagnoses', allow: ['clinician'] },
-  { method: 'get', path: '/api/v1/patients/:patientId/problems', allow: ['clinician'] },
+  { method: 'get', path: '/api/v1/encounters/:id/diagnoses', allow: ['clinician', 'records'] },
+  { method: 'get', path: '/api/v1/patients/:patientId/problems', allow: ['clinician', 'records'] },
   {
     method: 'post',
     path: '/api/v1/prescriptions',
-    allow: ['clinician'],
+    allow: ['clinician', 'records'],
     body: {
       encounterId: '00000000-0000-4000-8000-000000000000',
       medicineName: 'Probe',
@@ -269,11 +276,17 @@ const ROUTES: RouteExpectation[] = [
   {
     method: 'post',
     path: '/api/v1/prescriptions/:id/stop',
+    // A new clinical decision, not transcription.
     allow: ['clinician'],
     body: { reason: 'authorisation probe' },
   },
-  { method: 'get', path: '/api/v1/encounters/:id/prescriptions', allow: ['clinician'] },
-  { method: 'get', path: '/api/v1/patients/:patientId/medications', allow: ['clinician'] },
+  { method: 'get', path: '/api/v1/encounters/:id/prescriptions', allow: ['clinician', 'records'] },
+  {
+    method: 'get',
+    path: '/api/v1/patients/:patientId/medications',
+    allow: ['clinician', 'records'],
+  },
+  { method: 'get', path: '/api/v1/clinicians', allow: ['clinician', 'records'] },
 ];
 
 const ABSENT_ID = '00000000-0000-4000-8000-000000000000';
@@ -341,6 +354,7 @@ describe('authorization', () => {
     tokens.admin = await signIn(ctx, primary.staff.admin as SeededStaff);
     tokens.clinician = await signIn(ctx, primary.staff.clinician as SeededStaff);
     tokens.frontDesk = await signIn(ctx, primary.staff.frontDesk as SeededStaff);
+    tokens.records = await signIn(ctx, primary.staff.records as SeededStaff);
     tokens.otherHospitalAdmin = await signIn(ctx, secondary.staff.admin as SeededStaff);
     tokens.curator = await signIn(
       ctx,
@@ -354,6 +368,7 @@ describe('authorization', () => {
     hospitalFor.admin = primary.hospital.id;
     hospitalFor.clinician = primary.hospital.id;
     hospitalFor.frontDesk = primary.hospital.id;
+    hospitalFor.records = primary.hospital.id;
     hospitalFor.otherHospitalAdmin = secondary.hospital.id;
 
     // A staff account that exists only to be deactivated and reinstated by the

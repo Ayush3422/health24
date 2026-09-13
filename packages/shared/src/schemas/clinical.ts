@@ -8,10 +8,12 @@ import {
   DURATION_UNITS,
   ENCOUNTER_CLASSES,
   ENCOUNTER_STATUSES,
+  ENTRY_SOURCES,
   FOOD_TIMINGS,
   MEDICATION_REQUEST_STATUSES,
   MEDICATION_ROUTES,
   SYSTEMS_OF_MEDICINE,
+  USER_STATUSES,
 } from '../enums.js';
 import { paginationSchema, uuidSchema } from '../primitives.js';
 import { codingSchema, conceptCodeSchema, terminologyKeySchema } from './terminology.js';
@@ -50,12 +52,40 @@ export const staffRefSchema = z.object({
   name: z.string().nullable(),
 });
 
+/**
+ * How an entry reached the record (Decision C). `enteredBy` typed it; the
+ * clinician named on the entry — attending, recordedBy or prescriber — owns
+ * the clinical decision. For a direct entry they are the same person.
+ */
+export const entryRefSchema = z.object({
+  source: z.enum(ENTRY_SOURCES),
+  enteredBy: staffRefSchema,
+});
+export type EntryRef = z.infer<typeof entryRefSchema>;
+
+/**
+ * The clinician a transcribed entry belongs to. Required from medical records
+ * staff; clinicians leave it out and enter in their own name.
+ */
+const onBehalfOfSchema = uuidSchema.optional();
+
+/** A clinician records staff may transcribe for. */
+export const clinicianOptionSchema = z.object({
+  id: uuidSchema,
+  name: z.string(),
+  systemOfMedicine: z.enum(SYSTEMS_OF_MEDICINE).nullable(),
+  /** Deactivated clinicians remain, so an old file can still be transcribed in their name. */
+  status: z.enum(USER_STATUSES),
+});
+export type ClinicianOption = z.infer<typeof clinicianOptionSchema>;
+
 // ---------------------------------------------------------------------------
 // Encounters
 // ---------------------------------------------------------------------------
 
 export const openEncounterSchema = z.object({
   patientId: uuidSchema,
+  onBehalfOfClinicianId: onBehalfOfSchema,
   class: z.enum(ENCOUNTER_CLASSES).default('outpatient'),
   /** Defaults to the clinician's own system of medicine. */
   systemOfMedicine: z.enum(SYSTEMS_OF_MEDICINE).optional(),
@@ -94,6 +124,7 @@ export const encounterSummarySchema = z.object({
   chiefComplaint: z.string().nullable(),
   statusReason: z.string().nullable(),
   attending: staffRefSchema,
+  entry: entryRefSchema,
   /** Present where the caller's hospital knows the patient: name and its own MRN. */
   patient: z.object({ name: z.string(), mrn: z.string().nullable() }).nullable(),
 });
@@ -105,6 +136,7 @@ export type EncounterSummary = z.infer<typeof encounterSummarySchema>;
 
 export const recordAllergySchema = z.object({
   patientId: uuidSchema,
+  onBehalfOfClinicianId: onBehalfOfSchema,
   encounterId: uuidSchema.optional(),
   substance: z.string().trim().min(1, 'Name the substance').max(200),
   category: z.enum(ALLERGY_CATEGORIES),
@@ -126,6 +158,7 @@ export const allergySummarySchema = z.object({
   note: z.string().nullable(),
   recordedAt: z.string(),
   recordedBy: staffRefSchema,
+  entry: entryRefSchema,
 });
 export type AllergySummary = z.infer<typeof allergySummarySchema>;
 
@@ -155,6 +188,7 @@ export type AllergyBanner = z.infer<typeof allergyBannerSchema>;
  */
 export const recordDiagnosisSchema = z.object({
   encounterId: uuidSchema,
+  onBehalfOfClinicianId: onBehalfOfSchema,
   /** The vocabulary the code is from. NAMASTE unless the clinician codes in ICD-11 directly. */
   system: terminologyKeySchema.default('namaste'),
   code: conceptCodeSchema,
@@ -181,6 +215,7 @@ export const conditionSummarySchema = z.object({
   note: z.string().nullable(),
   recordedAt: z.string(),
   recordedBy: staffRefSchema,
+  entry: entryRefSchema,
   /** As attached when the diagnosis was recorded, never re-derived. */
   codings: z.object({
     primary: codingSchema,
@@ -218,6 +253,7 @@ const optionalText = (max: number) => z.string().trim().max(max).optional();
  */
 export const prescribeSchema = z.object({
   encounterId: uuidSchema,
+  onBehalfOfClinicianId: onBehalfOfSchema,
   /** Defaults to the encounter's system of medicine. */
   systemOfMedicine: z.enum(SYSTEMS_OF_MEDICINE).optional(),
   medicineName: z.string().trim().min(1, 'Name the medicine').max(200),
@@ -283,6 +319,7 @@ export const medicationSummarySchema = z.object({
   allergyOverrideReason: z.string().nullable(),
   prescribedAt: z.string(),
   prescriber: staffRefSchema,
+  entry: entryRefSchema,
 });
 export type MedicationSummary = z.infer<typeof medicationSummarySchema>;
 
