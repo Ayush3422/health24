@@ -82,3 +82,13 @@ export const blankToNull = (value: string | null | undefined): string | null =>
   value && value.trim() ? value.trim() : null;
 
 export const toIso = (value: string | Date): string => new Date(value).toISOString();
+
+/** The constraint a Postgres error names, when it names one. */
+export function violatedConstraint(error: unknown): string | null {
+  const failure = error as {
+    constraint_name?: string;
+    cause?: { constraint_name?: string };
+  } | null;
+
+  return failure?.constraint_name ?? failure?.cause?.constraint_name ?? null;
+}

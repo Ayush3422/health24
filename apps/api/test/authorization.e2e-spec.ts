@@ -247,6 +247,14 @@ const ROUTES: RouteExpectation[] = [
     },
   },
   { method: 'get', path: '/api/v1/patients/:patientId/allergies', allow: ['clinician'] },
+  {
+    method: 'post',
+    path: '/api/v1/diagnoses',
+    allow: ['clinician'],
+    body: { encounterId: '00000000-0000-4000-8000-000000000000', code: 'DEMO-NAM-001' },
+  },
+  { method: 'get', path: '/api/v1/encounters/:id/diagnoses', allow: ['clinician'] },
+  { method: 'get', path: '/api/v1/patients/:patientId/problems', allow: ['clinician'] },
 ];
 
 const ABSENT_ID = '00000000-0000-4000-8000-000000000000';

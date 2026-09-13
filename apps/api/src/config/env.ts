@@ -33,6 +33,13 @@ const envSchema = z
     CORS_ORIGINS: z.string().optional(),
 
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+
+    /**
+     * Whether synthetic DEMO- terminology may be coded onto a patient record.
+     * Defaults to allowed outside production and refused in it; allowing it in
+     * production is refused at startup.
+     */
+    ALLOW_DEMO_TERMINOLOGY: z.enum(['true', 'false']).optional(),
   })
   .superRefine((env, ctx) => {
     // Development placeholders must never reach a deployed environment.
@@ -41,6 +48,16 @@ const envSchema = z
         code: z.ZodIssueCode.custom,
         path: ['JWT_ACCESS_SECRET'],
         message: 'Refusing to start in production with the development JWT secret',
+      });
+    }
+
+    // Demo codes carry no clinical meaning; on a real record they would be a
+    // falsified diagnosis.
+    if (env.NODE_ENV === 'production' && env.ALLOW_DEMO_TERMINOLOGY === 'true') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ALLOW_DEMO_TERMINOLOGY'],
+        message: 'Refusing to start in production with demo terminology allowed on patient records',
       });
     }
   });

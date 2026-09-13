@@ -3,11 +3,14 @@ import {
   ALLERGY_CATEGORIES,
   ALLERGY_CLINICAL_STATUSES,
   ALLERGY_CRITICALITIES,
+  CONDITION_CLINICAL_STATUSES,
+  CONDITION_VERIFICATION_STATUSES,
   ENCOUNTER_CLASSES,
   ENCOUNTER_STATUSES,
   SYSTEMS_OF_MEDICINE,
 } from '../enums.js';
 import { paginationSchema, uuidSchema } from '../primitives.js';
+import { codingSchema, conceptCodeSchema, terminologyKeySchema } from './terminology.js';
 
 /**
  * The clinical record's API contracts.
@@ -134,3 +137,64 @@ export const allergyBannerSchema = z.object({
   sharedFromOtherHospitals: z.boolean(),
 });
 export type AllergyBanner = z.infer<typeof allergyBannerSchema>;
+
+// ---------------------------------------------------------------------------
+// Diagnoses
+// ---------------------------------------------------------------------------
+
+/**
+ * Recording a diagnosis.
+ *
+ * The clinician names one code in their own vocabulary. Everything else that
+ * is attached — the TM2 translation, any advisory biomedical code — is decided
+ * by the server from approved mappings, never supplied by the client.
+ */
+export const recordDiagnosisSchema = z.object({
+  encounterId: uuidSchema,
+  /** The vocabulary the code is from. NAMASTE unless the clinician codes in ICD-11 directly. */
+  system: terminologyKeySchema.default('namaste'),
+  code: conceptCodeSchema,
+  clinicalStatus: z.enum(CONDITION_CLINICAL_STATUSES).default('active'),
+  verificationStatus: z.enum(CONDITION_VERIFICATION_STATUSES).default('confirmed'),
+  /** The encounter's main diagnosis. At most one per encounter. */
+  isPrimary: z.boolean().default(false),
+  onsetDate: clinicalDateSchema
+    .refine((value) => new Date(value) <= new Date(), { message: 'Onset cannot be in the future' })
+    .optional(),
+  note: z.string().trim().max(2000).optional(),
+});
+export type RecordDiagnosisInput = z.infer<typeof recordDiagnosisSchema>;
+
+export const conditionSummarySchema = z.object({
+  id: uuidSchema,
+  patientId: uuidSchema,
+  encounterId: uuidSchema,
+  hospital: hospitalRefSchema,
+  clinicalStatus: z.enum(CONDITION_CLINICAL_STATUSES),
+  verificationStatus: z.enum(CONDITION_VERIFICATION_STATUSES),
+  isPrimary: z.boolean(),
+  onsetDate: z.string().nullable(),
+  note: z.string().nullable(),
+  recordedAt: z.string(),
+  recordedBy: staffRefSchema,
+  /** As attached when the diagnosis was recorded, never re-derived. */
+  codings: z.object({
+    primary: codingSchema,
+    translated: codingSchema.nullable(),
+    advisory: codingSchema.nullable(),
+  }),
+});
+export type ConditionSummary = z.infer<typeof conditionSummarySchema>;
+
+/** A newly recorded diagnosis, with the reasons anything was not attached. */
+export const recordedDiagnosisSchema = conditionSummarySchema.extend({
+  codingNotes: z.array(z.string()),
+});
+export type RecordedDiagnosis = z.infer<typeof recordedDiagnosisSchema>;
+
+/** Active problems across every record the caller may see. */
+export const problemListSchema = z.object({
+  problems: z.array(conditionSummarySchema),
+  sharedFromOtherHospitals: z.boolean(),
+});
+export type ProblemList = z.infer<typeof problemListSchema>;

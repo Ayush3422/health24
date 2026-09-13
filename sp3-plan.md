@@ -150,9 +150,9 @@ The clinician searches in their own vocabulary using the SP2 terminology search,
 
 ### Phase 3 — Diagnoses
 
-- [ ] **T7** Record a diagnosis with codings snapshotted from `autoCode`
-- [ ] **T8** Problem list: active conditions across permitted hospitals
-- [ ] **T9** Refuse experimental terminology outside development
+- [x] **T7** Record a diagnosis with codings snapshotted from `autoCode` — `POST /diagnoses`; codings written in the diagnosis transaction and proven unchanged after their mapping is retired; one primary diagnosis per encounter (migration `0011`)
+- [x] **T8** Problem list: active conditions across permitted hospitals — `GET /patients/:id/problems`, plus `GET /encounters/:id/diagnoses`; cross-hospital reads audit their consent
+- [x] **T9** Refuse experimental terminology outside development — `ALLOW_DEMO_TERMINOLOGY`, refused by default in production and impossible to enable there; a demo release or demo map returns 422
 
 ### Phase 4 — Prescriptions
 

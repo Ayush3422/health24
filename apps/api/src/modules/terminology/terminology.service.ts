@@ -1,9 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne, or, sql } from 'drizzle-orm';
 import {
   foldTerm,
   type AutoCodeInput,
   type AutoCodeResult,
+  type Coding,
   type ConceptSummary,
   type MapElementStatus,
   type MapEquivalence,
@@ -12,7 +13,13 @@ import {
 } from '@health24/shared';
 import { DatabaseService } from '../../db/database.service';
 import type { Db } from '../../db/client';
-import { codeSystems, conceptDesignations, concepts } from '../../db/schema';
+import {
+  codeSystems,
+  conceptDesignations,
+  conceptMapElements,
+  conceptMaps,
+  concepts,
+} from '../../db/schema';
 import type { Actor, RequestMeta } from '../../common/actor';
 import { AuditService } from '../audit/audit.service';
 import { byStrength, decideAutoCode, type CandidateMapping } from './auto-code-rules';
@@ -347,6 +354,52 @@ export class TerminologyService {
       primaryExperimental: system.experimental,
       mappings,
     });
+  }
+
+  /**
+   * Whether any coding in an auto-code result rests on demo data: a demo
+   * release, or a demo map. Used to keep synthetic codes off real patient
+   * records.
+   */
+  async usesExperimentalTerminology(result: AutoCodeResult): Promise<boolean> {
+    const codings = [result.primary, result.translated, result.advisory].filter(
+      (coding): coding is Coding => coding !== null,
+    );
+
+    const [system] = await this.reference
+      .select({ id: codeSystems.id })
+      .from(codeSystems)
+      .where(
+        and(
+          eq(codeSystems.experimental, true),
+          or(
+            ...codings.map((coding) =>
+              and(
+                eq(codeSystems.key, coding.system),
+                eq(codeSystems.version, coding.systemVersion),
+              ),
+            ),
+          ),
+        ),
+      )
+      .limit(1);
+
+    if (system) return true;
+
+    const elementIds = codings
+      .map((coding) => coding.conceptMapElementId)
+      .filter((id): id is string => id !== null);
+
+    if (elementIds.length === 0) return false;
+
+    const [map] = await this.reference
+      .select({ id: conceptMaps.id })
+      .from(conceptMapElements)
+      .innerJoin(conceptMaps, eq(conceptMaps.id, conceptMapElements.conceptMapId))
+      .where(and(eq(conceptMaps.experimental, true), inArray(conceptMapElements.id, elementIds)))
+      .limit(1);
+
+    return Boolean(map);
   }
 
   async activate(actor: Actor, codeSystemId: string, meta: RequestMeta) {

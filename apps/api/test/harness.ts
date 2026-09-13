@@ -410,3 +410,39 @@ export async function signIn(ctx: TestContext, staff: SeededStaff): Promise<stri
 
   return verify.body.accessToken as string;
 }
+
+/**
+ * Loads and activates the synthetic demo terminology into the test database:
+ * the same files `pnpm terminology:load-demo` loads for development. The
+ * NAMASTE → TM2 map arrives approved; the biomedical map arrives proposed.
+ */
+export async function loadDemoTerminology(): Promise<void> {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const { conceptMapReleaseSchema, terminologyReleaseSchema } = await import('@health24/shared');
+  const { activateCodeSystem, importCodeSystemRelease, importConceptMapRelease } =
+    await import('../src/modules/terminology/terminology-import');
+
+  const directory = path.resolve(__dirname, '..', 'data', 'terminology', 'demo');
+  const load = (file: string): unknown =>
+    JSON.parse(fs.readFileSync(path.join(directory, file), 'utf8'));
+
+  const { db, close } = testDb();
+
+  try {
+    for (const file of ['demo-namaste.json', 'demo-icd11-tm2.json', 'demo-icd11-mms.json']) {
+      const outcome = await importCodeSystemRelease(
+        db,
+        terminologyReleaseSchema.parse(load(file)),
+        'test',
+      );
+      await activateCodeSystem(db, outcome.id, null);
+    }
+
+    for (const file of ['map-namaste-icd11-tm2.json', 'map-namaste-icd11-mms.json']) {
+      await importConceptMapRelease(db, conceptMapReleaseSchema.parse(load(file)), 'test');
+    }
+  } finally {
+    await close();
+  }
+}

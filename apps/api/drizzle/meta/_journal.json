@@ -78,6 +78,13 @@
       "when": 1789298334903,
       "tag": "0010_hospital_directory_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789299823564,
+      "tag": "0011_one_primary_diagnosis_per_encounter",
+      "breakpoints": true
     }
   ]
 }
