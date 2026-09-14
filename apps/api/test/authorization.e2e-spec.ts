@@ -333,6 +333,31 @@ const ROUTES: RouteExpectation[] = [
     allow: ['clinician', 'records'],
   },
   { method: 'get', path: '/api/v1/clinical-history/:kind/:id', allow: ['clinician', 'records'] },
+  // Consent, emergency access, timeline and coding review (Phase 8). Consent is
+  // recorded where the patient stands; emergency access is a clinician's; its
+  // review is the hospital admin's; coding review is clinical judgement.
+  {
+    method: 'post',
+    path: '/api/v1/patients/:patientId/consents',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
+  {
+    method: 'get',
+    path: '/api/v1/patients/:patientId/consents',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
+  {
+    method: 'post',
+    path: '/api/v1/consents/:id/revoke',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
+  { method: 'post', path: '/api/v1/patients/:patientId/break-glass', allow: ['clinician'] },
+  { method: 'get', path: '/api/v1/break-glass/reviews', allow: ['admin', 'otherHospitalAdmin'] },
+  { method: 'post', path: '/api/v1/consents/:id/review', allow: ['admin', 'otherHospitalAdmin'] },
+  { method: 'get', path: '/api/v1/patients/:patientId/timeline', allow: ['clinician', 'records'] },
+  { method: 'get', path: '/api/v1/patients/:patientId/summary', allow: ['clinician', 'records'] },
+  { method: 'get', path: '/api/v1/coding-reviews', allow: ['clinician'] },
+  { method: 'post', path: '/api/v1/coding-reviews/:conditionId/acknowledge', allow: ['clinician'] },
 ];
 
 const ABSENT_ID = '00000000-0000-4000-8000-000000000000';

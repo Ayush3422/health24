@@ -298,8 +298,13 @@ export type ConsentStatus = (typeof CONSENT_STATUSES)[number];
  * Until patients can grant consent themselves (SP5), a staff member attests
  * that the patient agreed in person: on a signed form, or verbally in front of
  * a named witness. SP5 adds patient-granted methods to this list.
+ *
+ * `break_glass` is not consent at all: it is emergency access a clinician
+ * takes without it, with a typed reason, for a few hours, reviewed afterwards.
+ * It is recorded as an artefact so that exactly the same database rules decide
+ * what it reveals.
  */
-export const CONSENT_CAPTURE_METHODS = ['signed_form', 'verbal_witnessed'] as const;
+export const CONSENT_CAPTURE_METHODS = ['signed_form', 'verbal_witnessed', 'break_glass'] as const;
 export type ConsentCaptureMethod = (typeof CONSENT_CAPTURE_METHODS)[number];
 
 /**
@@ -311,3 +316,7 @@ export type ConsentCaptureMethod = (typeof CONSENT_CAPTURE_METHODS)[number];
  */
 export const ENTRY_SOURCES = ['direct', 'transcribed'] as const;
 export type EntrySource = (typeof ENTRY_SOURCES)[number];
+
+/** A hospital's review of an emergency access, after the event. */
+export const BREAK_GLASS_REVIEW_OUTCOMES = ['justified', 'unjustified'] as const;
+export type BreakGlassReviewOutcome = (typeof BREAK_GLASS_REVIEW_OUTCOMES)[number];

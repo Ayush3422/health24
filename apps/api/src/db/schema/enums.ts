@@ -5,6 +5,7 @@ import {
   ALLERGY_CLINICAL_STATUSES,
   ALLERGY_CRITICALITIES,
   BLOOD_GROUPS,
+  BREAK_GLASS_REVIEW_OUTCOMES,
   CLINICAL_DATA_CATEGORIES,
   CODE_SYSTEM_STATUSES,
   CODING_ROLES,
@@ -131,3 +132,7 @@ export const consentCaptureMethodEnum = pgEnum(
   tuple(CONSENT_CAPTURE_METHODS),
 );
 export const entrySourceEnum = pgEnum('entry_source', tuple(ENTRY_SOURCES));
+export const breakGlassReviewOutcomeEnum = pgEnum(
+  'break_glass_review_outcome',
+  tuple(BREAK_GLASS_REVIEW_OUTCOMES),
+);

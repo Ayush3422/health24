@@ -3,8 +3,11 @@ import {
   ALLERGY_CATEGORIES,
   ALLERGY_CLINICAL_STATUSES,
   ALLERGY_CRITICALITIES,
+  BREAK_GLASS_REVIEW_OUTCOMES,
+  CLINICAL_DATA_CATEGORIES,
   CONDITION_CLINICAL_STATUSES,
   CONDITION_VERIFICATION_STATUSES,
+  CONSENT_CAPTURE_METHODS,
   DURATION_UNITS,
   ENCOUNTER_CLASSES,
   ENCOUNTER_STATUSES,
@@ -17,7 +20,12 @@ import {
   VERSION_STATUSES,
 } from '../enums.js';
 import { paginationSchema, uuidSchema } from '../primitives.js';
-import { codingSchema, conceptCodeSchema, terminologyKeySchema } from './terminology.js';
+import {
+  autoCodeResultSchema,
+  codingSchema,
+  conceptCodeSchema,
+  terminologyKeySchema,
+} from './terminology.js';
 
 /**
  * The clinical record's API contracts.
@@ -765,3 +773,203 @@ export const versionHistoryEntrySchema = z.object({
   statusReason: z.string().nullable(),
 });
 export type VersionHistoryEntry = z.infer<typeof versionHistoryEntrySchema>;
+
+// ---------------------------------------------------------------------------
+// Consent (Decision A1) and emergency access
+// ---------------------------------------------------------------------------
+
+/**
+ * Recording a patient's consent for this hospital to see their history from
+ * other hospitals. Asked of the patient in person, at the desk.
+ */
+export const recordConsentSchema = z
+  .object({
+    dataCategories: z
+      .array(z.enum(CLINICAL_DATA_CATEGORIES))
+      .min(1, 'Choose at least one kind of record')
+      .refine((values) => new Set(values).size === values.length, {
+        message: 'Each kind of record once',
+      }),
+    /** The clinical dates covered, inclusive. Left out, all dates. */
+    dateRangeFrom: clinicalDateSchema.optional(),
+    dateRangeTo: clinicalDateSchema.optional(),
+    /** Consent lapses on its own; a year at most, then the patient is asked again. */
+    validForDays: z.number().int().min(1).max(365),
+    captureMethod: z.enum(['signed_form', 'verbal_witnessed']),
+    witnessName: z.string().trim().min(2).max(120).optional(),
+  })
+  .refine((value) => value.captureMethod !== 'verbal_witnessed' || Boolean(value.witnessName), {
+    message: 'Name the witness to verbal consent',
+    path: ['witnessName'],
+  })
+  .refine(
+    (value) =>
+      !value.dateRangeFrom || !value.dateRangeTo || value.dateRangeFrom <= value.dateRangeTo,
+    { message: 'The date range ends before it starts', path: ['dateRangeTo'] },
+  );
+export type RecordConsentInput = z.infer<typeof recordConsentSchema>;
+
+export const revokeConsentSchema = z.object({ reason: clinicalReasonSchema });
+export type RevokeConsentInput = z.infer<typeof revokeConsentSchema>;
+
+/**
+ * Emergency access. The reason is read by the hospital's reviewers and, from
+ * SP5, by the patient — so it must say why, not just that.
+ */
+export const breakGlassSchema = z.object({
+  reason: z.string().trim().min(10, 'Say why emergency access is needed').max(1000),
+  hours: z.number().int().min(1).max(24).default(4),
+});
+export type BreakGlassInput = z.infer<typeof breakGlassSchema>;
+
+export const reviewBreakGlassSchema = z.object({
+  outcome: z.enum(BREAK_GLASS_REVIEW_OUTCOMES),
+  note: clinicalReasonSchema,
+});
+export type ReviewBreakGlassInput = z.infer<typeof reviewBreakGlassSchema>;
+
+export const CONSENT_EFFECTIVE_STATUSES = ['active', 'expired', 'revoked'] as const;
+export type ConsentEffectiveStatus = (typeof CONSENT_EFFECTIVE_STATUSES)[number];
+
+export const consentSummarySchema = z.object({
+  id: uuidSchema,
+  patientId: uuidSchema,
+  dataCategories: z.array(z.enum(CLINICAL_DATA_CATEGORIES)),
+  dateRangeFrom: z.string().nullable(),
+  dateRangeTo: z.string().nullable(),
+  grantedAt: z.string(),
+  expiresAt: z.string(),
+  /** Expiry is worked out from the date, so an expired consent says so without anyone acting. */
+  status: z.enum(CONSENT_EFFECTIVE_STATUSES),
+  captureMethod: z.enum(CONSENT_CAPTURE_METHODS),
+  witnessName: z.string().nullable(),
+  emergencyReason: z.string().nullable(),
+  recordedBy: staffRefSchema,
+  revokedAt: z.string().nullable(),
+  revokedBy: staffRefSchema.nullable(),
+  revocationReason: z.string().nullable(),
+  review: z
+    .object({
+      outcome: z.enum(BREAK_GLASS_REVIEW_OUTCOMES),
+      note: z.string(),
+      reviewedAt: z.string(),
+      reviewedBy: staffRefSchema,
+    })
+    .nullable(),
+  /** Null until the patient can be told, which the portal (SP5) will do. */
+  patientNotifiedAt: z.string().nullable(),
+});
+export type ConsentSummary = z.infer<typeof consentSummarySchema>;
+
+/** An emergency access awaiting review. Identifies the patient by MRN only. */
+export const breakGlassReviewItemSchema = z.object({
+  id: uuidSchema,
+  mrn: z.string().nullable(),
+  reason: z.string(),
+  grantedAt: z.string(),
+  expiresAt: z.string(),
+  status: z.enum(CONSENT_EFFECTIVE_STATUSES),
+  clinician: staffRefSchema,
+  patientNotified: z.boolean(),
+});
+export type BreakGlassReviewItem = z.infer<typeof breakGlassReviewItemSchema>;
+
+// ---------------------------------------------------------------------------
+// Timeline and summary
+// ---------------------------------------------------------------------------
+
+export const TIMELINE_KINDS = [
+  'encounter',
+  'diagnosis',
+  'prescription',
+  'allergy',
+  'vitals',
+  'note',
+  'procedure',
+] as const;
+export type TimelineKind = (typeof TIMELINE_KINDS)[number];
+
+export const timelineQuerySchema = z.object({
+  /** Comma-separated data categories. Left out, every category. */
+  categories: z.preprocess(
+    (value) => (typeof value === 'string' && value ? value.split(',') : undefined),
+    z.array(z.enum(CLINICAL_DATA_CATEGORIES)).optional(),
+  ),
+  /** `own`: only this hospital's records. `all`: every record the hospital may see. */
+  scope: z.enum(['all', 'own']).default('all'),
+  /** Entries strictly before this moment, for loading older ones. */
+  before: z.string().datetime({ offset: true }).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+});
+export type TimelineQuery = z.infer<typeof timelineQuerySchema>;
+
+export const timelineItemSchema = z.object({
+  kind: z.enum(TIMELINE_KINDS),
+  id: uuidSchema,
+  at: z.string(),
+  category: z.enum(CLINICAL_DATA_CATEGORIES),
+  hospital: hospitalRefSchema,
+  encounterId: uuidSchema.nullable(),
+  /** Null where the encounter it belongs to is not shared with the caller. */
+  systemOfMedicine: z.enum(SYSTEMS_OF_MEDICINE).nullable(),
+  title: z.string(),
+  detail: z.string().nullable(),
+  clinician: staffRefSchema,
+  entry: entryRefSchema,
+  corrected: z.boolean(),
+});
+export type TimelineItem = z.infer<typeof timelineItemSchema>;
+
+export const timelinePageSchema = z.object({
+  items: z.array(timelineItemSchema),
+  /** Pass as `before` to load older entries; null when there are none. */
+  nextBefore: z.string().nullable(),
+  /** The categories another hospital shares with the caller, for saying what may be missing. */
+  sharedCategories: z.array(z.enum(CLINICAL_DATA_CATEGORIES)),
+});
+export type TimelinePage = z.infer<typeof timelinePageSchema>;
+
+/** The thirty-second view of a patient. */
+export const patientSummaryCardSchema = z.object({
+  allergies: allergyBannerSchema,
+  problems: problemListSchema,
+  medications: currentMedicationsSchema,
+  latestVitals: vitalSetSchema.nullable(),
+  recentEncounters: z.array(encounterSummarySchema),
+  sharing: z.object({
+    /** Categories other hospitals share with this one, under active consent. */
+    categories: z.array(z.enum(CLINICAL_DATA_CATEGORIES)),
+    /** When the soonest of those consents lapses. */
+    expiresAt: z.string().nullable(),
+    /** Set while this hospital holds emergency access to the patient. */
+    breakGlassUntil: z.string().nullable(),
+  }),
+});
+export type PatientSummaryCard = z.infer<typeof patientSummaryCardSchema>;
+
+// ---------------------------------------------------------------------------
+// Coding review
+// ---------------------------------------------------------------------------
+
+/**
+ * A diagnosis whose attached translation or advisory code rests on a mapping
+ * that has since been retired or rejected. The diagnosis still shows what was
+ * attached; a clinician decides whether to keep it or correct the diagnosis.
+ */
+export const codingReviewItemSchema = z.object({
+  conditionId: uuidSchema,
+  encounterId: uuidSchema,
+  patient: z.object({ id: uuidSchema, name: z.string().nullable(), mrn: z.string().nullable() }),
+  recordedAt: z.string(),
+  primary: codingSchema,
+  flagged: codingSchema.extend({ mappingStatus: z.string() }),
+  /** What auto-coding would attach to the same term today, when the term still resolves. */
+  suggestion: autoCodeResultSchema.nullable(),
+});
+export type CodingReviewItem = z.infer<typeof codingReviewItemSchema>;
+
+export const acknowledgeCodingReviewSchema = z.object({
+  conceptMapElementId: uuidSchema,
+  note: clinicalReasonSchema,
+});
+export type AcknowledgeCodingReviewInput = z.infer<typeof acknowledgeCodingReviewSchema>;

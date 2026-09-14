@@ -202,11 +202,11 @@ The clinician searches in their own vocabulary using the SP2 terminology search,
 
 ### Phase 8 — Timeline and consent
 
-- [ ] **T17** `TimelineService`: one stream, consent-filtered
-- [ ] **T18** Patient summary card
-- [ ] **T19** Staff-recorded consent: record, expire, revoke (Decision A1)
-- [ ] **T20** Break-glass access with reason, notification flag and review queue
-- [ ] **T21** Retired-mapping flagging job for existing diagnoses
+- [x] **T17** `TimelineService`: one stream, consent-filtered — a query over the clinical tables under row-level security, not a projection; paged by a microsecond cursor; each shared category read is audited with the consent it rested on
+- [x] **T18** Patient summary card — composed from the same services as the full lists, plus what is shared and until when
+- [x] **T19** Staff-recorded consent: record, expire, revoke (Decision A1) — front desk, records staff and clinicians; a year at most; expiry computed from the date, never a job
+- [x] **T20** Break-glass access with reason, notification flag and review queue — a `break_glass` consent artefact (reason required, 24 hours at most, both enforced by the database), so row-level security needed no second path. It opens the record to the hospital for its duration, not to the one clinician: the database knows the hospital, not the staff member, and every read during it is audited by name. Hospital admins review it by MRN alone; `patient_notified_at` is set by the portal in SP5
+- [x] **T21** Retired-mapping flagging for existing diagnoses — a query rather than a job, so it cannot fall behind: `GET /coding-reviews` lists current diagnoses whose attached code rests on a retired or rejected mapping, with today's suggestion; a clinician keeps the code with a note, or corrects the diagnosis
 - [ ] **T31b** Timeline and summary card screens
 - [ ] **T32** Consent recording at the front desk
 

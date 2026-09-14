@@ -56,6 +56,16 @@ export const PERMISSIONS = [
   'clinical:write',
   /** Enter clinical data on behalf of a named clinician of the same hospital. */
   'clinical:transcribe',
+
+  // Consent
+  /** See the consents this hospital holds for a patient. */
+  'consent:read',
+  /** Record a patient's consent, given in person, and revoke it. */
+  'consent:record',
+  /** Take emergency access to a patient's history without consent. */
+  'consent:break_glass',
+  /** Review emergency accesses taken at this hospital. */
+  'consent:review',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -98,6 +108,9 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'audit:read:own_hospital',
     'merge:read',
     'merge:resolve',
+    // Reviewing emergency access is oversight, not clinical reading: the queue
+    // shows the MRN, the reason and the clinician, never the record itself.
+    'consent:review',
   ],
 
   /**
@@ -116,6 +129,9 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'terminology:read',
     'clinical:read',
     'clinical:write',
+    'consent:read',
+    'consent:record',
+    'consent:break_glass',
   ],
 
   front_desk: [
@@ -128,6 +144,8 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'patient:lookup_global',
     'merge:read',
     'merge:resolve',
+    'consent:read',
+    'consent:record',
   ],
 
   /**
@@ -149,6 +167,8 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'terminology:read',
     'clinical:read',
     'clinical:transcribe',
+    'consent:read',
+    'consent:record',
   ],
 };
 

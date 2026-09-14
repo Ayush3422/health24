@@ -24,6 +24,7 @@ import {
   allergyCategoryEnum,
   allergyClinicalStatusEnum,
   allergyCriticalityEnum,
+  breakGlassReviewOutcomeEnum,
   clinicalDataCategoryEnum,
   codingRoleEnum,
   conditionClinicalStatusEnum,
@@ -639,6 +640,16 @@ export const consentArtefacts = pgTable(
     revokedByStaffId: uuid('revoked_by_staff_id').references(() => staffUsers.id),
     revocationReason: text('revocation_reason'),
 
+    /** Break-glass only: why emergency access was needed. */
+    emergencyReason: text('emergency_reason'),
+    /** Break-glass only: the hospital's later review of whether it was justified. */
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    reviewedByStaffId: uuid('reviewed_by_staff_id').references(() => staffUsers.id),
+    reviewOutcome: breakGlassReviewOutcomeEnum('review_outcome'),
+    reviewNote: text('review_note'),
+    /** When the patient was told of the access. Null until the portal can tell them (SP5). */
+    patientNotifiedAt: timestamp('patient_notified_at', { withTimezone: true }),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -679,5 +690,39 @@ export const patientMergeAliases = pgTable(
   (table) => [
     primaryKey({ columns: [table.mergedPatientId] }),
     index('patient_merge_alias_surviving_idx').on(table.survivingPatientId),
+  ],
+);
+
+/**
+ * A clinician's decision to keep a diagnosis's attached code after the mapping
+ * it rested on was retired or rejected. Without one, the diagnosis stays in
+ * the coding review queue. Correcting the diagnosis instead needs no
+ * acknowledgement: the superseded version simply leaves the queue.
+ */
+export const codingReviewAcknowledgements = pgTable(
+  'coding_review_acknowledgement',
+  {
+    id: primaryId(),
+    conditionId: uuid('condition_id')
+      .notNull()
+      .references(() => conditions.id, { onDelete: 'restrict' }),
+    hospitalId: uuid('hospital_id')
+      .notNull()
+      .references(() => hospitals.id, { onDelete: 'restrict' }),
+    conceptMapElementId: uuid('concept_map_element_id')
+      .notNull()
+      .references(() => conceptMapElements.id, { onDelete: 'restrict' }),
+    note: text('note').notNull(),
+    acknowledgedByStaffId: uuid('acknowledged_by_staff_id').notNull(),
+    acknowledgedAt: timestamp('acknowledged_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('coding_review_acknowledgement_once').on(table.conditionId, table.conceptMapElementId),
+    foreignKey({
+      name: 'coding_review_acknowledgement_by_same_hospital_fk',
+      columns: [table.acknowledgedByStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    index('coding_review_acknowledgement_hospital_idx').on(table.hospitalId),
   ],
 );

@@ -120,6 +120,20 @@
       "when": 1789305308732,
       "tag": "0016_clinical_note_sections",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1789402579373,
+      "tag": "0017_consent_break_glass_coding_review",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1789402614835,
+      "tag": "0018_consent_break_glass_rules",
+      "breakpoints": true
     }
   ]
 }
