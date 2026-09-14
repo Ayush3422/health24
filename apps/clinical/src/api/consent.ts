@@ -31,6 +31,7 @@ export const CATEGORY_LABELS: Record<ClinicalDataCategory, string> = {
   observations: 'Vitals',
   notes: 'Clinical notes',
   procedures: 'Procedures and therapies',
+  documents: 'Documents and reports',
 };
 
 export const TIMELINE_KIND_LABELS: Record<TimelineKind, string> = {

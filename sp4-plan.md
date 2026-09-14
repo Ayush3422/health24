@@ -179,8 +179,8 @@ Records staff open an import batch for a patient and upload the scanned folder: 
 
 ### Phase 2 — Document model
 
-- [ ] **T4** Migrations: `document_reference`, `document_file`, `import_batch`, the `documents` consent category, row-level security, consent, immutability triggers and grants
-- [ ] **T5** Permissions for uploading documents and entering results (Decision H); authorisation and row-level security suites
+- [x] **T4** Migrations: `document_reference`, `document_file`, `import_batch`, the `documents` consent category, row-level security, consent, immutability triggers and grants — migrations 0021 and 0022. Documents are read by their own hospital or under consent for `documents` on the report date (through `app.consent_permits_category`, because a newly added enum value cannot be named in the migration that adds it); files are visible exactly when their document is; import batches are never shared. The database also refuses: an admin as uploader, an ordering clinician who is not a clinician or is given both by account and by name, a storage key not naming the row's own hospital and patient, file types other than PDF, JPEG and PNG, files over 25 MB, and any change beyond availability, scan results and version status
+- [x] **T5** Permissions for uploading documents and entering results (Decision H); authorisation and row-level security suites — `documents:upload` and `results:enter` for the front desk, records staff and clinicians; reading reports stays behind `clinical:read`. `documents-rls.e2e-spec.ts` (18). No routes yet, so the authorisation suite gains its entries with the API in Phase 3. The consent screen offers the new category
 
 ### Phase 3 — Documents API
 

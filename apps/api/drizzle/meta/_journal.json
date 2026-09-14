@@ -148,6 +148,20 @@
       "when": 1789406503306,
       "tag": "0020_patient_identity_fast_path",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1789410422757,
+      "tag": "0021_documents",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1789410425617,
+      "tag": "0022_documents_rules",
+      "breakpoints": true
     }
   ]
 }

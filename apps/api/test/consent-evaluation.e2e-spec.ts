@@ -31,6 +31,7 @@ describe('consent evaluation', () => {
     'observations',
     'notes',
     'procedures',
+    'documents',
   ];
 
   class Rollback {
@@ -196,6 +197,7 @@ describe('consent evaluation', () => {
       observations: false,
       notes: false,
       procedures: false,
+      documents: false,
     });
   });
 

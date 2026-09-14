@@ -66,6 +66,12 @@ export const PERMISSIONS = [
   'consent:break_glass',
   /** Review emergency accesses taken at this hospital. */
   'consent:review',
+
+  // Documents and results (SP4)
+  /** Upload reports and scans, and see the list of what was uploaded. Opening one needs `clinical:read`. */
+  'documents:upload',
+  /** Type lab results from a report against the curated panels. */
+  'results:enter',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -132,6 +138,8 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'consent:read',
     'consent:record',
     'consent:break_glass',
+    'documents:upload',
+    'results:enter',
   ],
 
   front_desk: [
@@ -146,6 +154,10 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'merge:resolve',
     'consent:read',
     'consent:record',
+    // Uploads and types results from the report in hand; does not open reports
+    // afterwards, which is reading clinical records (Decision H1).
+    'documents:upload',
+    'results:enter',
   ],
 
   /**
@@ -169,6 +181,8 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'clinical:transcribe',
     'consent:read',
     'consent:record',
+    'documents:upload',
+    'results:enter',
   ],
 };
 

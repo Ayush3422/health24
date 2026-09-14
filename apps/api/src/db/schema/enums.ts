@@ -14,6 +14,10 @@ import {
   CONSENT_CAPTURE_METHODS,
   CONSENT_PURPOSES,
   CONSENT_STATUSES,
+  DOCUMENT_AVAILABILITY,
+  DOCUMENT_TYPES,
+  FILE_SCAN_STATUSES,
+  IMPORT_BATCH_STATUSES,
   DESIGNATION_USES,
   DURATION_UNITS,
   ENCOUNTER_CLASSES,
@@ -136,3 +140,13 @@ export const breakGlassReviewOutcomeEnum = pgEnum(
   'break_glass_review_outcome',
   tuple(BREAK_GLASS_REVIEW_OUTCOMES),
 );
+
+// Documents (SP4)
+
+export const documentTypeEnum = pgEnum('document_type', tuple(DOCUMENT_TYPES));
+export const documentAvailabilityEnum = pgEnum(
+  'document_availability',
+  tuple(DOCUMENT_AVAILABILITY),
+);
+export const fileScanStatusEnum = pgEnum('file_scan_status', tuple(FILE_SCAN_STATUSES));
+export const importBatchStatusEnum = pgEnum('import_batch_status', tuple(IMPORT_BATCH_STATUSES));

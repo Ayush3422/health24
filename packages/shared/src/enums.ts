@@ -281,6 +281,8 @@ export const CLINICAL_DATA_CATEGORIES = [
   'observations',
   'notes',
   'procedures',
+  /** Scanned reports and other files (SP4). Typed lab results stay under observations. */
+  'documents',
 ] as const;
 export type ClinicalDataCategory = (typeof CLINICAL_DATA_CATEGORIES)[number];
 
@@ -320,3 +322,45 @@ export type EntrySource = (typeof ENTRY_SOURCES)[number];
 /** A hospital's review of an emergency access, after the event. */
 export const BREAK_GLASS_REVIEW_OUTCOMES = ['justified', 'unjustified'] as const;
 export type BreakGlassReviewOutcome = (typeof BREAK_GLASS_REVIEW_OUTCOMES)[number];
+
+// ---------------------------------------------------------------------------
+// Documents (SP4)
+// ---------------------------------------------------------------------------
+
+/** What a document is. Bills are files only; billing as data is SP6 (sp4-plan.md, Decision F1). */
+export const DOCUMENT_TYPES = [
+  'lab_report',
+  'radiology',
+  'discharge_summary',
+  'prescription',
+  'operative_note',
+  'referral',
+  'bill_or_receipt',
+  'other',
+] as const;
+export type DocumentType = (typeof DOCUMENT_TYPES)[number];
+
+/**
+ * Whether a document may be served. Every one starts pending a virus scan and
+ * becomes available only when all its files scan clean.
+ */
+export const DOCUMENT_AVAILABILITY = [
+  'pending_scan',
+  'available',
+  'quarantined',
+  'abandoned',
+] as const;
+export type DocumentAvailability = (typeof DOCUMENT_AVAILABILITY)[number];
+
+export const FILE_SCAN_STATUSES = ['pending', 'clean', 'infected'] as const;
+export type FileScanStatus = (typeof FILE_SCAN_STATUSES)[number];
+
+/** A legacy paper folder being classified into documents (Decision E1). */
+export const IMPORT_BATCH_STATUSES = ['open', 'classifying', 'done'] as const;
+export type ImportBatchStatus = (typeof IMPORT_BATCH_STATUSES)[number];
+
+/** File types a browser can show without help (sp4-plan.md, DF4). */
+export const DOCUMENT_MIME_TYPES = ['application/pdf', 'image/jpeg', 'image/png'] as const;
+export type DocumentMimeType = (typeof DOCUMENT_MIME_TYPES)[number];
+
+export const MAX_DOCUMENT_FILE_BYTES = 25 * 1024 * 1024;

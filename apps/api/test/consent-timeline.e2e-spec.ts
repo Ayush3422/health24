@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type postgres from 'postgres';
+import { CLINICAL_DATA_CATEGORIES } from '@health24/shared';
 import {
   createTestApp,
   loadDemoTerminology,
@@ -412,7 +413,7 @@ describe('consent, emergency access, timeline and coding review', () => {
         review: null,
         patientNotifiedAt: null,
       });
-      expect(response.body.dataCategories).toHaveLength(7);
+      expect(response.body.dataCategories).toHaveLength(CLINICAL_DATA_CATEGORIES.length);
 
       const hours =
         (Date.parse(response.body.expiresAt) - Date.parse(response.body.grantedAt)) / 3_600_000;

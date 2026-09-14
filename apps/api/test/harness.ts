@@ -126,6 +126,9 @@ export async function resetDatabase(): Promise<void> {
 
     await client.unsafe(`
       TRUNCATE TABLE
+        "document_file",
+        "document_reference",
+        "import_batch",
         "coding_review_acknowledgement",
         "condition_coding",
         "condition",
