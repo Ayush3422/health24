@@ -30,6 +30,8 @@ export function AppShell(): JSX.Element {
   const canSeeStaff = hasPermission(staff.role, 'staff:read');
   const canReadTerminology = hasPermission(staff.role, 'terminology:read');
   const canCurate = hasPermission(staff.role, 'terminology:curate');
+  const canReviewCoding = hasPermission(staff.role, 'clinical:write');
+  const canReviewEmergencyAccess = hasPermission(staff.role, 'consent:review');
 
   return (
     <div className="shell">
@@ -60,6 +62,16 @@ export function AppShell(): JSX.Element {
           {canRegister ? (
             <NavLink to="/patients/new" className={navClass}>
               Register
+            </NavLink>
+          ) : null}
+          {canReviewCoding ? (
+            <NavLink to="/coding-reviews" className={navClass}>
+              Coding review
+            </NavLink>
+          ) : null}
+          {canReviewEmergencyAccess ? (
+            <NavLink to="/break-glass/reviews" className={navClass}>
+              Emergency access
             </NavLink>
           ) : null}
           {canSeeMergeQueue ? (

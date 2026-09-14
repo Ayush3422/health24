@@ -45,6 +45,9 @@ function readingsLine(set: VitalSet): string {
   return parts.join(' · ');
 }
 
+/** The same line, for the patient summary card. */
+export const describeVitalSet = readingsLine;
+
 export function VitalsList({
   sets,
   emptyText,

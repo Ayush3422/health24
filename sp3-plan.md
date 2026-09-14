@@ -207,8 +207,8 @@ The clinician searches in their own vocabulary using the SP2 terminology search,
 - [x] **T19** Staff-recorded consent: record, expire, revoke (Decision A1) — front desk, records staff and clinicians; a year at most; expiry computed from the date, never a job
 - [x] **T20** Break-glass access with reason, notification flag and review queue — a `break_glass` consent artefact (reason required, 24 hours at most, both enforced by the database), so row-level security needed no second path. It opens the record to the hospital for its duration, not to the one clinician: the database knows the hospital, not the staff member, and every read during it is audited by name. Hospital admins review it by MRN alone; `patient_notified_at` is set by the portal in SP5
 - [x] **T21** Retired-mapping flagging for existing diagnoses — a query rather than a job, so it cannot fall behind: `GET /coding-reviews` lists current diagnoses whose attached code rests on a retired or rejected mapping, with today's suggestion; a clinician keeps the code with a note, or corrects the diagnosis
-- [ ] **T31b** Timeline and summary card screens
-- [ ] **T32** Consent recording at the front desk
+- [x] **T31b** Timeline and summary card screens — on the patient record: the summary card under the allergy banner, the timeline with kind and hospital filters; the coding review queue for clinicians and the emergency access review queue for hospital admins
+- [x] **T32** Consent recording at the front desk — records to share, validity, signed form or witnessed verbal consent, and the patient's agreement confirmed; revoke with a reason; emergency access for clinicians
 
 ### Phase 9 — Offline
 

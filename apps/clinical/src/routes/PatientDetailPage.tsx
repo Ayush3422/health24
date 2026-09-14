@@ -5,6 +5,7 @@ import { ApiError } from '../api/client';
 import { usePatient, useUpdatePatient } from '../api/hooks';
 import { useAuth } from '../auth/AuthProvider';
 import { PatientClinicalRecord } from '../clinical/PatientClinicalRecord';
+import { PatientSharing } from '../clinical/Sharing';
 
 export function PatientDetailPage(): JSX.Element {
   const { id } = useParams<{ id: string }>();
@@ -150,6 +151,8 @@ export function PatientDetailPage(): JSX.Element {
           )}
         </section>
       ) : null}
+
+      <PatientSharing patientId={record.id} />
 
       <PatientClinicalRecord patientId={record.id} />
 

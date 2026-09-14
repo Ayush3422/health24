@@ -3,6 +3,8 @@ import { hasPermission, type StaffRole } from '@health24/shared';
 import { useAuth } from './auth/AuthProvider';
 import { LoginPage } from './auth/LoginPage';
 import { AppShell } from './routes/AppShell';
+import { BreakGlassReviewPage } from './routes/BreakGlassReviewPage';
+import { CodingReviewPage } from './routes/CodingReviewPage';
 import { CurationPage } from './routes/CurationPage';
 import { EncounterPage } from './routes/EncounterPage';
 import { MergeQueuePage } from './routes/MergeQueuePage';
@@ -52,6 +54,8 @@ export function App(): JSX.Element {
         <Route path="/encounters" element={<WorklistPage />} />
         <Route path="/encounters/:id" element={<EncounterPage />} />
         <Route path="/merge-queue" element={<MergeQueuePage />} />
+        <Route path="/coding-reviews" element={<CodingReviewPage />} />
+        <Route path="/break-glass/reviews" element={<BreakGlassReviewPage />} />
         <Route path="/staff" element={<StaffPage />} />
         <Route path="/terminology" element={<TerminologyPage />} />
         <Route path="/terminology/review" element={<CurationPage />} />

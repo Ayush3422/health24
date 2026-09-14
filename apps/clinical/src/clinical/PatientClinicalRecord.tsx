@@ -24,6 +24,7 @@ import { formatDate, humanise, optionalText } from './format';
 import { MedicationList } from './Medications';
 import { PatientAllergies, PatientProcedures, PatientVitals } from './PatientDocumentation';
 import { SharingNote, SystemTag } from './Provenance';
+import { PatientSummaryCard, PatientTimeline } from './Timeline';
 
 /**
  * A patient's clinical record, on their registry page: allergies, active
@@ -43,6 +44,8 @@ export function PatientClinicalRecord({ patientId }: { patientId: string }): JSX
   return (
     <div className="clinical-record">
       <AllergyBanner patientId={patientId} />
+
+      <PatientSummaryCard patientId={patientId} />
 
       {canWrite ? (
         addingAllergy ? (
@@ -69,6 +72,8 @@ export function PatientClinicalRecord({ patientId }: { patientId: string }): JSX
       </div>
 
       <PatientProcedures patientId={patientId} />
+
+      <PatientTimeline patientId={patientId} />
 
       <EncounterHistory patientId={patientId} />
     </div>
