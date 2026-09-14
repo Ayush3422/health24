@@ -10,6 +10,8 @@ import { HospitalsModule } from './modules/hospitals/hospitals.module';
 import { PatientsModule } from './modules/patients/patients.module';
 import { TerminologyModule } from './modules/terminology/terminology.module';
 import { ClinicalModule } from './modules/clinical/clinical.module';
+import { ScanningModule } from './modules/scanning/scanning.module';
+import { StorageModule } from './modules/storage/storage.module';
 import { StaffModule } from './modules/staff/staff.module';
 import { AuthGuard } from './common/guards/auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -32,6 +34,9 @@ import { HealthController } from './health.controller';
     PatientsModule,
     TerminologyModule,
     ClinicalModule,
+    // Documents (SP4). Neither connects until used: the API starts without them.
+    StorageModule,
+    ScanningModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -29,5 +29,41 @@ services:
       timeout: 3s
       retries: 10
 
+  # S3-compatible object storage for documents (SP4). AWS S3 in Mumbai takes
+  # its place in production. It checks request signatures as S3 does, so
+  # presigned URLs, their expiry and their bound headers are tested for real.
+  storage:
+    image: versity/versitygw:v1.8.0
+    container_name: health24-storage
+    restart: unless-stopped
+    command: ['posix', '/data']
+    environment:
+      ROOT_ACCESS_KEY_ID: health24_local
+      ROOT_SECRET_ACCESS_KEY: health24_local_storage_secret
+      VGW_REGION: ap-south-1
+    ports:
+      - '7070:7070'
+    volumes:
+      - storage_data:/data
+
+  # Virus scanning for uploaded documents (SP4). The first start downloads the
+  # signature database, which takes a few minutes; the health check waits for it.
+  clamav:
+    image: clamav/clamav:1.4
+    container_name: health24-clamav
+    restart: unless-stopped
+    ports:
+      - '3310:3310'
+    volumes:
+      - clamav_data:/var/lib/clamav
+    healthcheck:
+      test: ['CMD', 'clamdcheck.sh']
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 300s
+
 volumes:
   postgres_data:
+  clamav_data:
+  storage_data:

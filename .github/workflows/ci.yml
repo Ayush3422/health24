@@ -30,6 +30,17 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+      # Queues for background work, such as scanning uploads.
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
     env:
       NODE_ENV: test
       # The application connects as an unprivileged role so that row-level
@@ -45,9 +56,28 @@ jobs:
       # Deterministic in CI so a failure is reproducible. Never a real key.
       TOTP_ENCRYPTION_KEY: aGVhbHRoMjQtY2ktb25seS1rZXktbm90LWEtc2VjcmU
       LOG_LEVEL: warn
+      REDIS_URL: redis://localhost:6380
+      # Document storage and scanning (SP4), started as containers below.
+      STORAGE_ENDPOINT: http://localhost:7070
+      STORAGE_REGION: ap-south-1
+      STORAGE_BUCKET: health24-documents
+      STORAGE_ACCESS_KEY_ID: health24_ci
+      STORAGE_SECRET_ACCESS_KEY: health24_ci_storage_secret
+      CLAMAV_HOST: localhost
+      CLAMAV_PORT: 3310
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Start document storage and virus scanning
+        # Started first, so ClamAV downloads its signatures while dependencies
+        # install; the scanning suite waits for it. Not service containers:
+        # the storage server needs a command, which services cannot be given.
+        run: |
+          docker run -d --name storage -p 7070:7070 -v storage_data:/data \
+            -e ROOT_ACCESS_KEY_ID=health24_ci -e ROOT_SECRET_ACCESS_KEY=health24_ci_storage_secret \
+            -e VGW_REGION=ap-south-1 versity/versitygw:v1.8.0 posix /data
+          docker run -d --name clamav -p 3310:3310 clamav/clamav:1.4
 
       - uses: pnpm/action-setup@v4
         with:

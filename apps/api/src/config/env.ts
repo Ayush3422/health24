@@ -16,6 +16,7 @@ const envSchema = z
     DATABASE_URL: z.string().url(),
     /** The owner connection. Migrations and seeding only; never the running API. */
     DATABASE_ADMIN_URL: z.string().url().optional(),
+    /** Queues for background work: scanning uploads (SP4). */
     REDIS_URL: z.string().url().optional(),
 
     JWT_ACCESS_SECRET: z.string().min(16, 'JWT_ACCESS_SECRET must be at least 16 characters'),
@@ -40,8 +41,43 @@ const envSchema = z
      * production is refused at startup.
      */
     ALLOW_DEMO_TERMINOLOGY: z.enum(['true', 'false']).optional(),
+
+    /**
+     * Object storage for documents (SP4). AWS S3 in Mumbai in production; any
+     * S3-compatible server locally, reached through STORAGE_ENDPOINT.
+     */
+    STORAGE_BUCKET: z.string().min(3).default('health24-documents'),
+    STORAGE_REGION: z.string().default('ap-south-1'),
+    /** Only for a local S3-compatible server. Production uses AWS's own endpoint. */
+    STORAGE_ENDPOINT: z.string().url().optional(),
+    /** Local only: in production the task's IAM role supplies credentials. */
+    STORAGE_ACCESS_KEY_ID: z.string().optional(),
+    STORAGE_SECRET_ACCESS_KEY: z.string().optional(),
+
+    /** clamd, which scans every upload before it can be served. */
+    CLAMAV_HOST: z.string().default('localhost'),
+    CLAMAV_PORT: z.coerce.number().int().min(1).max(65535).default(3310),
+    SCAN_QUEUE_NAME: z.string().optional(),
   })
   .superRefine((env, ctx) => {
+    // Data residency is a legal requirement: patient documents stay in India.
+    if (env.NODE_ENV === 'production' && env.STORAGE_REGION !== 'ap-south-1') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['STORAGE_REGION'],
+        message:
+          'Refusing to start in production with document storage outside ap-south-1 (Mumbai)',
+      });
+    }
+
+    if (env.NODE_ENV === 'production' && env.STORAGE_ENDPOINT?.startsWith('http:')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['STORAGE_ENDPOINT'],
+        message: 'Refusing to start in production with document storage over plain HTTP',
+      });
+    }
+
     // Development placeholders must never reach a deployed environment.
     if (env.NODE_ENV === 'production' && env.JWT_ACCESS_SECRET.startsWith('dev_only')) {
       ctx.addIssue({
