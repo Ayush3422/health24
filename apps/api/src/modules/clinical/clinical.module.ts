@@ -15,6 +15,8 @@ import { DiagnosesService } from './diagnoses.service';
 import { EncountersService } from './encounters.service';
 import { NotesController } from './notes.controller';
 import { NotesService } from './notes.service';
+import { OfflineAuditController } from './offline-audit.controller';
+import { OfflineAuditService } from './offline-audit.service';
 import { PrescriptionsController } from './prescriptions.controller';
 import { PrescriptionsService } from './prescriptions.service';
 import { ProceduresController } from './procedures.controller';
@@ -41,6 +43,7 @@ import { VitalsService } from './vitals.service';
     ConsentController,
     TimelineController,
     CodingReviewController,
+    OfflineAuditController,
   ],
   providers: [
     EncountersService,
@@ -56,6 +59,7 @@ import { VitalsService } from './vitals.service';
     TimelineService,
     SummaryService,
     CodingReviewService,
+    OfflineAuditService,
   ],
 })
 export class ClinicalModule {}

@@ -134,6 +134,13 @@
       "when": 1789402614835,
       "tag": "0018_consent_break_glass_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789404439344,
+      "tag": "0019_offline_viewed_at",
+      "breakpoints": true
     }
   ]
 }

@@ -17,6 +17,8 @@ export interface AuditEntry {
   breakGlassReason?: string | null;
   /** The consent artefact a read of another hospital's record rested on. */
   consentArtefactId?: string | null;
+  /** For a view made offline and uploaded later: when the device says it happened. */
+  offlineViewedAt?: Date | null;
   meta?: Partial<RequestMeta>;
 }
 
@@ -63,6 +65,7 @@ export class AuditService {
           outcome: entry.outcome ?? 'allowed',
           breakGlassReason: entry.breakGlassReason ?? null,
           consentArtefactId: entry.consentArtefactId ?? null,
+          offlineViewedAt: entry.offlineViewedAt ?? null,
           requestId: entry.meta?.requestId ?? null,
           route: entry.meta?.route ?? null,
           ipAddress: entry.meta?.ipAddress ?? null,

@@ -212,9 +212,9 @@ The clinician searches in their own vocabulary using the SP2 terminology search,
 
 ### Phase 9 — Offline
 
-- [ ] **T22** Service worker and encrypted IndexedDB cache
-- [ ] **T23** Offline banner, disabled writes, cache revalidation
-- [ ] **T24** Queued offline audit upload
+- [x] **T22** Service worker and encrypted IndexedDB cache — responses sealed with AES-GCM under a non-extractable key held in memory only, one record id per tab so a reload replaces rather than piles up; what may be cached is defined once, in the shared `describeOfflineRead`, for the client and the server alike. The service worker serves the application shell only and never touches `/api`
+- [x] **T23** Offline banner, disabled writes, cache revalidation — outage detected from failed requests (and 502–504 from the proxy), then `/health` probed; the banner names when the shown records were saved; every control sits in a disabled fieldset and the client refuses writes. Revalidation drops the whole cache on reconnection and lets the screens refetch, so no read is ever made on the clinician's behalf. A reload while offline discards the key by design: the sign-in screen says so, keeps the refresh token, and restores the session when the connection returns. Sign-out now also clears the in-memory query cache
+- [x] **T24** Queued offline audit upload — views queued under the same key and uploaded to `POST /audit/offline-views`; the server accepts only cacheable reads of patients and encounters the hospital can see, at times the cache could have served, and stores the device's time in `offline_viewed_at` beside its own `at`
 
 ### Phase 10 — Verification
 

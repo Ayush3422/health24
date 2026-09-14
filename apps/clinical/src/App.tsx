@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { hasPermission, type StaffRole } from '@health24/shared';
 import { useAuth } from './auth/AuthProvider';
 import { LoginPage } from './auth/LoginPage';
+import { OfflineSignInNotice } from './offline/OfflineNotice';
 import { AppShell } from './routes/AppShell';
 import { BreakGlassReviewPage } from './routes/BreakGlassReviewPage';
 import { CodingReviewPage } from './routes/CodingReviewPage';
@@ -42,7 +43,12 @@ export function App(): JSX.Element {
   }
 
   if (status === 'signed-out' || !staff) {
-    return <LoginPage />;
+    return (
+      <>
+        <OfflineSignInNotice />
+        <LoginPage />
+      </>
+    );
   }
 
   return (

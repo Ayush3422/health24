@@ -50,6 +50,13 @@ export const accessLog = pgTable(
     ipAddress: text('ip_address'),
     userAgent: text('user_agent'),
 
+    /**
+     * For a view made while offline and uploaded on reconnection: when the device
+     * reports it happened. `at` stays the server's own time of receipt, so a
+     * client can add to the trail but never backdate it.
+     */
+    offlineViewedAt: timestamp('offline_viewed_at', { withTimezone: true }),
+
     at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

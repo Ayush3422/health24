@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { AuthenticatedStaff } from '@health24/shared';
 import {
   api,
@@ -18,6 +19,8 @@ import {
   setRefreshToken,
   setUnauthenticatedHandler,
 } from '../api/client';
+import { endOfflineSession, startOfflineSession } from '../offline/cache';
+import { markUnreachable, onReconnect } from '../offline/connectivity';
 
 interface AuthState {
   staff: AuthenticatedStaff | null;
@@ -56,18 +59,24 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
   const [state, setState] = useState<AuthState>({ staff: null, status: 'restoring' });
   const [idleWarningSeconds, setIdleWarningSeconds] = useState<number | null>(null);
   const lastActivity = useRef(Date.now());
+  const queryClient = useQueryClient();
 
   const signOutLocally = useCallback(() => {
     clearSession();
+    // The offline cache key goes with the session, and so does everything the
+    // query cache holds: the next person at this workstation starts empty.
+    void endOfflineSession();
+    queryClient.clear();
     setState({ staff: null, status: 'signed-out' });
     setIdleWarningSeconds(null);
-  }, []);
+  }, [queryClient]);
 
   const completeSignIn = useCallback(
     (result: { accessToken: string; refreshToken: string; staff: AuthenticatedStaff }) => {
       setAccessToken(result.accessToken);
       setRefreshToken(result.refreshToken);
       lastActivity.current = Date.now();
+      void startOfflineSession();
       setState({ staff: result.staff, status: 'signed-in' });
     },
     [],
@@ -99,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
   // duplicate restore would sign the user out of every session they have.
   useEffect(() => {
     let cancelled = false;
+    let waitingForConnection: (() => void) | null = null;
 
     const restore = async () => {
       if (!getRefreshToken()) {
@@ -112,12 +122,28 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
         if (cancelled) return;
 
         if (staff) {
+          void startOfflineSession();
           setState({ staff, status: 'signed-in' });
         } else {
           signOutLocally();
         }
-      } catch {
-        if (!cancelled) signOutLocally();
+      } catch (error) {
+        if (cancelled) return;
+
+        // Unreachable, not refused: keep the refresh token and try again when
+        // the connection returns, rather than signing the clinician out.
+        if (error instanceof TypeError) {
+          markUnreachable();
+          setState({ staff: null, status: 'signed-out' });
+          waitingForConnection ??= onReconnect(() => {
+            waitingForConnection?.();
+            waitingForConnection = null;
+            void restore();
+          });
+          return;
+        }
+
+        signOutLocally();
       }
     };
 
@@ -125,6 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
 
     return () => {
       cancelled = true;
+      waitingForConnection?.();
     };
   }, [signOutLocally]);
 

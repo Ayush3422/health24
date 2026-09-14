@@ -357,6 +357,12 @@ const ROUTES: RouteExpectation[] = [
   { method: 'get', path: '/api/v1/patients/:patientId/timeline', allow: ['clinician', 'records'] },
   { method: 'get', path: '/api/v1/patients/:patientId/summary', allow: ['clinician', 'records'] },
   { method: 'get', path: '/api/v1/coding-reviews', allow: ['clinician'] },
+  // Views made offline, uploaded on reconnection: whoever can open a patient's record.
+  {
+    method: 'post',
+    path: '/api/v1/audit/offline-views',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
   { method: 'post', path: '/api/v1/coding-reviews/:conditionId/acknowledge', allow: ['clinician'] },
 ];
 

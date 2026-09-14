@@ -2,6 +2,9 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { hasPermission } from '@health24/shared';
 import { useAuth } from '../auth/AuthProvider';
 import { useOwnHospital } from '../api/hooks';
+import { useConnectivity } from '../offline/connectivity';
+import { OfflineBanner } from '../offline/OfflineNotice';
+import { useOfflineSync } from '../offline/useOfflineSync';
 
 const navClass = ({ isActive }: { isActive: boolean }) => (isActive ? 'active' : '');
 
@@ -20,6 +23,8 @@ export function AppShell(): JSX.Element {
   // role made each page load of a platform admin or curator a 403 — and every
   // 403 is written to the audit log as a refused access.
   const hospital = useOwnHospital(Boolean(staff && hasPermission(staff.role, 'hospital:read:own')));
+  const { offline } = useConnectivity();
+  useOfflineSync();
 
   if (!staff) return <></>;
 
@@ -110,6 +115,8 @@ export function AppShell(): JSX.Element {
         </div>
       </header>
 
+      <OfflineBanner />
+
       {idleWarningSeconds !== null ? (
         <div className="idle-warning" role="alert">
           <span>
@@ -123,7 +130,11 @@ export function AppShell(): JSX.Element {
       ) : null}
 
       <main className="shell__main">
-        <Outlet />
+        {/* A disabled fieldset disables every control inside it: while offline,
+            nothing that writes can be pressed, and nothing is hidden either. */}
+        <fieldset className="offline-guard" disabled={offline}>
+          <Outlet />
+        </fieldset>
       </main>
     </div>
   );

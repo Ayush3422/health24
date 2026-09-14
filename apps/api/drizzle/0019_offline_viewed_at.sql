@@ -1,0 +1,1 @@
+ALTER TABLE "access_log" ADD COLUMN "offline_viewed_at" timestamp with time zone;

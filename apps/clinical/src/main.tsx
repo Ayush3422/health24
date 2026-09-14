@@ -35,3 +35,12 @@ createRoot(document.getElementById('root') as HTMLElement).render(
     </QueryClientProvider>
   </StrictMode>,
 );
+
+// The application shell only, in built deployments. Clinical data never goes to
+// the service worker: it lives in the encrypted offline cache, for as long as
+// the session does.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js');
+  });
+}

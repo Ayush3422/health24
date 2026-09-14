@@ -1,3 +1,12 @@
+import { queueView, recall, remember } from '../offline/cache';
+import {
+  isOffline,
+  isUnreachableStatus,
+  markReachable,
+  markUnreachable,
+  noteServedFromCache,
+} from '../offline/connectivity';
+
 /**
  * The API client.
  *
@@ -24,6 +33,9 @@
  */
 
 const REFRESH_TOKEN_KEY = 'health24.refresh';
+
+const OFFLINE_WRITE_MESSAGE =
+  'You are offline. Nothing can be recorded until the connection returns.';
 
 export class ApiError extends Error {
   constructor(
@@ -101,6 +113,11 @@ async function refreshSession(): Promise<boolean> {
     body: JSON.stringify({ refreshToken: token }),
   });
 
+  // The API being unreachable is not the session ending: keep the token.
+  if (isUnreachableStatus(response.status)) {
+    throw new TypeError('The API could not be reached');
+  }
+
   if (!response.ok) {
     clearSession();
     return false;
@@ -154,18 +171,67 @@ interface RequestOptions {
   retrying?: boolean;
 }
 
+/**
+ * When the API cannot be reached: a read the offline cache holds is served
+ * from it, and the view queued for the audit trail; anything else fails with
+ * a plain statement that it needs the connection.
+ */
+async function fromCache<T>(path: string, method: string): Promise<T> {
+  markUnreachable();
+
+  if (method === 'GET') {
+    const cached = await recall<T>(path);
+
+    if (cached) {
+      noteServedFromCache(cached.cachedAt);
+      void queueView(path);
+      return cached.body;
+    }
+
+    throw new ApiError(0, 'This is not available offline.');
+  }
+
+  throw new ApiError(0, OFFLINE_WRITE_MESSAGE);
+}
+
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const response = await fetch(`/api/v1${path}`, {
-    method: options.method ?? 'GET',
-    headers: {
-      'content-type': 'application/json',
-      ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
-    },
-    ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}),
-  });
+  const method = options.method ?? 'GET';
+
+  // Writes are refused outright while offline, never queued: an entry must not
+  // look saved when it is not.
+  if (method !== 'GET' && isOffline()) {
+    throw new ApiError(0, OFFLINE_WRITE_MESSAGE);
+  }
+
+  let response: Response;
+
+  try {
+    response = await fetch(`/api/v1${path}`, {
+      method,
+      headers: {
+        'content-type': 'application/json',
+        ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
+      },
+      ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}),
+    });
+  } catch {
+    return fromCache<T>(path, method);
+  }
+
+  if (isUnreachableStatus(response.status)) {
+    return fromCache<T>(path, method);
+  }
+
+  markReachable();
 
   if (response.status === 401 && !options.retrying && getRefreshToken()) {
-    const refreshed = await ensureRefresh();
+    let refreshed: boolean;
+
+    try {
+      refreshed = await ensureRefresh();
+    } catch {
+      return fromCache<T>(path, method);
+    }
 
     if (refreshed) {
       return api<T>(path, { ...options, retrying: true });
@@ -202,6 +268,8 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
       parsed,
     );
   }
+
+  if (method === 'GET') void remember(path, parsed);
 
   return parsed as T;
 }

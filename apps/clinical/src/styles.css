@@ -1425,3 +1425,21 @@ button.chip[aria-pressed='true'] {
   flex: none;
   margin: 0;
 }
+
+/* Offline (SP3 Phase 9) */
+
+.offline-banner {
+  background: var(--warning-soft);
+  color: var(--warning);
+  border-bottom: 1px solid var(--warning);
+  padding: 0.6rem 1.25rem;
+  font-size: 0.9rem;
+}
+
+/* The fieldset that disables every control while offline takes no space of its own. */
+.offline-guard {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
