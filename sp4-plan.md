@@ -1,6 +1,6 @@
 # SP4 — Documents and Results: Implementation Plan
 
-**Status:** Draft for review. No SP4 code has been written.
+**Status:** Approved for building. Decisions E–H answered 2026-09-14: **E1, F1, G1, H1**. No SP4 code has been written.
 **Scope:** Report and document upload, storage, scanning and viewing; bulk import of legacy paper files; LOINC-coded lab results with reference ranges, abnormal flags and cross-hospital trend graphs; documents and results on the timeline, the summary card, consent and the audit trail.
 **Design reference:** `planning.md` §6.3, §8, §9, §11, §13 · `features.md` SP4 · `sp3-plan.md`
 
@@ -8,7 +8,7 @@
 
 ## 0. Decisions for you
 
-Four questions change what gets built. Each has a recommendation; the rest of this plan assumes the recommended answer until you say otherwise.
+**Answered 2026-09-14: E1, F1, G1, H1** — batch upload then classify; bills as a document type now; a separate `documents` consent category; the front desk uploads while clinicians and records staff read. The options considered are kept below for the record.
 
 ### Decision E — Legacy paper files: how much of the import is in SP4?
 
