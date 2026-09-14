@@ -141,6 +141,13 @@
       "when": 1789404439344,
       "tag": "0019_offline_viewed_at",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1789406503306,
+      "tag": "0020_patient_identity_fast_path",
+      "breakpoints": true
     }
   ]
 }
