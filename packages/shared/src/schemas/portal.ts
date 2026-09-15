@@ -4,6 +4,7 @@ import {
   BREAK_GLASS_REVIEW_OUTCOMES,
   CLINICAL_DATA_CATEGORIES,
   CONSENT_CAPTURE_METHODS,
+  EMERGENCY_CARD_FIELDS,
   ENCOUNTER_CLASSES,
   PORTAL_RELATIONSHIPS,
   STAFF_ROLES,
@@ -361,3 +362,59 @@ export const portalNotificationsSchema = z.object({
   emergencyAccesses: z.array(portalEmergencyAccessSchema),
 });
 export type PortalNotifications = z.infer<typeof portalNotificationsSchema>;
+
+// ---------------------------------------------------------------------------
+// The emergency card (Phase 6, Decision L1)
+// ---------------------------------------------------------------------------
+
+/**
+ * What a card shows. Name and age always identify the patient; every other
+ * key is present only when the patient chose it for the card.
+ */
+export const emergencyFactsSchema = z.object({
+  name: z.string(),
+  ageYears: z.number().int().nullable(),
+  /** As recorded; null when no hospital has recorded it. */
+  bloodGroup: z.string().nullable().optional(),
+  allergies: z
+    .array(z.object({ substance: z.string(), highRisk: z.boolean(), reaction: z.string().nullable() }))
+    .optional(),
+  medicines: z.array(z.object({ name: z.string(), howToTake: z.string().nullable() })).optional(),
+  conditions: z.array(z.object({ name: z.string(), code: z.string().nullable() })).optional(),
+  /** As registered at a hospital; null when none is. */
+  emergencyContact: z.object({ name: z.string(), phone: z.string() }).nullable().optional(),
+});
+export type EmergencyFacts = z.infer<typeof emergencyFactsSchema>;
+
+export const emergencyCardSettingsSchema = z.object({
+  fields: z
+    .array(z.enum(EMERGENCY_CARD_FIELDS))
+    .min(1, 'Choose at least one thing for the card')
+    .refine((values) => new Set(values).size === values.length, { message: 'Each once' }),
+});
+export type EmergencyCardSettings = z.infer<typeof emergencyCardSettingsSchema>;
+
+export const portalEmergencyCardSchema = z.object({
+  id: uuidSchema,
+  fields: z.array(z.enum(EMERGENCY_CARD_FIELDS)),
+  /** The link's secret, shown only to the patient, for printing the card again. */
+  token: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type PortalEmergencyCard = z.infer<typeof portalEmergencyCardSchema>;
+
+export const portalEmergencyCardStateSchema = z.object({
+  card: portalEmergencyCardSchema.nullable(),
+  /** Every field, so the patient can see what each would show before choosing. */
+  facts: emergencyFactsSchema,
+});
+export type PortalEmergencyCardState = z.infer<typeof portalEmergencyCardStateSchema>;
+
+/** The page a card's QR code opens, without signing in. */
+export const emergencyPageSchema = z.object({
+  facts: emergencyFactsSchema,
+  /** When the patient last changed what the card shows. The facts themselves are current. */
+  cardUpdatedAt: z.string(),
+});
+export type EmergencyPage = z.infer<typeof emergencyPageSchema>;

@@ -458,6 +458,13 @@ const ROUTES: RouteExpectation[] = [
   // Access history and notifications (SP5 Phase 5).
   { method: 'get', path: '/api/v1/portal/access-history', allow: [], portal: true },
   { method: 'get', path: '/api/v1/portal/notifications', allow: [], portal: true },
+  // The emergency card (SP5 Phase 6): managed by the patient; opened by anyone holding it.
+  { method: 'get', path: '/api/v1/portal/emergency-card', allow: [], portal: true },
+  { method: 'post', path: '/api/v1/portal/emergency-card', allow: [], portal: true },
+  { method: 'patch', path: '/api/v1/portal/emergency-card', allow: [], portal: true },
+  { method: 'post', path: '/api/v1/portal/emergency-card/replace', allow: [], portal: true },
+  { method: 'post', path: '/api/v1/portal/emergency-card/revoke', allow: [], portal: true },
+  { method: 'get', path: '/api/v1/emergency/:token', allow: [], public: true },
   // Portal access is activated by those who see the patient in person (Decision J1).
   {
     method: 'post',

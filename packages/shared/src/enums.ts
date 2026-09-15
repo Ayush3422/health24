@@ -389,3 +389,13 @@ export type ResultInterpretation = (typeof RESULT_INTERPRETATIONS)[number];
 /** Whom a portal account acts for: the patient themself, or a child as guardian (SP5, Decision M1). */
 export const PORTAL_RELATIONSHIPS = ['self', 'guardian'] as const;
 export type PortalRelationship = (typeof PORTAL_RELATIONSHIPS)[number];
+
+/** What a patient may put on their emergency card (SP5, Decision L1). Name and age are always on it. */
+export const EMERGENCY_CARD_FIELDS = [
+  'blood_group',
+  'allergies',
+  'medicines',
+  'conditions',
+  'emergency_contact',
+] as const;
+export type EmergencyCardField = (typeof EMERGENCY_CARD_FIELDS)[number];

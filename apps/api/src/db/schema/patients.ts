@@ -251,6 +251,49 @@ export const patientSessions = pgTable(
 );
 
 /**
+ * A patient's emergency card (SP5, Decision L1): the facts they choose to
+ * carry, and the link its QR code opens without signing in.
+ *
+ * The link's token is looked up by its hash, and kept encrypted so the patient
+ * can print the card again without replacing it. One card is in use per
+ * patient at most; a new link is a new card, and replacing a card revokes the
+ * old link.
+ */
+export const emergencyCards = pgTable(
+  'emergency_card',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`)
+      .$defaultFn(uuidv7),
+    patientId: uuid('patient_id')
+      .notNull()
+      .references(() => patients.id, { onDelete: 'restrict' }),
+    tokenHash: text('token_hash').notNull().unique(),
+    tokenEncrypted: text('token_encrypted').notNull(),
+    /** EMERGENCY_CARD_FIELDS, as the patient chose them. */
+    fields: text('fields').array().notNull(),
+    createdByAccountId: uuid('created_by_account_id')
+      .notNull()
+      .references(() => patientAccounts.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    revokedByAccountId: uuid('revoked_by_account_id').references(() => patientAccounts.id, {
+      onDelete: 'restrict',
+    }),
+  },
+  (table) => [
+    index('emergency_card_patient_idx').on(table.patientId),
+    uniqueIndex('emergency_card_one_in_use')
+      .on(table.patientId)
+      .where(sql`"revoked_at" IS NULL`),
+  ],
+);
+
+export type EmergencyCard = typeof emergencyCards.$inferSelect;
+
+/**
  * A possible duplicate awaiting human review.
  *
  * Anything the matcher is not certain about lands here rather than being

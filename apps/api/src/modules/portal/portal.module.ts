@@ -13,6 +13,8 @@ import { PortalRecordController } from './portal-record.controller';
 import { PortalRecordService } from './portal-record.service';
 import { PortalSessionService } from './portal-session.service';
 import { AccessHistoryService } from './access-history.service';
+import { EmergencyPageController, PortalEmergencyCardController } from './emergency-card.controller';
+import { EmergencyCardService } from './emergency-card.service';
 import { PortalActivityController } from './portal-activity.controller';
 import { SmsModule } from './sms.module';
 
@@ -37,6 +39,8 @@ import { SmsModule } from './sms.module';
     PortalRecordController,
     PortalConsentController,
     PortalActivityController,
+    PortalEmergencyCardController,
+    EmergencyPageController,
   ],
   providers: [
     OtpService,
@@ -44,6 +48,7 @@ import { SmsModule } from './sms.module';
     PortalAccessService,
     PortalRecordService,
     AccessHistoryService,
+    EmergencyCardService,
   ],
   // PortalSessionService is exported because the global AuthGuard depends on it.
   exports: [PortalSessionService, SmsModule],

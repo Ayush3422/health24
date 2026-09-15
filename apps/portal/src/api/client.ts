@@ -113,7 +113,7 @@ async function send(path: string, method: string, body: unknown): Promise<Respon
 
 export async function api<T>(
   path: string,
-  options: { method?: 'GET' | 'POST' | 'DELETE'; body?: unknown } = {},
+  options: { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown } = {},
 ): Promise<T> {
   const method = options.method ?? 'GET';
   let response = await send(path, method, options.body);

@@ -108,7 +108,9 @@ function AccessEntry({ entry }: { entry: AccessHistoryEntry }): JSX.Element {
           .join(' · ')
       : entry.actor.kind === 'patient'
         ? t('access.otherPhone', { phone: entry.actor.label ?? '' })
-        : t('access.system');
+        : entry.resources.includes('emergency_card')
+          ? t('access.cardOpened')
+          : t('access.system');
 
   const what = [
     ...new Set(

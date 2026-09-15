@@ -229,8 +229,8 @@ Guardian links are created by records staff with the relationship and the docume
 
 ### Phase 6 — Emergency card
 
-- [ ] **T15** Card settings, token, public endpoint with rate limit and audit (L1)
-- [ ] **T16** Printable wallet card and lock-screen image
+- [x] **T15** Card settings, token, public endpoint with rate limit and audit (L1)
+- [x] **T16** Printable wallet card and lock-screen image
 
 ### Phase 7 — Dependants
 
