@@ -58,6 +58,7 @@ export function App(): JSX.Element {
         <Route path="/patients" element={<PatientSearchPage />} />
         <Route path="/patients/new" element={<PatientRegisterPage />} />
         <Route path="/patients/:id" element={<PatientDetailPage />} />
+        <Route path="/patients/:id/:tab" element={<PatientDetailPage />} />
         <Route path="/patients/:id/imports/:batchId" element={<ImportBatchPage />} />
         <Route path="/encounters" element={<WorklistPage />} />
         <Route path="/encounters/:id" element={<EncounterPage />} />

@@ -211,6 +211,7 @@ Records staff open an import batch for a patient and upload the scanned folder: 
 
 ### Phase 7 — The record
 
+- [x] **T20b** The patient page as tabs (asked for on 2026-09-15, taken up at the start of this phase) — the patient's name, MRN and, for clinical roles, the allergy warning stay on top; beneath, a sticky navbar of eight tabs, each on its own address (`/patients/:id/:tab`): Overview (details, summary card, problems, medicines, allergies, vitals, starting an encounter), Doctors & treatment (every clinician who treated the patient, at this hospital and, under consent, others — with their diagnoses, medicines, procedures, notes and visits, grouped from the timeline), All reports (documents other than bills, and lab results), Bills (bill and receipt documents, Decision F1), Medicines (current, and prescription history), Visits & timeline, Paper imports, and Consent & sharing. A role sees only the tabs it may use: the front desk gets Overview, All reports, Bills and Consent. No API change
 - [ ] **T21** Documents and results on the timeline; recent abnormal results on the summary card
 - [ ] **T22** The documents category on the consent screen
 - [ ] **T23** The timeline performance test with documents and results in the volume

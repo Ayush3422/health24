@@ -54,7 +54,14 @@ const megabytes = (bytes: number) =>
  * The front desk uploads and sees what its hospital uploaded; opening a report
  * is for roles that read clinical records (Decision H1).
  */
-export function PatientDocuments({ patientId }: { patientId: string }): JSX.Element | null {
+export function PatientDocuments({
+  patientId,
+  kind = 'reports',
+}: {
+  patientId: string;
+  /** Bills are a document type for now (Decision F1), shown on their own tab. */
+  kind?: 'reports' | 'bills';
+}): JSX.Element | null {
   const { staff } = useAuth();
   if (!staff) return null;
 
@@ -62,18 +69,32 @@ export function PatientDocuments({ patientId }: { patientId: string }): JSX.Elem
   const canRead = hasPermission(staff.role, 'clinical:read');
   if (!canUpload && !canRead) return null;
 
-  return <DocumentsSection patientId={patientId} canUpload={canUpload} canRead={canRead} />;
+  return (
+    <DocumentsSection
+      key={kind}
+      patientId={patientId}
+      kind={kind}
+      canUpload={canUpload}
+      canRead={canRead}
+    />
+  );
 }
+
+const BILL_TYPES: DocumentType[] = ['bill_or_receipt'];
+const REPORT_TYPES: DocumentType[] = DOCUMENT_TYPES.filter((type) => type !== 'bill_or_receipt');
 
 function DocumentsSection({
   patientId,
+  kind,
   canUpload,
   canRead,
 }: {
   patientId: string;
+  kind: 'reports' | 'bills';
   canUpload: boolean;
   canRead: boolean;
 }): JSX.Element {
+  const typeOptions = kind === 'bills' ? BILL_TYPES : REPORT_TYPES;
   const [filters, setFilters] = useState<DocumentFilters>({
     types: [],
     from: '',
@@ -83,16 +104,20 @@ function DocumentsSection({
   const [uploading, setUploading] = useState(false);
   const [viewing, setViewing] = useState<DocumentSummary | null>(null);
 
-  const documents = usePatientDocuments(patientId, filters);
+  // "All types" means every type this tab shows.
+  const documents = usePatientDocuments(patientId, {
+    ...filters,
+    types: filters.types.length > 0 ? filters.types : typeOptions,
+  });
   const rows = documents.data?.results ?? [];
 
   return (
     <section className="card">
       <div className="section-heading">
-        <h2>Documents and reports</h2>
+        <h2>{kind === 'bills' ? 'Bills and receipts' : 'Reports and documents'}</h2>
         {canUpload && !uploading ? (
           <button type="button" onClick={() => setUploading(true)}>
-            Upload a report
+            {kind === 'bills' ? 'Upload a bill' : 'Upload a report'}
           </button>
         ) : null}
       </div>
@@ -107,12 +132,20 @@ function DocumentsSection({
       {uploading ? (
         <UploadDocumentForm
           patientId={patientId}
+          defaultType={kind === 'bills' ? 'bill_or_receipt' : 'lab_report'}
           canChooseClinician={canRead}
           onDone={() => setUploading(false)}
         />
       ) : null}
 
+      {kind === 'bills' ? (
+        <p className="small muted">
+          Bills and receipts are kept as scanned documents for now; itemised billing comes later.
+        </p>
+      ) : null}
+
       <div className="filters-row" role="group" aria-label="Filter documents">
+        {kind === 'reports' ? (
         <div className="field">
           <label htmlFor="documents-type">Type</label>
           <select
@@ -126,13 +159,14 @@ function DocumentsSection({
             }
           >
             <option value="">All types</option>
-            {DOCUMENT_TYPES.map((type) => (
+            {typeOptions.map((type) => (
               <option key={type} value={type}>
                 {DOCUMENT_TYPE_LABELS[type]}
               </option>
             ))}
           </select>
         </div>
+        ) : null}
         <div className="field">
           <label htmlFor="documents-from">Report date from</label>
           <input
@@ -293,10 +327,12 @@ type Selected = { key: string; file: File; progress: number };
 
 function UploadDocumentForm({
   patientId,
+  defaultType,
   canChooseClinician,
   onDone,
 }: {
   patientId: string;
+  defaultType: DocumentType;
   canChooseClinician: boolean;
   onDone: () => void;
 }): JSX.Element {
@@ -307,7 +343,7 @@ function UploadDocumentForm({
 
   const [files, setFiles] = useState<Selected[]>([]);
   const [dragging, setDragging] = useState(false);
-  const [docType, setDocType] = useState<DocumentType>('lab_report');
+  const [docType, setDocType] = useState<DocumentType>(defaultType);
   const [reportDate, setReportDate] = useState(istToday());
   const [title, setTitle] = useState('');
   const [facility, setFacility] = useState('');

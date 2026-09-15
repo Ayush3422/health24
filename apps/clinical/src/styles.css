@@ -1772,6 +1772,100 @@ button.chip[aria-pressed='true'] {
   padding-bottom: 0.25rem;
 }
 
+/* Patient record tabs */
+
+.patient-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  background: var(--ground);
+  border-bottom: 1px solid var(--line);
+  margin: 0.75rem 0 1rem;
+  scrollbar-width: thin;
+}
+
+.patient-tabs__link {
+  flex: none;
+  padding: 0.6rem 0.85rem;
+  color: var(--ink-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+}
+
+.patient-tabs__link:hover {
+  color: var(--ink);
+}
+
+.patient-tabs__link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.patient-tabs__link--active {
+  color: var(--ink);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+.patient-tab-panel {
+  margin-bottom: 1.5rem;
+}
+
+.doctor-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.doctor-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.8rem 1rem;
+}
+
+.doctor-card__header h3 {
+  margin: 0 0 0.15rem;
+}
+
+.doctor-card__group {
+  margin-top: 0.7rem;
+}
+
+.doctor-card__group h4 {
+  margin: 0 0 0.25rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.doctor-card__group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.doctor-card__group li {
+  padding: 0.25rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.doctor-card__group li:first-child {
+  border-top: none;
+}
+
+.doctor-card__date {
+  display: inline-block;
+  min-width: 7rem;
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Legacy paper file import (SP4 Phase 6) */
 
 .import-layout {

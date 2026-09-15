@@ -95,7 +95,7 @@ function ImportBatch({ patientId, batchId }: { patientId: string; batchId: strin
   return (
     <div>
       <p>
-        <Link to={`/patients/${patientId}`}>← Back to the patient</Link>
+        <Link to={`/patients/${patientId}/imports`}>← Back to the patient’s imports</Link>
       </p>
 
       <section className="card">

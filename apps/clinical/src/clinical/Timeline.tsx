@@ -114,16 +114,27 @@ export function PatientSummaryCard({ patientId }: { patientId: string }): JSX.El
  * and the screen says which kinds of record are not shared — an absence here
  * is never proof that nothing happened elsewhere.
  */
-export function PatientTimeline({ patientId }: { patientId: string }): JSX.Element {
-  const [filters, setFilters] = useState<TimelineFilters>({ categories: [], scope: 'all' });
+export function PatientTimeline({
+  patientId,
+  categories,
+  title = 'Timeline',
+}: {
+  patientId: string;
+  /** Fixes the kinds of record shown, and hides the filter. */
+  categories?: ClinicalDataCategory[];
+  title?: string;
+}): JSX.Element {
+  const [filters, setFilters] = useState<TimelineFilters>({
+    categories: categories ?? [],
+    scope: 'all',
+  });
   const timeline = usePatientTimeline(patientId, filters);
 
   const pages = timeline.data?.pages ?? [];
   const items = pages.flatMap((page) => page.items);
   const sharedCategories = pages[0]?.sharedCategories ?? [];
-  const notShared = CLINICAL_DATA_CATEGORIES.filter(
-    (category) => !sharedCategories.includes(category),
-  );
+  const relevant = categories ?? CLINICAL_DATA_CATEGORIES;
+  const notShared = relevant.filter((category) => !sharedCategories.includes(category));
 
   const toggle = (category: ClinicalDataCategory) =>
     setFilters((current) => ({
@@ -144,22 +155,24 @@ export function PatientTimeline({ patientId }: { patientId: string }): JSX.Eleme
 
   return (
     <section>
-      <h2>Timeline</h2>
+      <h2>{title}</h2>
 
       <div className="timeline-filters">
-        <div className="chips" role="group" aria-label="Kinds of record">
-          {CLINICAL_DATA_CATEGORIES.map((category) => (
-            <button
-              key={category}
-              type="button"
-              className="chip"
-              aria-pressed={filters.categories.includes(category)}
-              onClick={() => toggle(category)}
-            >
-              {CATEGORY_LABELS[category]}
-            </button>
-          ))}
-        </div>
+        {categories ? null : (
+          <div className="chips" role="group" aria-label="Kinds of record">
+            {CLINICAL_DATA_CATEGORIES.map((category) => (
+              <button
+                key={category}
+                type="button"
+                className="chip"
+                aria-pressed={filters.categories.includes(category)}
+                onClick={() => toggle(category)}
+              >
+                {CATEGORY_LABELS[category]}
+              </button>
+            ))}
+          </div>
+        )}
         <select
           aria-label="Hospitals"
           value={filters.scope}
@@ -173,7 +186,7 @@ export function PatientTimeline({ patientId }: { patientId: string }): JSX.Eleme
       </div>
 
       {timeline.isSuccess && filters.scope === 'all' ? (
-        notShared.length === CLINICAL_DATA_CATEGORIES.length ? (
+        notShared.length === relevant.length ? (
           <p className="sharing-note small">
             Records from other hospitals are not shared with your hospital. Only your
             hospital&apos;s records are shown.

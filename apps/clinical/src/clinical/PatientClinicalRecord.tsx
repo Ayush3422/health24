@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   ENCOUNTER_CLASSES,
   SYSTEMS_OF_MEDICINE,
-  hasPermission,
   type EncounterClass,
   type SystemOfMedicine,
 } from '@health24/shared';
@@ -17,70 +16,19 @@ import {
   useProblemList,
 } from '../api/clinical';
 import { useAuth } from '../auth/AuthProvider';
-import { AllergyBanner, RecordAllergyForm } from './AllergyBanner';
 import { ClinicianPicker, useAttribution } from './attribution';
 import { DiagnosisList } from './Diagnoses';
 import { formatDate, humanise, optionalText } from './format';
 import { MedicationList } from './Medications';
-import { PatientAllergies, PatientProcedures, PatientVitals } from './PatientDocumentation';
 import { SharingNote, SystemTag } from './Provenance';
-import { PatientSummaryCard, PatientTimeline } from './Timeline';
 
 /**
- * A patient's clinical record, on their registry page: allergies, active
- * problems, what they are taking, and every encounter this hospital may see —
- * its own, and other hospitals' where the patient has consented.
+ * Pieces of a patient's clinical record, placed on the patient page's tabs:
+ * active problems, what they are taking, and every encounter this hospital may
+ * see — its own, and other hospitals' where the patient has consented.
  */
-export function PatientClinicalRecord({ patientId }: { patientId: string }): JSX.Element | null {
-  const { staff } = useAuth();
-  const [addingAllergy, setAddingAllergy] = useState(false);
 
-  if (!staff || !hasPermission(staff.role, 'clinical:read')) return null;
-
-  const canWrite =
-    hasPermission(staff.role, 'clinical:write') || hasPermission(staff.role, 'clinical:transcribe');
-  const canStop = hasPermission(staff.role, 'clinical:write');
-
-  return (
-    <div className="clinical-record">
-      <AllergyBanner patientId={patientId} />
-
-      <PatientSummaryCard patientId={patientId} />
-
-      {canWrite ? (
-        addingAllergy ? (
-          <RecordAllergyForm patientId={patientId} onDone={() => setAddingAllergy(false)} />
-        ) : (
-          <div className="row">
-            <button type="button" className="ghost" onClick={() => setAddingAllergy(true)}>
-              Record an allergy
-            </button>
-          </div>
-        )
-      ) : null}
-
-      {canWrite ? <StartEncounter patientId={patientId} /> : null}
-
-      <div className="clinical-columns">
-        <ProblemList patientId={patientId} />
-        <CurrentMedications patientId={patientId} canStop={canStop} />
-      </div>
-
-      <div className="clinical-columns">
-        <PatientAllergies patientId={patientId} editable={canWrite} />
-        <PatientVitals patientId={patientId} />
-      </div>
-
-      <PatientProcedures patientId={patientId} />
-
-      <PatientTimeline patientId={patientId} />
-
-      <EncounterHistory patientId={patientId} />
-    </div>
-  );
-}
-
-function StartEncounter({ patientId }: { patientId: string }): JSX.Element {
+export function StartEncounter({ patientId }: { patientId: string }): JSX.Element {
   const { staff } = useAuth();
   const navigate = useNavigate();
   const open = useOpenEncounter();
@@ -191,7 +139,7 @@ function StartEncounter({ patientId }: { patientId: string }): JSX.Element {
   );
 }
 
-function ProblemList({ patientId }: { patientId: string }): JSX.Element {
+export function ProblemList({ patientId }: { patientId: string }): JSX.Element {
   const problems = useProblemList(patientId);
 
   return (
@@ -213,7 +161,7 @@ function ProblemList({ patientId }: { patientId: string }): JSX.Element {
   );
 }
 
-function CurrentMedications({
+export function CurrentMedications({
   patientId,
   canStop,
 }: {
@@ -243,7 +191,7 @@ function CurrentMedications({
   );
 }
 
-function EncounterHistory({ patientId }: { patientId: string }): JSX.Element {
+export function EncounterHistory({ patientId }: { patientId: string }): JSX.Element {
   const encounters = usePatientEncounters(patientId);
   const rows = encounters.data?.results ?? [];
 
