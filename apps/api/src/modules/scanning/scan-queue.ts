@@ -14,7 +14,16 @@ export interface ScanJobResult {
   outcome: 'clean' | 'infected';
   signature?: string;
   quarantineKey?: string;
+  /** Of the stored bytes, computed while scanning. */
+  sha256: string;
 }
+
+/** Runs one scan job: the processor alone, or with the verdict recorded against its document. */
+export interface ScanJobHandler {
+  process(data: ScanJobData): Promise<ScanJobResult>;
+}
+
+export const SCAN_JOB_HANDLER = Symbol('SCAN_JOB_HANDLER');
 
 /** BullMQ's connection options from a redis:// URL. */
 export function redisConnection(url: string): ConnectionOptions {

@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   Logger,
   type OnApplicationBootstrap,
@@ -11,11 +12,12 @@ import {
   redisConnection,
   type ScanJobData,
   type ScanJobResult,
+  SCAN_JOB_HANDLER,
+  type ScanJobHandler,
 } from './scan-queue';
-import { ScanProcessor } from './scan.processor';
 
 export function createScanWorker(options: {
-  processor: ScanProcessor;
+  processor: ScanJobHandler;
   redisUrl: string;
   queueName?: string;
   concurrency?: number;
@@ -38,7 +40,7 @@ export class ScanWorker implements OnApplicationBootstrap, OnApplicationShutdown
   private worker: Worker<ScanJobData, ScanJobResult> | null = null;
 
   constructor(
-    private readonly processor: ScanProcessor,
+    @Inject(SCAN_JOB_HANDLER) private readonly handler: ScanJobHandler,
     private readonly config: ConfigService,
   ) {}
 
@@ -46,7 +48,7 @@ export class ScanWorker implements OnApplicationBootstrap, OnApplicationShutdown
     const queueName = this.config.get<string>('SCAN_QUEUE_NAME') ?? DEFAULT_SCAN_QUEUE;
 
     this.worker = createScanWorker({
-      processor: this.processor,
+      processor: this.handler,
       redisUrl: this.config.getOrThrow<string>('REDIS_URL'),
       queueName,
     });

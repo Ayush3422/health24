@@ -363,6 +363,35 @@ const ROUTES: RouteExpectation[] = [
     path: '/api/v1/audit/offline-views',
     allow: ['clinician', 'frontDesk', 'records'],
   },
+  // Documents (SP4 Phase 3). Uploading and correcting for whoever handles the paper
+  // file; opening a report only for roles that read clinical records (Decision H1).
+  { method: 'post', path: '/api/v1/documents', allow: ['clinician', 'frontDesk', 'records'] },
+  {
+    method: 'post',
+    path: '/api/v1/documents/:id/complete',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
+  {
+    method: 'get',
+    path: '/api/v1/patients/:patientId/documents',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
+  { method: 'get', path: '/api/v1/documents/:id', allow: ['clinician', 'frontDesk', 'records'] },
+  {
+    method: 'get',
+    path: '/api/v1/documents/:id/files/:fileId/url',
+    allow: ['clinician', 'records'],
+  },
+  {
+    method: 'post',
+    path: '/api/v1/documents/:id/correct',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
+  {
+    method: 'post',
+    path: '/api/v1/documents/:id/entered-in-error',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
   { method: 'post', path: '/api/v1/coding-reviews/:conditionId/acknowledge', allow: ['clinician'] },
 ];
 

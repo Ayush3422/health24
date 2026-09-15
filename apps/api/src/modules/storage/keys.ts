@@ -35,6 +35,19 @@ export function assertStorageKey(key: string): void {
   }
 }
 
+/** The identifiers a key was built from, whether or not it has moved to quarantine. */
+export function parseDocumentFileKey(key: string): DocumentFileKeyParts {
+  assertStorageKey(key);
+
+  const parts = key.replace(QUARANTINE_PREFIX, '').split('/');
+  return {
+    hospitalId: parts[1]!,
+    patientId: parts[3]!,
+    documentId: parts[5]!,
+    fileId: parts[6]!,
+  };
+}
+
 export function quarantineKeyFor(key: string): string {
   assertStorageKey(key);
 

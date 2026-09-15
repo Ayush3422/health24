@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { assertStorageKey, documentFileKey, quarantineKeyFor } from './keys';
+import { assertStorageKey, documentFileKey, parseDocumentFileKey, quarantineKeyFor } from './keys';
 
 const ids = () => ({
   hospitalId: randomUUID(),
@@ -10,6 +10,15 @@ const ids = () => ({
 });
 
 describe('storage keys', () => {
+  it('give back the identifiers they were built from, even from quarantine', () => {
+    const parts = ids();
+    const key = documentFileKey(parts);
+
+    expect(parseDocumentFileKey(key)).toEqual(parts);
+    expect(parseDocumentFileKey(quarantineKeyFor(key))).toEqual(parts);
+    expect(() => parseDocumentFileKey('hospitals/x/patients/y')).toThrow();
+  });
+
   it('are built from identifiers alone', () => {
     const parts = ids();
 

@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { Transform } from 'node:stream';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UnrecoverableError } from 'bullmq';
@@ -36,15 +38,33 @@ export class ScanProcessor {
       throw new UnrecoverableError('The file to scan does not exist');
     }
 
-    const verdict = await scanStream(await this.storage.read(data.key), this.clamd);
+    // The checksum of what is actually stored, taken on the way to the scanner.
+    const hash = createHash('sha256');
+    const source = await this.storage.read(data.key);
+    const hashing = new Transform({
+      transform(chunk: Buffer, _encoding, done) {
+        hash.update(chunk);
+        done(null, chunk);
+      },
+    });
+    source.on('error', (error) => hashing.destroy(error));
+
+    const verdict = await scanStream(source.pipe(hashing), this.clamd);
+    const sha256 = hash.digest('hex');
 
     if (verdict.clean) {
-      return { key: data.key, outcome: 'clean' };
+      return { key: data.key, outcome: 'clean', sha256 };
     }
 
     const quarantineKey = await this.storage.quarantine(data.key);
     this.logger.warn(`Quarantined an infected upload (${verdict.signature}): ${data.key}`);
 
-    return { key: data.key, outcome: 'infected', signature: verdict.signature, quarantineKey };
+    return {
+      key: data.key,
+      outcome: 'infected',
+      signature: verdict.signature,
+      quarantineKey,
+      sha256,
+    };
   }
 }

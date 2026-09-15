@@ -1,6 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from './config/env';
+import { DatabaseModule } from './db/database.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { DocumentCleanupTimer } from './modules/documents/document-cleanup.timer';
+import { DocumentScanHandler } from './modules/documents/document-scan.handler';
+import { DocumentsModule } from './modules/documents/documents.module';
+import { SCAN_JOB_HANDLER } from './modules/scanning/scan-queue';
 import { ScanningModule } from './modules/scanning/scanning.module';
 import { ScanWorker } from './modules/scanning/scan.worker';
 import { StorageModule } from './modules/storage/storage.module';
@@ -12,9 +18,17 @@ import { StorageModule } from './modules/storage/storage.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+    DatabaseModule,
+    AuditModule,
     StorageModule,
     ScanningModule,
+    DocumentsModule,
   ],
-  providers: [ScanWorker],
+  providers: [
+    ScanWorker,
+    // Each scan's verdict is recorded against its document.
+    { provide: SCAN_JOB_HANDLER, useExisting: DocumentScanHandler },
+    DocumentCleanupTimer,
+  ],
 })
 export class WorkerModule {}

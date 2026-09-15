@@ -104,6 +104,8 @@ export const documentReferences = pgTable(
     /** Served only once `available`: every file scanned clean. */
     availability: documentAvailabilityEnum('availability').notNull().default('pending_scan'),
     availabilityChangedAt: timestamp('availability_changed_at', { withTimezone: true }),
+    /** When the uploader confirmed every file reached storage. Until then, an upload can be abandoned. */
+    uploadConfirmedAt: timestamp('upload_confirmed_at', { withTimezone: true }),
 
     /** Who uploaded it. */
     recordedByStaffId: uuid('recorded_by_staff_id').notNull(),

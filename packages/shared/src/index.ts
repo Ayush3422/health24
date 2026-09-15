@@ -7,5 +7,6 @@ export * from './schemas/staff.js';
 export * from './schemas/terminology.js';
 export * from './schemas/clinical.js';
 export * from './schemas/offline.js';
+export * from './schemas/documents.js';
 export * from './terminology/fold.js';
 export * from './permissions.js';

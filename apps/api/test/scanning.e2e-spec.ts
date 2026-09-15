@@ -42,7 +42,7 @@ describe('upload scanning', { timeout: 120_000 }, () => {
   it('passes a clean file and leaves it in place', async () => {
     const key = await store(Buffer.from('%PDF-1.4\nLFT: ALT 32 U/L\n%%EOF\n'), 'application/pdf');
 
-    expect(await processor.process({ key })).toEqual({ key, outcome: 'clean' });
+    expect(await processor.process({ key })).toMatchObject({ key, outcome: 'clean' });
     expect(await storage.describe(key)).not.toBeNull();
   });
 
@@ -86,7 +86,7 @@ describe('upload scanning', { timeout: 120_000 }, () => {
         const cleanJob = (await Job.fromId(reader, cleanJobId))!;
         const infectedJob = (await Job.fromId(reader, infectedJobId))!;
 
-        expect(await cleanJob.waitUntilFinished(events, 60_000)).toEqual({
+        expect(await cleanJob.waitUntilFinished(events, 60_000)).toMatchObject({
           key: clean,
           outcome: 'clean',
         });

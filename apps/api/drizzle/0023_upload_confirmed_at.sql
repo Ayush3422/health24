@@ -1,0 +1,1 @@
+ALTER TABLE "document_reference" ADD COLUMN "upload_confirmed_at" timestamp with time zone;

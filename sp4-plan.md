@@ -184,10 +184,10 @@ Records staff open an import batch for a patient and upload the scanned folder: 
 
 ### Phase 3 — Documents API
 
-- [ ] **T6** Upload, completion and the scan pipeline end to end
-- [ ] **T7** View and download URLs, audited with their consent
-- [ ] **T8** Listing, search and filters by type, date and hospital
-- [ ] **T9** Corrections: details as new versions, entered in error
+- [x] **T6** Upload, completion and the scan pipeline end to end — `POST /documents` records the document and returns one presigned upload per file (file names are never stored); `POST /documents/:id/complete` checks each object's size and type and queues the scans. The worker scans under the hospital named in the storage key, stores the checksum of the stored bytes, and makes a document available when every file is clean or quarantined as soon as one is infected, locking the document row while it decides. Uploads never confirmed within a day are abandoned and their objects removed, hourly (migrations 0023 and 0024). Thumbnails and page counts move to Phase 5, where the screens use them
+- [x] **T7** View and download URLs, audited with their consent — one-minute links for roles that read clinical records, audited as a read or, for a download, an export, with the consent they rested on. The front desk is refused (Decision H1); a document still being scanned or quarantined is refused; one entered in error is not found
+- [x] **T8** Listing, search and filters by type, date and hospital — `GET /patients/:id/documents` with types, report-date range and scope; the front desk sees its own hospital's uploads only
+- [x] **T9** Corrections: details as new versions, entered in error — a correction supersedes the document with a new version carrying the same stored files and their scan results; only the holding hospital may change a document. `documents-api.e2e-spec.ts` (12) runs it all against the real storage server, ClamAV and a worker; the authorisation suite covers the seven new routes
 
 ### Phase 4 — Results API
 
