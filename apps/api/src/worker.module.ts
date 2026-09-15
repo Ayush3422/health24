@@ -7,14 +7,18 @@ import { DocumentCleanupTimer } from './modules/documents/document-cleanup.timer
 import { DocumentScanHandler } from './modules/documents/document-scan.handler';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { ImportsModule } from './modules/imports/imports.module';
+import { NotificationSweepTimer } from './modules/notifications/notification-sweep.timer';
+import { NotificationWorker } from './modules/notifications/notification.worker';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { SCAN_JOB_HANDLER } from './modules/scanning/scan-queue';
 import { ScanningModule } from './modules/scanning/scanning.module';
 import { ScanWorker } from './modules/scanning/scan.worker';
 import { StorageModule } from './modules/storage/storage.module';
 
 /**
- * The background worker: scanning now; thumbnails, page counts and the
- * clean-up of abandoned uploads as SP4 adds them. No HTTP routes.
+ * The background worker: scanning uploads and cleaning up abandoned ones
+ * (SP4), and telling patients of emergency access to their record (SP5). No
+ * HTTP routes.
  */
 @Module({
   imports: [
@@ -25,12 +29,15 @@ import { StorageModule } from './modules/storage/storage.module';
     ScanningModule,
     DocumentsModule,
     ImportsModule,
+    NotificationsModule,
   ],
   providers: [
     ScanWorker,
     // Each scan's verdict is recorded against its document.
     { provide: SCAN_JOB_HANDLER, useExisting: DocumentScanHandler },
     DocumentCleanupTimer,
+    NotificationWorker,
+    NotificationSweepTimer,
   ],
 })
 export class WorkerModule {}

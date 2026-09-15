@@ -2,7 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { PortalSummary } from '@health24/shared';
 import { api } from '../api/client';
-import { formatDate, formatNumber } from '../format';
+import { Link } from 'react-router-dom';
+import { useNotifications } from '../api/activity';
+import { formatDate, formatDateTime, formatNumber } from '../format';
+
+/** How long the home screen keeps an emergency access in view. */
+const EMERGENCY_BANNER_MS = 30 * 24 * 60 * 60 * 1000;
 
 const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? name;
 
@@ -16,6 +21,10 @@ export function HomeScreen(): JSX.Element {
     queryKey: ['portal', 'summary'],
     queryFn: () => api<PortalSummary>('/portal/summary'),
   });
+  const notifications = useNotifications();
+  const recentEmergencies = (notifications.data?.emergencyAccesses ?? []).filter(
+    (access) => Date.now() - Date.parse(access.grantedAt) < EMERGENCY_BANNER_MS,
+  );
 
   if (summary.isPending) {
     return <p aria-busy="true">{t('app.loading')}</p>;
@@ -38,6 +47,24 @@ export function HomeScreen(): JSX.Element {
 
   return (
     <div className="stack">
+      {/* Emergency access is never out of sight (DF10). */}
+      {recentEmergencies.length > 0 ? (
+        <section className="panel panel--alert" aria-labelledby="emergency-banner">
+          <h2 id="emergency-banner">{t('home.emergencyTitle')}</h2>
+          {recentEmergencies.map((access) => (
+            <p key={access.id}>
+              {t('home.emergencyLine', {
+                hospital: access.hospital.name,
+                date: formatDateTime(access.grantedAt),
+              })}
+            </p>
+          ))}
+          <Link className="inline-link" to="/access">
+            {t('home.emergencyLink')}
+          </Link>
+        </section>
+      ) : null}
+
       <section aria-labelledby="greeting">
         <h1 id="greeting">{t('home.greeting', { name: firstName(data.patient.name) })}</h1>
         {data.patient.ageYears !== null ? (

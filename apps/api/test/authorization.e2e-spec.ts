@@ -455,6 +455,9 @@ const ROUTES: RouteExpectation[] = [
   { method: 'get', path: '/api/v1/portal/consents', allow: [], portal: true },
   { method: 'post', path: '/api/v1/portal/consents', allow: [], portal: true },
   { method: 'post', path: '/api/v1/portal/consents/:id/revoke', allow: [], portal: true },
+  // Access history and notifications (SP5 Phase 5).
+  { method: 'get', path: '/api/v1/portal/access-history', allow: [], portal: true },
+  { method: 'get', path: '/api/v1/portal/notifications', allow: [], portal: true },
   // Portal access is activated by those who see the patient in person (Decision J1).
   {
     method: 'post',

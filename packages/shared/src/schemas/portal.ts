@@ -1,9 +1,12 @@
 import { z } from 'zod';
 import {
+  ACCESS_ACTIONS,
+  BREAK_GLASS_REVIEW_OUTCOMES,
   CLINICAL_DATA_CATEGORIES,
   CONSENT_CAPTURE_METHODS,
   ENCOUNTER_CLASSES,
   PORTAL_RELATIONSHIPS,
+  STAFF_ROLES,
 } from '../enums.js';
 import { phoneSchema, uuidSchema } from '../primitives.js';
 import {
@@ -277,3 +280,84 @@ export const portalConsentsSchema = z.object({
   consents: z.array(portalConsentSchema),
 });
 export type PortalConsents = z.infer<typeof portalConsentsSchema>;
+
+// ---------------------------------------------------------------------------
+// Access history and notifications (Phase 5, DF6 and DF10)
+// ---------------------------------------------------------------------------
+
+export const accessHistoryQuerySchema = z.object({
+  /** `nextBefore` from the previous page. */
+  before: z.string().max(100).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+export type AccessHistoryQuery = z.infer<typeof accessHistoryQuerySchema>;
+
+/**
+ * One person's access to the record at one hospital on one day, in India
+ * Standard Time — however many reads it took.
+ */
+export const accessHistoryEntrySchema = z.object({
+  id: z.string(),
+  /** YYYY-MM-DD, in India Standard Time. */
+  day: z.string(),
+  firstAt: z.string(),
+  lastAt: z.string(),
+  actor: z.discriminatedUnion('kind', [
+    z.object({
+      kind: z.literal('staff'),
+      /** Null for staff at a hospital where the patient is not registered. */
+      name: z.string().nullable(),
+      role: z.enum(STAFF_ROLES).nullable(),
+    }),
+    /** Another phone with portal access to this record, masked. */
+    z.object({ kind: z.literal('patient'), label: z.string().nullable() }),
+    z.object({ kind: z.literal('system') }),
+  ]),
+  hospital: z.object({ id: uuidSchema, name: z.string() }).nullable(),
+  /** What was touched, by audit resource type; the portal words them. */
+  resources: z.array(z.string()),
+  actions: z.array(z.enum(ACCESS_ACTIONS)),
+  count: z.number().int(),
+  /** Given when emergency access was taken. */
+  emergencyReason: z.string().nullable(),
+  /** The consents or emergency access reads of other hospitals' records rested on. */
+  consents: z.array(
+    z.object({
+      id: uuidSchema,
+      captureMethod: z.enum(CONSENT_CAPTURE_METHODS),
+      grantedAt: z.string(),
+      grantedByYou: z.boolean(),
+      emergencyReason: z.string().nullable(),
+    }),
+  ),
+});
+export type AccessHistoryEntry = z.infer<typeof accessHistoryEntrySchema>;
+
+export const accessHistoryPageSchema = z.object({
+  entries: z.array(accessHistoryEntrySchema),
+  nextBefore: z.string().nullable(),
+});
+export type AccessHistoryPage = z.infer<typeof accessHistoryPageSchema>;
+
+/** Emergency access to the patient's record, which the portal always shows (DF10). */
+export const portalEmergencyAccessSchema = z.object({
+  id: uuidSchema,
+  hospital: z.object({ id: uuidSchema, name: z.string() }),
+  clinicianName: z.string().nullable(),
+  reason: z.string(),
+  grantedAt: z.string(),
+  expiresAt: z.string(),
+  active: z.boolean(),
+  review: z
+    .object({ outcome: z.enum(BREAK_GLASS_REVIEW_OUTCOMES), reviewedAt: z.string() })
+    .nullable(),
+  /** When the patient was sent a text message about it. */
+  notifiedAt: z.string().nullable(),
+});
+export type PortalEmergencyAccess = z.infer<typeof portalEmergencyAccessSchema>;
+
+export const portalNotificationsSchema = z.object({
+  /** The last 90 days, newest first. */
+  emergencyAccesses: z.array(portalEmergencyAccessSchema),
+});
+export type PortalNotifications = z.infer<typeof portalNotificationsSchema>;

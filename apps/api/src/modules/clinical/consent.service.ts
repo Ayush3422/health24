@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { eq, sql, type SQL } from 'drizzle-orm';
@@ -14,6 +15,7 @@ import {
   type PortalConsent,
   type PortalConsents,
   type PortalGrantConsentInput,
+  type PortalNotifications,
   type RecordConsentInput,
   type ReviewBreakGlassInput,
 } from '@health24/shared';
@@ -27,6 +29,7 @@ import {
   type RequestMeta,
 } from '../../common/actor';
 import { AuditService } from '../audit/audit.service';
+import { NotificationQueue } from '../notifications/notification-queue';
 import { requireLinkedPatient, toIso } from './clinical-access';
 import { staffName, type ReaderContext } from './staff-names';
 
@@ -63,6 +66,9 @@ type ConsentRow = {
 
 /** Said when a patient revokes without giving a reason; the database requires one. */
 const PORTAL_REVOCATION_REASON = 'Revoked by the patient in the portal';
+
+/** How long the portal keeps showing an emergency access to the patient. */
+const EMERGENCY_NOTICE_DAYS = 90;
 
 /**
  * Row-level security confines every read here: to consents granted to the
@@ -109,9 +115,12 @@ const consentSelect = (context: ReaderContext): SQL => sql`
  */
 @Injectable()
 export class ConsentService {
+  private readonly logger = new Logger(ConsentService.name);
+
   constructor(
     private readonly db: DatabaseService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationQueue,
   ) {}
 
   async record(
@@ -404,7 +413,57 @@ export class ConsentService {
       meta,
     });
 
+    // The patient is told by text message, from the worker (DF10). A queue
+    // that cannot be reached never refuses emergency access: the worker's
+    // sweep finds every access whose patient was not told.
+    await this.notifications.breakGlassTaken(row.id).catch((error: unknown) =>
+      this.logger.warn(`Emergency access ${row.id} left to the notification sweep: ${String(error)}`),
+    );
+
     return this.toSummary(row);
+  }
+
+  /** Emergency access to the patient's record in the last 90 days, for the portal (DF10). */
+  async notificationsForOwnRecord(
+    patient: PatientActor,
+    meta: RequestMeta,
+  ): Promise<PortalNotifications> {
+    const rows = await this.db.asPatient(patient.patientId, async (tx) => [
+      ...(await tx.execute<ConsentRow>(sql`
+        ${consentSelect('patient')}
+         WHERE ca."patient_id" = ANY (app.patient_record_ids(${patient.patientId}::uuid))
+           AND ca."capture_method"::text = 'break_glass'
+           AND ca."granted_at" > now() - make_interval(days => ${EMERGENCY_NOTICE_DAYS})
+      ORDER BY ca."granted_at" DESC
+      `)),
+    ]);
+
+    await this.audit.recordForPatient(patient, {
+      resourceType: 'consent_artefact',
+      resourceId: 'emergency_access',
+      action: 'read',
+      meta,
+    });
+
+    return {
+      emergencyAccesses: rows.map((row) => ({
+        id: row.id,
+        hospital: {
+          id: row.grantee_hospital_id,
+          name: row.grantee_hospital_name ?? 'Unknown hospital',
+        },
+        clinicianName: row.recorded_by_name,
+        reason: row.emergency_reason ?? '',
+        grantedAt: toIso(row.granted_at),
+        expiresAt: toIso(row.expires_at),
+        active: row.effective_status === 'active',
+        review:
+          row.review_outcome && row.reviewed_at
+            ? { outcome: row.review_outcome, reviewedAt: toIso(row.reviewed_at) }
+            : null,
+        notifiedAt: row.patient_notified_at ? toIso(row.patient_notified_at) : null,
+      })),
+    };
   }
 
   /** Emergency accesses taken at this hospital that nobody has reviewed yet, oldest first. */

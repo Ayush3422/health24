@@ -16,7 +16,7 @@ const envSchema = z
     DATABASE_URL: z.string().url(),
     /** The owner connection. Migrations and seeding only; never the running API. */
     DATABASE_ADMIN_URL: z.string().url().optional(),
-    /** Queues for background work: scanning uploads (SP4). */
+    /** Queues for background work: scanning uploads (SP4), messages to patients (SP5). */
     REDIS_URL: z.string().url().optional(),
 
     JWT_ACCESS_SECRET: z.string().min(16, 'JWT_ACCESS_SECRET must be at least 16 characters'),
@@ -66,6 +66,7 @@ const envSchema = z
      * before the pilot.
      */
     SMS_PROVIDER: z.enum(['log']).optional(),
+    NOTIFICATION_QUEUE_NAME: z.string().optional(),
   })
   .superRefine((env, ctx) => {
     // Data residency is a legal requirement: patient documents stay in India.

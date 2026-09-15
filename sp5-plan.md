@@ -224,8 +224,8 @@ Guardian links are created by records staff with the relationship and the docume
 
 ### Phase 5 — Access history and notifications
 
-- [ ] **T13** Access history API and screen (DF6)
-- [ ] **T14** Break-glass notification: job, SMS, portal alert, `patient_notified_at` (DF10)
+- [x] **T13** Access history API and screen (DF6)
+- [x] **T14** Break-glass notification: job, SMS, portal alert, `patient_notified_at` (DF10)
 
 ### Phase 6 — Emergency card
 

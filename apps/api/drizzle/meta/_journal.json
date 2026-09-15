@@ -267,6 +267,13 @@
       "when": 1789480133161,
       "tag": "0037_portal_consent_review_check",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1789488252776,
+      "tag": "0038_patient_notifications",
+      "breakpoints": true
     }
   ]
 }

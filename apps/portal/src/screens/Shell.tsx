@@ -11,6 +11,7 @@ const RECORD_LINKS = [
   ['/reports', 'shell.reports'],
   ['/results', 'shell.results'],
   ['/consents', 'shell.consents'],
+  ['/access', 'shell.access'],
 ] as const;
 
 /** The signed-in frame: whose record is open, the way around, and signing out. */

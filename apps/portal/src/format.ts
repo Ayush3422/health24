@@ -26,6 +26,17 @@ export function formatDateTime(value: string): string {
   return dateTimeFormat.format(new Date(value));
 }
 
+const timeFormat = new Intl.DateTimeFormat('en-IN', {
+  timeZone: 'Asia/Kolkata',
+  hour: 'numeric',
+  minute: '2-digit',
+});
+
+/** "9:05 am", in India Standard Time. */
+export function formatTime(value: string): string {
+  return timeFormat.format(new Date(value));
+}
+
 export function formatNumber(value: number): string {
   return value.toLocaleString('en-IN', { maximumFractionDigits: 2 });
 }

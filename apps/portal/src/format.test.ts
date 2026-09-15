@@ -3,6 +3,7 @@ import {
   CLINICAL_DATA_CATEGORIES,
   DOCUMENT_TYPES,
   RESULT_INTERPRETATIONS,
+  STAFF_ROLES,
   TIMELINE_KINDS,
 } from '@health24/shared';
 import en from './locales/en.json';
@@ -57,6 +58,9 @@ describe('the message catalogue', () => {
     expect(Object.keys(en.kind).sort()).toEqual([...TIMELINE_KINDS].sort());
     expect(Object.keys(en.docType).sort()).toEqual([...DOCUMENT_TYPES].sort());
     expect(Object.keys(en.category).sort()).toEqual([...CLINICAL_DATA_CATEGORIES].sort());
+    expect(Object.keys(en.role).sort()).toEqual([...STAFF_ROLES].sort());
+    // Access history words an unknown resource type rather than showing its name.
+    expect(en.resource.other).toBeTruthy();
     for (const interpretation of RESULT_INTERPRETATIONS) {
       expect(en.results).toHaveProperty(`flag_${interpretation}`);
     }

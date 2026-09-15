@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { TerminologyModule } from '../terminology/terminology.module';
 import { AllergiesService } from './allergies.service';
 import { AllergiesController, EncountersController } from './clinical.controller';
@@ -30,8 +31,9 @@ import { VitalsController } from './vitals.controller';
 import { VitalsService } from './vitals.service';
 
 @Module({
-  // Diagnoses are coded through TerminologyService.autoCode.
-  imports: [TerminologyModule],
+  // Diagnoses are coded through TerminologyService.autoCode; emergency access
+  // is announced to the patient through the notification queue.
+  imports: [TerminologyModule, NotificationsModule],
   controllers: [
     EncountersController,
     AllergiesController,
