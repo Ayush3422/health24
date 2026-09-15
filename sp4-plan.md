@@ -1,6 +1,6 @@
 # SP4 — Documents and Results: Implementation Plan
 
-**Status:** Approved for building. Decisions E–H answered 2026-09-14: **E1, F1, G1, H1**. No SP4 code has been written.
+**Status:** Approved for building. Decisions E–H answered 2026-09-14: **E1, F1, G1, H1**. Built, phases 1–8 (T1–T26), with the patient page redesigned as tabs on request (T20b).
 **Scope:** Report and document upload, storage, scanning and viewing; bulk import of legacy paper files; LOINC-coded lab results with reference ranges, abnormal flags and cross-hospital trend graphs; documents and results on the timeline, the summary card, consent and the audit trail.
 **Design reference:** `planning.md` §6.3, §8, §9, §11, §13 · `features.md` SP4 · `sp3-plan.md`
 
@@ -218,9 +218,9 @@ Records staff open an import batch for a patient and upload the scanned folder: 
 
 ### Phase 8 — Verification
 
-- [ ] **T24** Unit: unit conversions, abnormal flags, panel definitions, storage keys free of personal data
-- [ ] **T25** Integration: every new endpoint; row-level security with and without consent; audit of URL issuance
-- [ ] **T26** The Amlapitta scenario extended (below), and a browser check of upload, viewer, results and trends
+- [x] **T24** Unit: unit conversions, abnormal flags, panel definitions, storage keys free of personal data — `lab-panels.spec.ts` (panel definitions, conversions only through declared factors, flags from the printed range before the lab's flag, the entry schema), `keys.spec.ts` and `import-keys.spec.ts` (keys built from identifiers alone, parsed only by their own kind, quarantine), `timeline-describe.spec.ts` (a lab set's timeline line), and in the clinical app `trend-ticks.test.ts` and `doctors.test.ts`
+- [x] **T25** Integration: every new endpoint; row-level security with and without consent; audit of URL issuance — the authorisation suite fails on any registered route without an expectation; `documents-api`, `results`, `imports-api` and `consent-timeline` exercise every new endpoint; `documents-rls` and `imports-rls` prove sharing with and without consent at the database; `storage.e2e-spec.ts` proves an object is never served without a valid, unexpired signature; issuing a document file link is audited as a read or an export with its consent, and an import page link as a read
+- [x] **T26** The Amlapitta scenario extended (below), and a browser check of upload, viewer, results and trends — `amlapitta-scenario.e2e-spec.ts` now runs all five steps below through the API with real uploads scanned by ClamAV: records staff upload the old LFT and ultrasound and type the LFT; City General types a fresh LFT; under observations and documents the ALT trend spans both hospitals, the summary card carries Sanjeevani's raised ALT, and the ultrasound opens through a one-minute link audited with its consent; under observations alone the trend stays and the reports and link do not; with consent revoked, neither, and the reads are audited without consent. Browser checks were made with each screen: upload, scan, viewer, results entry and trends (Phase 5), legacy import (Phase 6), and the tabbed patient page. The timeline's document and result entries and the summary card's abnormal results (Phase 7) are covered by the API tests and await a look in the browser
 
 ---
 

@@ -1,5 +1,10 @@
+import { randomUUID } from 'node:crypto';
+import type { Worker } from 'bullmq';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type postgres from 'postgres';
+import { DocumentScanHandler } from '../src/modules/documents/document-scan.handler';
+import { createScanWorker } from '../src/modules/scanning/scan.worker';
+import { StorageService } from '../src/modules/storage/storage.service';
 import {
   createTestApp,
   loadDemoTerminology,
@@ -11,6 +16,9 @@ import {
   type SeededStaff,
   type TestContext,
 } from './harness';
+import { TEST_BUCKET, waitForClamd } from './storage-scanning';
+
+type TrendPoint = { value: number; hospital: { name: string } };
 
 type TimelineItem = {
   kind: string;
@@ -30,14 +38,19 @@ type TimelineItem = {
  * With consent revoked, the physician sees nothing from the Ayurvedic
  * hospital, and the attempt is audited.
  *
- * Tests already run and their values, and reports already taken, arrive with
- * SP4 and are not part of this scenario yet.
+ * Extended in SP4 (sp4-plan.md, "The acceptance scenario, extended"): the
+ * patient brings an old LFT and an ultrasound report, uploaded and scanned at
+ * the Ayurvedic hospital, with the LFT typed from its report; the
+ * gastroenterologist orders a fresh LFT. Under consent for observations and
+ * documents one ALT trend spans both hospitals and the ultrasound opens through
+ * an audited one-minute link; under observations alone the trend stays and the
+ * reports do not; with consent revoked, neither.
  *
  * Runs on the synthetic demo terminology: DEMO-NAM-001 stands in for
  * Amlapitta, with a TM2 translation and a biomedical mapping a curator must
  * approve before it is attached.
  */
-describe('the Amlapitta scenario', () => {
+describe('the Amlapitta scenario', { timeout: 120_000 }, () => {
   let ctx: TestContext;
   let owner: postgres.Sql;
   let closeOwner: () => Promise<void>;
@@ -56,8 +69,12 @@ describe('the Amlapitta scenario', () => {
   let cityDeskToken: string;
   let gastroenterologist: SeededStaff;
   let gastroToken: string;
+  let sanjeevaniRecordsToken: string;
+  let worker: Worker;
 
   let patientId: string;
+  let ultrasoundId: string;
+  let ultrasoundFileId: string;
   let firstVisit: string;
   let consentId: string;
   const formulations: Array<{ name: string; startDate: string }> = [];
@@ -83,7 +100,50 @@ describe('the Amlapitta scenario', () => {
     return (timeline.body.items as TimelineItem[]).filter((item) => !item.hospital.isOwn);
   };
 
+  const pdf = (text: string) => Buffer.from(`%PDF-1.4\n${text}\n%%EOF\n`);
+
+  const trendAt = async (token: string): Promise<TrendPoint[]> => {
+    const trend = await get(`/patients/${patientId}/results/trends?code=1742-6`, token);
+    expect(trend.status).toBe(200);
+    return trend.body.points as TrendPoint[];
+  };
+
+  /** Uploads one report the way the clinical app does, and waits for its scan to pass. */
+  async function uploadReport(token: string, details: Record<string, unknown>, body: Buffer) {
+    const created = await post('/documents', token, {
+      patientId,
+      files: [{ mimeType: 'application/pdf', sizeBytes: body.length }],
+      ...details,
+    });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+
+    const documentId = created.body.document.id as string;
+    const upload = created.body.uploads[0] as {
+      fileId: string;
+      url: string;
+      method: string;
+      headers: Record<string, string>;
+    };
+
+    const stored = await fetch(upload.url, { method: upload.method, headers: upload.headers, body });
+    expect(stored.status).toBe(200);
+    expect((await post(`/documents/${documentId}/complete`, token)).status).toBe(200);
+
+    const deadline = Date.now() + 60_000;
+    while (Date.now() < deadline) {
+      if ((await get(`/documents/${documentId}`, token)).body.availability === 'available') {
+        return { id: documentId, fileId: upload.fileId };
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+
+    throw new Error(`Report ${documentId} never passed its scan`);
+  }
+
   beforeAll(async () => {
+    process.env.STORAGE_BUCKET = TEST_BUCKET;
+    process.env.SCAN_QUEUE_NAME = `document-scans-test-${randomUUID()}`;
+
     await resetDatabase();
     await loadDemoTerminology();
     ctx = await createTestApp();
@@ -105,6 +165,7 @@ describe('the Amlapitta scenario', () => {
     );
     sanjeevaniDeskToken = await signIn(ctx, sanjeevani.staff.frontDesk as SeededStaff);
     vaidyaToken = await signIn(ctx, sanjeevani.staff.clinician as SeededStaff);
+    sanjeevaniRecordsToken = await signIn(ctx, sanjeevani.staff.records as SeededStaff);
     cityDeskToken = await signIn(ctx, cityGeneral.staff.frontDesk as SeededStaff);
     gastroenterologist = cityGeneral.staff.clinician as SeededStaff;
     gastroToken = await signIn(ctx, gastroenterologist);
@@ -112,9 +173,19 @@ describe('the Amlapitta scenario', () => {
     const connection = testDb();
     owner = connection.client;
     closeOwner = connection.close;
-  });
+
+    await ctx.app.get(StorageService).ensureBucket();
+    await waitForClamd();
+
+    worker = createScanWorker({
+      processor: ctx.app.get(DocumentScanHandler),
+      redisUrl: process.env.REDIS_URL!,
+      queueName: process.env.SCAN_QUEUE_NAME,
+    });
+  }, 360_000);
 
   afterAll(async () => {
+    await worker?.close();
     await closeOwner?.();
     await ctx?.close();
   });
@@ -210,6 +281,48 @@ describe('the Amlapitta scenario', () => {
     expect(second.status).toBe(201);
   });
 
+  it('2a. the patient brings an old LFT and an ultrasound from a private laboratory: records staff upload both and type the LFT', async () => {
+    const reportDate = istDaysAgo(100);
+
+    const lft = await uploadReport(
+      sanjeevaniRecordsToken,
+      {
+        docType: 'lab_report',
+        title: 'Liver function tests',
+        reportDate,
+        performingFacility: 'Metro Diagnostics',
+      },
+      pdf('Synthetic LFT: ALT 72 U/L, AST 41 U/L'),
+    );
+
+    const ultrasound = await uploadReport(
+      sanjeevaniRecordsToken,
+      {
+        docType: 'radiology',
+        title: 'Ultrasound abdomen',
+        reportDate,
+        performingFacility: 'Metro Diagnostics',
+      },
+      pdf('Synthetic ultrasound: mild fatty liver'),
+    );
+    ultrasoundId = ultrasound.id;
+    ultrasoundFileId = ultrasound.fileId;
+
+    const typed = await post('/results', sanjeevaniRecordsToken, {
+      patientId,
+      panel: 'lft',
+      documentId: lft.id,
+      collectedAt: `${reportDate}T09:00:00+05:30`,
+      performingFacility: 'Metro Diagnostics',
+      results: [
+        { code: '1742-6', value: 72, unit: 'U/L', referenceLow: 7, referenceHigh: 56 },
+        { code: '1920-8', value: 41, unit: 'U/L', referenceLow: 10, referenceHigh: 40 },
+      ],
+    });
+    expect(typed.status, JSON.stringify(typed.body)).toBe(201);
+    expect(typed.body.documentId).toBe(lft.id);
+  });
+
   it('3. the patient registers at City General and is linked to the existing record', async () => {
     const registered = await post('/patients', cityDeskToken, PATIENT);
 
@@ -224,7 +337,14 @@ describe('the Amlapitta scenario', () => {
 
   it('4. City General’s front desk records the patient’s consent', async () => {
     const consent = await post(`/patients/${patientId}/consents`, cityDeskToken, {
-      dataCategories: ['encounters', 'diagnoses', 'medications', 'allergies'],
+      dataCategories: [
+        'encounters',
+        'diagnoses',
+        'medications',
+        'allergies',
+        'observations',
+        'documents',
+      ],
       validForDays: 180,
       captureMethod: 'signed_form',
     });
@@ -281,6 +401,19 @@ describe('the Amlapitta scenario', () => {
     ]);
   });
 
+  it('5a. at City General the gastroenterologist orders a fresh LFT, typed there', async () => {
+    const fresh = await post('/results', gastroToken, {
+      patientId,
+      panel: 'lft',
+      collectedAt: `${istDaysAgo(2)}T10:30:00+05:30`,
+      performingFacility: 'City General Laboratory',
+      results: [{ code: '1742-6', value: 48, unit: 'U/L', referenceLow: 7, referenceHigh: 56 }],
+    });
+
+    expect(fresh.status, JSON.stringify(fresh.body)).toBe(201);
+    expect(fresh.body.hospital.isOwn).toBe(true);
+  });
+
   it('6. the patient explains nothing: the summary card has it at a glance', async () => {
     const summary = await get(`/patients/${patientId}/summary`, gastroToken);
 
@@ -288,8 +421,82 @@ describe('the Amlapitta scenario', () => {
     expect(summary.body.allergies.allergies).toHaveLength(1);
     expect(summary.body.problems.problems).toHaveLength(1);
     expect(summary.body.sharing.categories).toEqual(
-      expect.arrayContaining(['diagnoses', 'medications', 'allergies']),
+      expect.arrayContaining(['diagnoses', 'medications', 'allergies', 'observations', 'documents']),
     );
+
+    // The old LFT's raised ALT, from Sanjeevani, without anyone having to find the report.
+    expect(summary.body.recentAbnormalResults).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: 'ALT (SGPT)',
+          value: 72,
+          interpretation: 'high',
+          hospital: expect.objectContaining({ name: SANJEEVANI, isOwn: false }),
+        }),
+      ]),
+    );
+  });
+
+  it('6a. one ALT trend spans both hospitals, and the ultrasound opens through a short-lived, audited link', async () => {
+    expect((await trendAt(gastroToken)).map((point) => [point.value, point.hospital.name])).toEqual([
+      [72, SANJEEVANI],
+      [48, 'City General Hospital'],
+    ]);
+
+    const reports = await get(`/patients/${patientId}/documents`, gastroToken);
+    expect(reports.body.sharedFromOtherHospitals).toBe(true);
+    expect(reports.body.results.map((document: { id: string }) => document.id)).toContain(
+      ultrasoundId,
+    );
+
+    const link = await get(
+      `/documents/${ultrasoundId}/files/${ultrasoundFileId}/url?disposition=inline`,
+      gastroToken,
+    );
+    expect(link.status).toBe(200);
+    expect(Date.parse(link.body.expiresAt) - Date.now()).toBeLessThanOrEqual(60_000);
+    expect((await fetch(link.body.url)).status).toBe(200);
+
+    const audited = await owner<Array<{ action: string; consent: string | null }>>`
+      SELECT action, consent_artefact_id::text AS consent
+        FROM access_log
+       WHERE actor_id = ${gastroenterologist.id} AND resource_type = 'document_file'
+         AND resource_id = ${ultrasoundFileId}
+    `;
+    expect(audited).toEqual([{ action: 'read', consent: consentId }]);
+  });
+
+  it('6b. with consent narrowed to observations, the trend stays and the reports do not', async () => {
+    const revoked = await post(`/consents/${consentId}/revoke`, cityDeskToken, {
+      reason: 'Patient no longer shares reports',
+    });
+    expect(revoked.status).toBe(200);
+
+    const narrowed = await post(`/patients/${patientId}/consents`, cityDeskToken, {
+      dataCategories: ['encounters', 'diagnoses', 'medications', 'allergies', 'observations'],
+      validForDays: 180,
+      captureMethod: 'signed_form',
+    });
+    expect(narrowed.status).toBe(201);
+    consentId = narrowed.body.id;
+
+    expect((await trendAt(gastroToken)).map((point) => point.hospital.name)).toEqual([
+      SANJEEVANI,
+      'City General Hospital',
+    ]);
+
+    const reports = await get(`/patients/${patientId}/documents`, gastroToken);
+    expect(reports.body.sharedFromOtherHospitals).toBe(false);
+    expect(reports.body.results).toEqual([]);
+    expect(
+      (
+        await get(
+          `/documents/${ultrasoundId}/files/${ultrasoundFileId}/url?disposition=inline`,
+          gastroToken,
+        )
+      ).status,
+    ).toBe(404);
+    expect((await sharedItems(gastroToken)).some((item) => item.kind === 'document')).toBe(false);
   });
 
   it('7. with consent revoked, nothing from Sanjeevani is shown, and the attempt is audited', async () => {
@@ -303,6 +510,10 @@ describe('the Amlapitta scenario', () => {
     `) as [{ revokedAt: string }];
 
     expect(await sharedItems(gastroToken)).toEqual([]);
+    expect((await trendAt(gastroToken)).map((point) => point.hospital.name)).toEqual([
+      'City General Hospital',
+    ]);
+    expect((await get(`/patients/${patientId}/documents`, gastroToken)).body.results).toEqual([]);
     expect((await get(`/patients/${patientId}/allergies`, gastroToken)).body.allergies).toEqual([]);
     expect(
       JSON.stringify((await get(`/patients/${patientId}/problems`, gastroToken)).body),
@@ -314,7 +525,7 @@ describe('the Amlapitta scenario', () => {
        WHERE actor_id = ${gastroenterologist.id} AND action = 'read' AND at > ${revokedAt}::timestamptz
     `;
     expect(attempts.map((row) => row.resource_type)).toEqual(
-      expect.arrayContaining(['timeline', 'allergy_intolerance', 'condition']),
+      expect.arrayContaining(['timeline', 'allergy_intolerance', 'condition', 'observation']),
     );
     expect(attempts.every((row) => row.consent === null)).toBe(true);
 

@@ -10,6 +10,7 @@ import {
   resetDatabase,
   seedHospital,
   signIn,
+  testDb,
   type SeededStaff,
   type TestContext,
 } from './harness';
@@ -213,6 +214,18 @@ describe('imports API', { timeout: 180_000 }, () => {
     // A single page cut from the folder, not the folder itself.
     const cut = await PDFDocument.load(new Uint8Array(await page.arrayBuffer()));
     expect(cut.getPageCount()).toBe(1);
+
+    // Every link issued is a read of that page in the audit trail.
+    const { client, close } = testDb();
+    try {
+      const audited = await client<Array<{ action: string }>>`
+        SELECT action FROM access_log
+         WHERE resource_type = 'import_page' AND resource_id = ${pages[1]!.id}
+      `;
+      expect(audited.map((row) => row.action)).toEqual(['read']);
+    } finally {
+      await close();
+    }
 
     expect((await get(`/imports/${batchId}`, clinicianBToken)).status).toBe(404);
     expect((await get(`/imports/${batchId}/pages/${pages[1]!.id}/url`, clinicianBToken)).status).toBe(
