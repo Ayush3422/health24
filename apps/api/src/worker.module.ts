@@ -6,6 +6,7 @@ import { AuditModule } from './modules/audit/audit.module';
 import { DocumentCleanupTimer } from './modules/documents/document-cleanup.timer';
 import { DocumentScanHandler } from './modules/documents/document-scan.handler';
 import { DocumentsModule } from './modules/documents/documents.module';
+import { ImportsModule } from './modules/imports/imports.module';
 import { SCAN_JOB_HANDLER } from './modules/scanning/scan-queue';
 import { ScanningModule } from './modules/scanning/scanning.module';
 import { ScanWorker } from './modules/scanning/scan.worker';
@@ -23,6 +24,7 @@ import { StorageModule } from './modules/storage/storage.module';
     StorageModule,
     ScanningModule,
     DocumentsModule,
+    ImportsModule,
   ],
   providers: [
     ScanWorker,

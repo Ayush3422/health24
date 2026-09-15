@@ -6,6 +6,7 @@ import { usePatient, useUpdatePatient } from '../api/hooks';
 import { useAuth } from '../auth/AuthProvider';
 import { PatientClinicalRecord } from '../clinical/PatientClinicalRecord';
 import { PatientDocuments } from '../clinical/Documents';
+import { PatientImports } from '../clinical/Imports';
 import { PatientResults } from '../clinical/Results';
 import { PatientSharing } from '../clinical/Sharing';
 
@@ -157,6 +158,8 @@ export function PatientDetailPage(): JSX.Element {
       <PatientSharing patientId={record.id} />
 
       <PatientDocuments patientId={record.id} />
+
+      <PatientImports patientId={record.id} />
 
       <PatientResults patientId={record.id} />
 

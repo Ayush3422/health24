@@ -9,6 +9,7 @@ import { CodingReviewPage } from './routes/CodingReviewPage';
 import { CurationPage } from './routes/CurationPage';
 import { EncounterPage } from './routes/EncounterPage';
 import { MergeQueuePage } from './routes/MergeQueuePage';
+import { ImportBatchPage } from './routes/ImportBatchPage';
 import { PatientDetailPage } from './routes/PatientDetailPage';
 import { PatientRegisterPage } from './routes/PatientRegisterPage';
 import { PatientSearchPage } from './routes/PatientSearchPage';
@@ -57,6 +58,7 @@ export function App(): JSX.Element {
         <Route path="/patients" element={<PatientSearchPage />} />
         <Route path="/patients/new" element={<PatientRegisterPage />} />
         <Route path="/patients/:id" element={<PatientDetailPage />} />
+        <Route path="/patients/:id/imports/:batchId" element={<ImportBatchPage />} />
         <Route path="/encounters" element={<WorklistPage />} />
         <Route path="/encounters/:id" element={<EncounterPage />} />
         <Route path="/merge-queue" element={<MergeQueuePage />} />

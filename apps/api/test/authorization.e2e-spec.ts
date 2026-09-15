@@ -411,6 +411,23 @@ const ROUTES: RouteExpectation[] = [
     allow: ['clinician', 'frontDesk', 'records'],
   },
   { method: 'post', path: '/api/v1/coding-reviews/:conditionId/acknowledge', allow: ['clinician'] },
+  // Legacy paper files (SP4 Phase 6): classifying means reading every page, so
+  // only roles that read clinical records import (Decision E1).
+  { method: 'post', path: '/api/v1/imports', allow: ['clinician', 'records'] },
+  { method: 'get', path: '/api/v1/patients/:patientId/imports', allow: ['clinician', 'records'] },
+  { method: 'get', path: '/api/v1/imports/:id', allow: ['clinician', 'records'] },
+  { method: 'post', path: '/api/v1/imports/:id/files', allow: ['clinician', 'records'] },
+  { method: 'post', path: '/api/v1/imports/:id/files/complete', allow: ['clinician', 'records'] },
+  { method: 'get', path: '/api/v1/imports/:id/pages/:pageId/url', allow: ['clinician', 'records'] },
+  { method: 'post', path: '/api/v1/imports/:id/documents', allow: ['clinician', 'records'] },
+  { method: 'post', path: '/api/v1/imports/:id/exclusions', allow: ['clinician', 'records'] },
+  { method: 'post', path: '/api/v1/imports/:id/finish', allow: ['clinician', 'records'] },
+  // Doctors without an account, named alike on every document (T20).
+  {
+    method: 'get',
+    path: '/api/v1/external-clinicians',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
 ];
 
 const ABSENT_ID = '00000000-0000-4000-8000-000000000000';

@@ -4,6 +4,7 @@ import {
   type OnApplicationBootstrap,
   type OnApplicationShutdown,
 } from '@nestjs/common';
+import { ImportsService } from '../imports/imports.service';
 import { DocumentsService } from './documents.service';
 
 const EVERY_HOUR_MS = 60 * 60 * 1000;
@@ -18,15 +19,17 @@ export class DocumentCleanupTimer implements OnApplicationBootstrap, OnApplicati
   private readonly logger = new Logger(DocumentCleanupTimer.name);
   private timer: NodeJS.Timeout | null = null;
 
-  constructor(private readonly documents: DocumentsService) {}
+  constructor(
+    private readonly documents: DocumentsService,
+    private readonly imports: ImportsService,
+  ) {}
 
   onApplicationBootstrap(): void {
     const run = () =>
-      void this.documents
-        .abandonStale()
-        .catch((error: unknown) =>
+      void Promise.all([this.documents.abandonStale(), this.imports.abandonStale()]).catch(
+        (error: unknown) =>
           this.logger.error(`Clean-up of abandoned uploads failed: ${String(error)}`),
-        );
+      );
 
     this.timer = setInterval(run, EVERY_HOUR_MS);
     this.timer.unref();

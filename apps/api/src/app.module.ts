@@ -11,6 +11,7 @@ import { PatientsModule } from './modules/patients/patients.module';
 import { TerminologyModule } from './modules/terminology/terminology.module';
 import { ClinicalModule } from './modules/clinical/clinical.module';
 import { DocumentsModule } from './modules/documents/documents.module';
+import { ImportsModule } from './modules/imports/imports.module';
 import { ScanningModule } from './modules/scanning/scanning.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { StaffModule } from './modules/staff/staff.module';
@@ -39,6 +40,7 @@ import { HealthController } from './health.controller';
     StorageModule,
     ScanningModule,
     DocumentsModule,
+    ImportsModule,
   ],
   controllers: [HealthController],
   providers: [

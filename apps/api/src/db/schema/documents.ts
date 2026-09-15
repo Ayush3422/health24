@@ -120,6 +120,13 @@ export const documentReferences = pgTable(
   (table) => [
     unique('document_reference_identity').on(table.id, table.patientId, table.hospitalId),
     unique('document_reference_supersedes_once').on(table.supersedesId),
+    // Lets an import page name a document of its own batch.
+    unique('document_reference_batch_identity').on(
+      table.id,
+      table.importBatchId,
+      table.patientId,
+      table.hospitalId,
+    ),
     foreignKey({
       name: 'document_reference_encounter_same_record_fk',
       columns: [table.encounterId, table.patientId, table.hospitalId],
@@ -203,3 +210,121 @@ export const documentFiles = pgTable(
 );
 
 export type DocumentFile = typeof documentFiles.$inferSelect;
+
+/**
+ * A legacy folder's file as uploaded (Decision E1): kept as the original and
+ * scanned like any upload, but never served to a clinician. Once clean, the
+ * worker cuts it into pages.
+ */
+export const importFiles = pgTable(
+  'import_file',
+  {
+    id: primaryId(),
+    batchId: uuid('batch_id').notNull(),
+    patientId: uuid('patient_id').notNull(),
+    hospitalId: uuid('hospital_id').notNull(),
+
+    /** Its order in the folder, across every upload to the batch. */
+    position: integer('position').notNull(),
+    storageKey: text('storage_key').notNull(),
+    mimeType: text('mime_type').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    sha256: text('sha256'),
+
+    uploadConfirmedAt: timestamp('upload_confirmed_at', { withTimezone: true }),
+    /** Never confirmed within a day; its object was removed. */
+    abandonedAt: timestamp('abandoned_at', { withTimezone: true }),
+
+    scanStatus: fileScanStatusEnum('scan_status').notNull().default('pending'),
+    scannedAt: timestamp('scanned_at', { withTimezone: true }),
+    scanSignature: text('scan_signature'),
+    pageCount: integer('page_count'),
+    /** When its pages were cut. */
+    pagesCreatedAt: timestamp('pages_created_at', { withTimezone: true }),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('import_file_position_once').on(table.batchId, table.position),
+    unique('import_file_storage_key_once').on(table.storageKey),
+    unique('import_file_identity').on(table.id, table.batchId, table.patientId, table.hospitalId),
+    foreignKey({
+      name: 'import_file_batch_same_record_fk',
+      columns: [table.batchId, table.patientId, table.hospitalId],
+      foreignColumns: [importBatches.id, importBatches.patientId, importBatches.hospitalId],
+    }).onDelete('restrict'),
+    index('import_file_batch_idx').on(table.batchId),
+  ],
+);
+
+export type ImportFile = typeof importFiles.$inferSelect;
+
+/**
+ * One page of an import file: the unit staff classify. It becomes part of
+ * exactly one document, or is excluded with a reason — once, and never both.
+ */
+export const importPages = pgTable(
+  'import_page',
+  {
+    id: primaryId(),
+    batchId: uuid('batch_id').notNull(),
+    fileId: uuid('file_id').notNull(),
+    patientId: uuid('patient_id').notNull(),
+    hospitalId: uuid('hospital_id').notNull(),
+
+    /** From 1, within its file. */
+    pageNumber: integer('page_number').notNull(),
+    storageKey: text('storage_key').notNull(),
+    mimeType: text('mime_type').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    sha256: text('sha256').notNull(),
+
+    documentId: uuid('document_id'),
+    classifiedAt: timestamp('classified_at', { withTimezone: true }),
+    classifiedByStaffId: uuid('classified_by_staff_id'),
+
+    excludedAt: timestamp('excluded_at', { withTimezone: true }),
+    excludedByStaffId: uuid('excluded_by_staff_id'),
+    excludedReason: text('excluded_reason'),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('import_page_number_once').on(table.fileId, table.pageNumber),
+    unique('import_page_storage_key_once').on(table.storageKey),
+    foreignKey({
+      name: 'import_page_file_same_record_fk',
+      columns: [table.fileId, table.batchId, table.patientId, table.hospitalId],
+      foreignColumns: [
+        importFiles.id,
+        importFiles.batchId,
+        importFiles.patientId,
+        importFiles.hospitalId,
+      ],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'import_page_document_same_batch_fk',
+      columns: [table.documentId, table.batchId, table.patientId, table.hospitalId],
+      foreignColumns: [
+        documentReferences.id,
+        documentReferences.importBatchId,
+        documentReferences.patientId,
+        documentReferences.hospitalId,
+      ],
+    }),
+    foreignKey({
+      name: 'import_page_classified_by_same_hospital_fk',
+      columns: [table.classifiedByStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    foreignKey({
+      name: 'import_page_excluded_by_same_hospital_fk',
+      columns: [table.excludedByStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    index('import_page_batch_idx').on(table.batchId),
+    index('import_page_document_idx').on(table.documentId),
+  ],
+);
+
+export type ImportPage = typeof importPages.$inferSelect;

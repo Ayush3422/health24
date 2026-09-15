@@ -2,9 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { PDFDocument } from 'pdf-lib';
 import { DatabaseService } from '../../db/database.service';
+import { ImportScanHandler } from '../imports/import-scan.handler';
+import { scanOrRecover } from '../scanning/scan-or-recover';
 import type { ScanJobData, ScanJobHandler, ScanJobResult } from '../scanning/scan-queue';
 import { ScanProcessor } from '../scanning/scan.processor';
-import { parseDocumentFileKey, quarantineKeyFor } from '../storage/keys';
+import { parseDocumentFileKey, storageKeyKind } from '../storage/keys';
 import { StorageService } from '../storage/storage.service';
 
 /**
@@ -24,11 +26,15 @@ export class DocumentScanHandler implements ScanJobHandler {
     private readonly processor: ScanProcessor,
     private readonly storage: StorageService,
     private readonly db: DatabaseService,
+    private readonly imports: ImportScanHandler,
   ) {}
 
   async process(data: ScanJobData): Promise<ScanJobResult> {
+    // One queue scans every upload; a legacy folder's files are recorded against their import.
+    if (storageKeyKind(data.key) === 'import_file') return this.imports.process(data);
+
     const { hospitalId } = parseDocumentFileKey(data.key);
-    const result = await this.scanOrRecover(data);
+    const result = await scanOrRecover(this.processor, this.storage, data);
     // Counted only once a file is known to be clean: an infected PDF is never parsed.
     const pageCount = result.outcome === 'clean' ? await this.countPages(data.key) : null;
 
@@ -97,27 +103,5 @@ export class DocumentScanHandler implements ScanJobHandler {
       // Still a document, and still served; it simply has no page count.
       return null;
     }
-  }
-
-  /**
-   * A retry after the file was quarantined but before the verdict was saved
-   * finds no object to scan. The quarantined copy is the verdict.
-   */
-  private async scanOrRecover(data: ScanJobData): Promise<ScanJobResult> {
-    if (!(await this.storage.describe(data.key))) {
-      const quarantineKey = quarantineKeyFor(data.key);
-
-      if (await this.storage.describe(quarantineKey)) {
-        return {
-          key: data.key,
-          outcome: 'infected',
-          signature: 'Quarantined on an earlier attempt',
-          quarantineKey,
-          sha256: '',
-        };
-      }
-    }
-
-    return this.processor.process(data);
   }
 }

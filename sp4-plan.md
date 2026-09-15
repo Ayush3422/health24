@@ -205,9 +205,9 @@ Records staff open an import batch for a patient and upload the scanned folder: 
 
 ### Phase 6 — Legacy import (Decision E)
 
-- [ ] **T18** Import batch API
-- [ ] **T19** Classification screen: pages to documents, exclusions with a reason
-- [ ] **T20** External doctors named without an account
+- [x] **T18** Import batch API — two tables under the batch (migrations 0027 and 0028): `import_file`, the folder's file as uploaded, kept as the original and scanned on the same queue; and `import_page`, one page cut from a clean file by the worker — one single-page PDF per PDF page (pdf-lib), one page per image, a PDF that cannot be split kept whole. A document made from pages copies each page inside storage to the document's own key, with its checksum, and is available at once; so a clinician is only ever shown the pages classified into a document, never the rest of the folder. A page is settled once — in a document of its own batch, or excluded with a reason — and the batch finishes only when every page is settled and no file is in progress; a finished batch takes nothing more. Import files and pages are never shared, not even under consent; the database refuses a page from an unscanned file, a page in another batch's document, both classified and excluded, any change once settled, and the hospital admin. New permission `documents:import` for records staff and clinicians: classifying means reading every page, so not the front desk. Unconfirmed import files are abandoned by the hourly job like document uploads. `imports-rls.e2e-spec.ts` (9), `imports-api.e2e-spec.ts` (10), and the authorisation suite covers the ten new routes
+- [x] **T19** Classification screen: pages to documents, exclusions with a reason — an import section on the patient page and its own page per import: upload the folder in any number of goes (ordered by file name, names never sent), a grid of pages with their state, a preview through a one-minute audited link per page, select pages in document order, then make a document (type, report date, title, facility, ordering doctor) or exclude them with a reason; finish when every page is sorted. No thumbnails, as for documents (DF5)
+- [x] **T20** External doctors named without an account — stored by name since Phase 3 (DF7); now, wherever a doctor is named — upload and classification — the name field offers the names this hospital has already written (`GET /external-clinicians`), so the same doctor is named alike across documents
 
 ### Phase 7 — The record
 

@@ -174,6 +174,31 @@ export class StorageService implements OnModuleDestroy {
     return destination;
   }
 
+  /** Copies an object inside storage: its bytes never leave it. */
+  async copy(from: string, to: string): Promise<void> {
+    assertStorageKey(from);
+    assertStorageKey(to);
+
+    await this.client.send(
+      new CopyObjectCommand({ Bucket: this.bucket, Key: to, CopySource: `${this.bucket}/${from}` }),
+    );
+  }
+
+  /** Stores bytes the worker produced, such as one page cut from a scanned PDF. */
+  async put(key: string, body: Uint8Array, contentType: string): Promise<void> {
+    assertStorageKey(key);
+
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+        ContentLength: body.byteLength,
+      }),
+    );
+  }
+
   /**
    * Removes an object. Only for uploads that never became part of the record:
    * a document, once complete, is never deleted.

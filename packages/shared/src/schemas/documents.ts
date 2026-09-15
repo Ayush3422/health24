@@ -26,7 +26,7 @@ import {
 /** A phone capture of a long report can run to many pages; beyond this, split it. */
 export const MAX_FILES_PER_DOCUMENT = 20;
 
-const documentDetails = {
+export const documentDetails = {
   docType: z.enum(DOCUMENT_TYPES),
   title: z.string().trim().min(1).max(200).optional(),
   /** The date printed on the report. */
@@ -38,12 +38,12 @@ const documentDetails = {
   orderingClinicianName: z.string().trim().min(2).max(120).optional(),
 };
 
-const oneOrderingClinician = (value: {
+export const oneOrderingClinician = (value: {
   orderingClinicianId?: string;
   orderingClinicianName?: string;
 }) => !(value.orderingClinicianId && value.orderingClinicianName);
 
-const oneOrderingClinicianMessage = {
+export const oneOrderingClinicianMessage = {
   message: 'Name the ordering clinician by account or by name, not both',
   path: ['orderingClinicianName'],
 };

@@ -10,7 +10,7 @@ import {
   type DocumentType,
 } from '@health24/shared';
 import { ApiError } from '../api/client';
-import { useClinicians, useInvalidateClinical } from '../api/clinical';
+import { useInvalidateClinical } from '../api/clinical';
 import {
   DOCUMENT_TYPE_LABELS,
   completeDocument,
@@ -25,6 +25,13 @@ import {
 } from '../api/records';
 import { useAuth } from '../auth/AuthProvider';
 import { formatDate, istToday, optionalText } from './format';
+import {
+  NO_ORDERING_DOCTOR,
+  OrderingDoctorFields,
+  orderingDoctorPayload,
+  orderingDoctorReady,
+  type OrderingDoctor,
+} from './OrderingDoctor';
 
 const errorText = (caught: unknown, fallback: string) =>
   caught instanceof ApiError || caught instanceof Error ? caught.message : fallback;
@@ -295,7 +302,6 @@ function UploadDocumentForm({
 }): JSX.Element {
   const create = useCreateDocument();
   const invalidate = useInvalidateClinical();
-  const clinicians = useClinicians(canChooseClinician);
   const chooser = useRef<HTMLInputElement>(null);
   const camera = useRef<HTMLInputElement>(null);
 
@@ -305,9 +311,7 @@ function UploadDocumentForm({
   const [reportDate, setReportDate] = useState(istToday());
   const [title, setTitle] = useState('');
   const [facility, setFacility] = useState('');
-  const [ordering, setOrdering] = useState<'none' | 'account' | 'name'>('none');
-  const [clinicianId, setClinicianId] = useState('');
-  const [clinicianName, setClinicianName] = useState('');
+  const [ordering, setOrdering] = useState<OrderingDoctor>(NO_ORDERING_DOCTOR);
   const [phase, setPhase] = useState<'editing' | 'uploading' | 'confirming'>('editing');
   const [problems, setProblems] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -357,8 +361,7 @@ function UploadDocumentForm({
   const ready =
     files.length > 0 &&
     Boolean(reportDate) &&
-    (ordering !== 'account' || Boolean(clinicianId)) &&
-    (ordering !== 'name' || clinicianName.trim().length >= 2);
+    orderingDoctorReady(ordering);
 
   const submit = async () => {
     setError(null);
@@ -371,8 +374,7 @@ function UploadDocumentForm({
         reportDate,
         title: optionalText(title),
         performingFacility: optionalText(facility),
-        orderingClinicianId: ordering === 'account' ? clinicianId : undefined,
-        orderingClinicianName: ordering === 'name' ? optionalText(clinicianName) : undefined,
+        ...orderingDoctorPayload(ordering),
         files: files.map((item) => ({
           mimeType: item.file.type as DocumentMimeType,
           sizeBytes: item.file.size,
@@ -511,35 +513,12 @@ function UploadDocumentForm({
           <label htmlFor="upload-facility">Laboratory or facility (optional)</label>
           <input id="upload-facility" value={facility} onChange={(event) => setFacility(event.target.value)} />
         </div>
-        <div className="field">
-          <label htmlFor="upload-ordering">Ordered by</label>
-          <select id="upload-ordering" value={ordering} onChange={(event) => setOrdering(event.target.value as 'none' | 'account' | 'name')}>
-            <option value="none">Not stated</option>
-            {canChooseClinician ? <option value="account">A clinician of this hospital</option> : null}
-            <option value="name">A doctor not on staff</option>
-          </select>
-        </div>
-        {ordering === 'account' ? (
-          <div className="field">
-            <label htmlFor="upload-clinician">Clinician</label>
-            <select id="upload-clinician" value={clinicianId} onChange={(event) => setClinicianId(event.target.value)}>
-              <option value="" disabled>
-                Choose…
-              </option>
-              {(clinicians.data ?? []).map((clinician) => (
-                <option key={clinician.id} value={clinician.id}>
-                  {clinician.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : null}
-        {ordering === 'name' ? (
-          <div className="field">
-            <label htmlFor="upload-clinician-name">Doctor’s name</label>
-            <input id="upload-clinician-name" value={clinicianName} onChange={(event) => setClinicianName(event.target.value)} />
-          </div>
-        ) : null}
+        <OrderingDoctorFields
+          idPrefix="upload"
+          value={ordering}
+          onChange={setOrdering}
+          canChooseClinician={canChooseClinician}
+        />
       </div>
 
       <div className="row">

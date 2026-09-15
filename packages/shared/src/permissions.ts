@@ -72,6 +72,12 @@ export const PERMISSIONS = [
   'documents:upload',
   /** Type lab results from a report against the curated panels. */
   'results:enter',
+  /**
+   * Import a legacy paper folder and classify its pages into documents
+   * (Decision E1). Classifying means looking at every page, so only roles
+   * that read clinical records hold it.
+   */
+  'documents:import',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -140,6 +146,8 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'consent:break_glass',
     'documents:upload',
     'results:enter',
+    // A single-doctor clinic has no records staff to import its old files.
+    'documents:import',
   ],
 
   front_desk: [
@@ -183,6 +191,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'consent:record',
     'documents:upload',
     'results:enter',
+    'documents:import',
   ],
 };
 

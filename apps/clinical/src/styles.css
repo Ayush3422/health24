@@ -1771,3 +1771,112 @@ button.chip[aria-pressed='true'] {
   text-align: left;
   padding-bottom: 0.25rem;
 }
+
+/* Legacy paper file import (SP4 Phase 6) */
+
+.import-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (min-width: 1000px) {
+  .import-layout {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+
+  .import-preview {
+    position: sticky;
+    top: 1rem;
+  }
+}
+
+.page-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.5rem;
+}
+
+.page-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.6rem;
+}
+
+.page-card--settled {
+  background: var(--ground);
+}
+
+.page-card--selected {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.page-card--previewing {
+  outline: 2px dashed var(--ink-muted);
+  outline-offset: 2px;
+}
+
+.page-card__select {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+
+.page-card__order {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--surface);
+  font-size: 0.75rem;
+}
+
+.tag--excluded {
+  overflow-wrap: anywhere;
+}
+
+.action-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+}
+
+.action-bar .form {
+  flex: 1 1 100%;
+}
+
+.import-preview__frame {
+  display: block;
+  width: 100%;
+  height: 70vh;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.import-preview__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+}
