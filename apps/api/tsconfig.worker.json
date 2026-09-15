@@ -1,0 +1,10 @@
+{
+  // The worker in watch mode compiles to its own directory: sharing dist with
+  // `pnpm dev`, whichever started second deleted the other's output mid-load.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist-worker",
+    "tsBuildInfoFile": "./dist-worker/.tsbuildinfo"
+  },
+  "exclude": ["node_modules", "dist", "dist-worker"]
+}

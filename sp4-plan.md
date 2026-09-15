@@ -198,10 +198,10 @@ Records staff open an import batch for a patient and upload the scanned folder: 
 
 ### Phase 5 — Screens
 
-- [ ] **T14** Upload: drag and drop, several files, phone camera, progress and scan status
-- [ ] **T15** Documents list with filters, and the viewer for PDFs and images with zoom
-- [ ] **T16** Results entry form by panel, attached to a report
-- [ ] **T17** Trend graphs with the reference band and a table beside
+- [x] **T14** Upload: drag and drop, several files, phone camera, progress and scan status — one document from many files in a chosen order, checked for type and size before anything is sent; each file goes straight to storage with its progress shown, then the list polls until the scan settles. The front desk names an ordering doctor by name, since it cannot list clinicians. The worker now records a PDF's page count (pdf-lib) once its scan is clean; tested in `documents-api.e2e-spec.ts`. Local storage allows the clinical origin (CORS)
+- [x] **T15** Documents list with filters, and the viewer for PDFs and images with zoom — filters by type, report date and hospital; the viewer shows a PDF in the browser's own viewer and an image with zoom steps, each file through a fresh one-minute link, with download as a separate audited link. Correct details and entered in error from the list. **Thumbnails dropped for v1** (DF5): every thumbnail shown would be its own audited read of the record, so lists show type, file count and page count instead
+- [x] **T16** Results entry form by panel, attached to a report — panel, collection date and time (IST), laboratory, and the uploaded lab report it was typed from; per test the value, unit, the report's range (prefilled with typical values in the standard unit, cleared when another unit is chosen) and the lab's printed flag. The front desk sees what it has just recorded and nothing more; readers see every set with withdraw and trend
+- [x] **T17** Trend graphs with the reference band and a table beside — SVG line in one validated blue with the reference range as a neutral band, hospital told by marker shape, out-of-range results by ▲/▼ as well as the flag word, a hover and keyboard readout, and a table of every value beneath
 
 ### Phase 6 — Legacy import (Decision E)
 

@@ -315,6 +315,30 @@ describe('documents API', { timeout: 120_000 }, () => {
     });
   });
 
+  describe('page counts', () => {
+    it('counts the pages of a clean PDF once its scan passes', async () => {
+      const { PDFDocument } = await import('pdf-lib');
+      const pdfDocument = await PDFDocument.create();
+      pdfDocument.addPage();
+      pdfDocument.addPage();
+      pdfDocument.addPage();
+      const bytes = Buffer.from(await pdfDocument.save());
+
+      const created = await createDocument(
+        frontDeskToken,
+        [{ body: bytes, mimeType: 'application/pdf' }],
+        { docType: 'discharge_summary', reportDate: '2026-08-20' },
+      );
+      await put(created.uploads[0]!, bytes);
+      expect((await post(`/documents/${created.document.id}/complete`, frontDeskToken)).status).toBe(
+        200,
+      );
+
+      const available = await waitForAvailability(created.document.id, 'available');
+      expect(available.files[0].pageCount).toBe(3);
+    });
+  });
+
   describe('viewing', () => {
     it('issues a one-minute link to clinicians and records staff, and audits every one', async () => {
       const inline = await get(

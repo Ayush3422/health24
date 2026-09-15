@@ -30,6 +30,7 @@ export default tseslint.config(
   {
     ignores: [
       '**/dist/**',
+      '**/dist-worker/**',
       '**/node_modules/**',
       '**/coverage/**',
       // Generated SQL and drizzle metadata.

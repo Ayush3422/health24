@@ -41,6 +41,8 @@ services:
       ROOT_ACCESS_KEY_ID: health24_local
       ROOT_SECRET_ACCESS_KEY: health24_local_storage_secret
       VGW_REGION: ap-south-1
+      # Browsers upload straight to storage from the clinical app (SP4).
+      VGW_CORS_ALLOW_ORIGIN: http://localhost:5173
     ports:
       - '7070:7070'
     volumes:

@@ -22,7 +22,7 @@
     "terminology:load-demo": "tsx src/modules/terminology/cli/import.ts data/terminology/demo/demo-namaste.json data/terminology/demo/demo-icd11-tm2.json data/terminology/demo/demo-icd11-mms.json data/terminology/demo/map-namaste-icd11-tm2.json data/terminology/demo/map-namaste-icd11-mms.json --activate --by demo-loader",
     "smoke:terminology": "node scripts/smoke-terminology.mjs",
     "mfa:code": "node scripts/mfa-code.mjs",
-    "worker": "nest start --watch --entryFile worker",
+    "worker": "nest start --watch --entryFile worker --path tsconfig.worker.json",
     "worker:start": "node dist/worker.js",
     "storage:bootstrap": "tsx src/modules/storage/cli/bootstrap.ts"
   },
@@ -44,6 +44,7 @@
     "ioredis": "^6.0.0",
     "nestjs-pino": "^4.2.0",
     "otpauth": "^9.3.6",
+    "pdf-lib": "^1.17.1",
     "pino": "^9.5.0",
     "pino-http": "^10.3.0",
     "pino-pretty": "^13.0.0",

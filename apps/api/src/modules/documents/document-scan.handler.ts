@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
+import { PDFDocument } from 'pdf-lib';
 import { DatabaseService } from '../../db/database.service';
 import type { ScanJobData, ScanJobHandler, ScanJobResult } from '../scanning/scan-queue';
 import { ScanProcessor } from '../scanning/scan.processor';
@@ -28,12 +29,15 @@ export class DocumentScanHandler implements ScanJobHandler {
   async process(data: ScanJobData): Promise<ScanJobResult> {
     const { hospitalId } = parseDocumentFileKey(data.key);
     const result = await this.scanOrRecover(data);
+    // Counted only once a file is known to be clean: an infected PDF is never parsed.
+    const pageCount = result.outcome === 'clean' ? await this.countPages(data.key) : null;
 
     await this.db.asTenant(hospitalId, async (tx) => {
       const updated = await tx.execute<{ document_id: string }>(sql`
         UPDATE "document_file"
            SET "scan_status" = ${result.outcome}::file_scan_status, "scanned_at" = now(),
-               "sha256" = ${result.sha256 || null}, "scan_signature" = ${result.signature ?? null}
+               "sha256" = ${result.sha256 || null}, "scan_signature" = ${result.signature ?? null},
+               "page_count" = ${pageCount}
          WHERE "storage_key" = ${data.key} AND "scan_status" = 'pending'
      RETURNING "document_id"
       `);
@@ -71,6 +75,28 @@ export class DocumentScanHandler implements ScanJobHandler {
     });
 
     return result;
+  }
+
+  /** A PDF's page count, for lists. Null for images, and for a PDF the library cannot read. */
+  private async countPages(key: string): Promise<number | null> {
+    const object = await this.storage.describe(key);
+    if (object?.contentType !== 'application/pdf') return null;
+
+    try {
+      const chunks: Buffer[] = [];
+      for await (const chunk of await this.storage.read(key)) {
+        chunks.push(Buffer.from(chunk as Uint8Array));
+      }
+
+      const pdf = await PDFDocument.load(Buffer.concat(chunks), {
+        ignoreEncryption: true,
+        updateMetadata: false,
+      });
+      return pdf.getPageCount();
+    } catch {
+      // Still a document, and still served; it simply has no page count.
+      return null;
+    }
   }
 
   /**
