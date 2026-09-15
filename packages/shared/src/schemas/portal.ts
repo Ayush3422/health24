@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { ENCOUNTER_CLASSES, PORTAL_RELATIONSHIPS } from '../enums.js';
 import { phoneSchema, uuidSchema } from '../primitives.js';
-import { hospitalRefSchema, staffRefSchema } from './clinical.js';
+import { hospitalRefSchema, staffRefSchema, timelineQuerySchema } from './clinical.js';
+import { listDocumentsQuerySchema } from './documents.js';
 
 /**
  * The patient portal's sign-in (SP5 Phase 1).
@@ -186,3 +187,15 @@ export const portalSummarySchema = z.object({
   hospitals: z.array(z.object({ id: uuidSchema, name: z.string(), mrn: z.string() })),
 });
 export type PortalSummary = z.infer<typeof portalSummarySchema>;
+
+// ---------------------------------------------------------------------------
+// The patient's own record (Phase 3)
+// ---------------------------------------------------------------------------
+
+// As staff read them, less the hospital scope: a patient has no "own" hospital.
+
+export const portalTimelineQuerySchema = timelineQuerySchema.omit({ scope: true });
+export type PortalTimelineQuery = z.infer<typeof portalTimelineQuerySchema>;
+
+export const portalDocumentsQuerySchema = listDocumentsQuerySchema.omit({ scope: true });
+export type PortalDocumentsQuery = z.infer<typeof portalDocumentsQuerySchema>;

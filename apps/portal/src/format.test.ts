@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { DOCUMENT_TYPES, RESULT_INTERPRETATIONS, TIMELINE_KINDS } from '@health24/shared';
 import en from './locales/en.json';
-import { describeDevice, displayPhone, formatDate } from './format';
+import { describeDevice, displayPhone, formatBytes, formatDate } from './format';
 
 describe('portal formatting', () => {
   it('shows a calendar date as the day in India, not the day in UTC', () => {
@@ -22,6 +23,12 @@ describe('portal formatting', () => {
     ).toBe('Chrome on Android');
     expect(describeDevice(null)).toBeNull();
   });
+
+  it('gives a small file in kilobytes, never as 0 MB', () => {
+    expect(formatBytes(1200)).toBe('1 KB');
+    expect(formatBytes(340_000)).toBe('332 KB');
+    expect(formatBytes(2_500_000)).toBe('2.4 MB');
+  });
 });
 
 describe('the message catalogue', () => {
@@ -39,5 +46,13 @@ describe('the message catalogue', () => {
     expect(Object.keys(en.visit).sort()).toEqual(
       ['emergency', 'inpatient', 'outpatient', 'teleconsultation'].sort(),
     );
+  });
+
+  it('names every kind of timeline entry, document and result flag', () => {
+    expect(Object.keys(en.kind).sort()).toEqual([...TIMELINE_KINDS].sort());
+    expect(Object.keys(en.docType).sort()).toEqual([...DOCUMENT_TYPES].sort());
+    for (const interpretation of RESULT_INTERPRETATIONS) {
+      expect(en.results).toHaveProperty(`flag_${interpretation}`);
+    }
   });
 });

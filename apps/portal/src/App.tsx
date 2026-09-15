@@ -3,8 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { Shell } from './screens/Shell';
 import { DevicesScreen } from './screens/DevicesScreen';
 import { HomeScreen } from './screens/HomeScreen';
+import { ReportsScreen } from './screens/ReportsScreen';
+import { ResultsScreen } from './screens/ResultsScreen';
 import { SignInScreen } from './screens/SignInScreen';
 import { SwitchScreen } from './screens/SwitchScreen';
+import { TimelineScreen } from './screens/TimelineScreen';
+import { TrendScreen } from './screens/TrendScreen';
 import { useSession } from './session/SessionProvider';
 
 export function App(): JSX.Element {
@@ -25,6 +29,13 @@ export function App(): JSX.Element {
     <Routes>
       <Route element={<Shell />}>
         <Route index element={<HomeScreen />} />
+        <Route path="timeline" element={<TimelineScreen page="timeline" />} />
+        <Route path="medicines" element={<TimelineScreen page="medicines" />} />
+        <Route path="problems" element={<TimelineScreen page="problems" />} />
+        <Route path="allergies" element={<TimelineScreen page="allergies" />} />
+        <Route path="reports" element={<ReportsScreen />} />
+        <Route path="results" element={<ResultsScreen />} />
+        <Route path="results/:code" element={<TrendScreen />} />
         <Route path="switch" element={<SwitchScreen />} />
         <Route path="devices" element={<DevicesScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -12,6 +12,7 @@ import {
   type EncounterClass,
   type LabPanelKey,
   type NoteTemplateKey,
+  type PortalTimelineQuery,
   type SystemOfMedicine,
   type TimelineItem,
   type TimelineKind,
@@ -19,10 +20,17 @@ import {
   type TimelineQuery,
   type VitalSignKey,
 } from '@health24/shared';
+import type { DbTransaction } from '../../db/client';
 import { DatabaseService } from '../../db/database.service';
-import { requireHospital, type Actor, type RequestMeta } from '../../common/actor';
+import {
+  requireHospital,
+  type Actor,
+  type PatientActor,
+  type RequestMeta,
+} from '../../common/actor';
 import { AuditService } from '../audit/audit.service';
 import { coveringConsentId, requireLinkedPatient, toIso } from './clinical-access';
+import { staffName, type ReaderContext } from './staff-names';
 
 type Reading = { code: string; value: string; unit: string | null; interpretation?: string | null };
 
@@ -151,6 +159,9 @@ export function describeVitals(readings: Reading[]): string {
  * entries appear exactly where consent — or emergency access — covers their
  * category and date. The interface is fixed here so a projection can replace
  * the query later without touching callers.
+ *
+ * The same query serves the patient in the portal (SP5): in the patient
+ * context, row-level security admits their own record at every hospital.
  */
 @Injectable()
 export class TimelineService {
@@ -166,7 +177,112 @@ export class TimelineService {
     meta: RequestMeta,
   ): Promise<TimelinePage> {
     const hospitalId = requireHospital(actor);
+
+    const { rows, consentByCategory } = await this.db.asTenant(hospitalId, async (tx) => {
+      await requireLinkedPatient(tx, hospitalId, patientId);
+
+      const list = await this.readPage(tx, patientId, query, {
+        context: 'hospital',
+        onlyHospitalId: query.scope === 'own' ? hospitalId : null,
+      });
+
+      // Which categories other hospitals share, and on which consent: named in
+      // the audit trail, and returned so the screen can say what may be missing.
+      const consents = new Map<ClinicalDataCategory, string | null>();
+      const categories: ClinicalDataCategory[] = [
+        'encounters',
+        'diagnoses',
+        'medications',
+        'allergies',
+        'observations',
+        'notes',
+        'procedures',
+        'documents',
+      ];
+
+      for (const category of categories) {
+        consents.set(category, await coveringConsentId(tx, patientId, category));
+      }
+
+      return { rows: list, consentByCategory: consents };
+    });
+
+    const page = rows.slice(0, query.limit);
+    const hasMore = rows.length > query.limit;
+
+    const sharedReads = [
+      ...new Set(page.filter((row) => row.hospital_id !== hospitalId).map((row) => row.category)),
+    ];
+
+    if (sharedReads.length === 0) {
+      await this.audit.recordForActor(actor, {
+        resourceType: 'timeline',
+        patientId,
+        action: 'read',
+        meta,
+      });
+    } else {
+      for (const category of sharedReads) {
+        await this.audit.recordForActor(actor, {
+          resourceType: 'timeline',
+          resourceId: category,
+          patientId,
+          action: 'read',
+          consentArtefactId: consentByCategory.get(category) ?? null,
+          meta,
+        });
+      }
+    }
+
+    const last = page.at(-1);
+
+    return {
+      items: page.map((row) => this.toItem(row, hospitalId)),
+      nextBefore: hasMore && last ? last.occurred_cursor : null,
+      sharedCategories: [...consentByCategory.entries()]
+        .filter(([, consentId]) => consentId !== null)
+        .map(([category]) => category),
+    };
+  }
+
+  /**
+   * The patient's own timeline in the portal (SP5): every hospital, with no
+   * consent involved, audited as the patient (sp5-plan.md, DF6).
+   */
+  async forOwnRecord(
+    patient: PatientActor,
+    query: PortalTimelineQuery,
+    meta: RequestMeta,
+  ): Promise<TimelinePage> {
+    const rows = await this.db.asPatient(patient.patientId, (tx) =>
+      this.readPage(tx, patient.patientId, query, { context: 'patient', onlyHospitalId: null }),
+    );
+
+    await this.audit.recordForPatient(patient, {
+      resourceType: 'timeline',
+      action: 'read',
+      meta,
+    });
+
+    const page = rows.slice(0, query.limit);
+    const last = page.at(-1);
+
+    return {
+      items: page.map((row) => this.toItem(row, null)),
+      nextBefore: rows.length > query.limit && last ? last.occurred_cursor : null,
+      sharedCategories: [],
+    };
+  }
+
+  /** One page and one row more, newest first, as row-level security admits them. */
+  private async readPage(
+    tx: DbTransaction,
+    patientId: string,
+    query: Pick<TimelineQuery, 'categories' | 'before' | 'limit'>,
+    options: { context: ReaderContext; onlyHospitalId: string | null },
+  ): Promise<TimelineRow[]> {
     const limit = query.limit + 1;
+    const { onlyHospitalId } = options;
 
     // Each branch reads only the newest rows that could reach this page: an
     // index scan in time order per record id, stopping at the page size. The
@@ -175,7 +291,7 @@ export class TimelineService {
     // evaluated for a page's worth of rows rather than the whole history.
     const window = (time: SQL, hospital: SQL): SQL =>
       sql`${query.before ? sql`AND ${time} < ${query.before}::timestamptz` : sql``} ${
-        query.scope === 'own' ? sql`AND ${hospital} = ${hospitalId}::uuid` : sql``
+        onlyHospitalId ? sql`AND ${hospital} = ${onlyHospitalId}::uuid` : sql``
       }`;
 
     const union = sql`
@@ -356,93 +472,34 @@ export class TimelineService {
       );
     }
 
-    if (query.scope === 'own') {
-      filters.push(sql`t."hospital_id" = ${hospitalId}::uuid`);
+    if (onlyHospitalId) {
+      filters.push(sql`t."hospital_id" = ${onlyHospitalId}::uuid`);
     }
 
     if (query.before) {
       filters.push(sql`t."occurred_at" < ${query.before}::timestamptz`);
     }
 
-    const { rows, consentByCategory } = await this.db.asTenant(hospitalId, async (tx) => {
-      await requireLinkedPatient(tx, hospitalId, patientId);
+    const found = await tx.execute<TimelineRow>(sql`
+      SELECT t.*,
+             to_char(t."occurred_at" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS occurred_cursor,
+             d."name" AS hospital_name,
+             ${staffName(options.context, sql`cl."name"`, sql`t."clinician_id"`)} AS clinician_name,
+             ${staffName(options.context, sql`eb."name"`, sql`t."entered_by_id"`)} AS entered_by_name
+        FROM (${union}) t
+        LEFT JOIN "hospital_directory" d ON d."id" = t."hospital_id"
+        LEFT JOIN "staff_user" cl ON cl."id" = t."clinician_id"
+        LEFT JOIN "staff_user" eb ON eb."id" = t."entered_by_id"
+       WHERE ${sql.join(filters, sql` AND `)}
+    ORDER BY t."occurred_at" DESC, t."id" DESC
+       LIMIT ${limit}
+    `);
 
-      const found = await tx.execute<TimelineRow>(sql`
-        SELECT t.*,
-               to_char(t."occurred_at" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS occurred_cursor,
-               d."name" AS hospital_name, cl."name" AS clinician_name,
-               eb."name" AS entered_by_name
-          FROM (${union}) t
-          LEFT JOIN "hospital_directory" d ON d."id" = t."hospital_id"
-          LEFT JOIN "staff_user" cl ON cl."id" = t."clinician_id"
-          LEFT JOIN "staff_user" eb ON eb."id" = t."entered_by_id"
-         WHERE ${sql.join(filters, sql` AND `)}
-      ORDER BY t."occurred_at" DESC, t."id" DESC
-         LIMIT ${query.limit + 1}
-      `);
-
-      const list = [...found];
-
-      // Which categories other hospitals share, and on which consent: named in
-      // the audit trail, and returned so the screen can say what may be missing.
-      const consents = new Map<ClinicalDataCategory, string | null>();
-      const categories: ClinicalDataCategory[] = [
-        'encounters',
-        'diagnoses',
-        'medications',
-        'allergies',
-        'observations',
-        'notes',
-        'procedures',
-        'documents',
-      ];
-
-      for (const category of categories) {
-        consents.set(category, await coveringConsentId(tx, patientId, category));
-      }
-
-      return { rows: list, consentByCategory: consents };
-    });
-
-    const page = rows.slice(0, query.limit);
-    const hasMore = rows.length > query.limit;
-
-    const sharedReads = [
-      ...new Set(page.filter((row) => row.hospital_id !== hospitalId).map((row) => row.category)),
-    ];
-
-    if (sharedReads.length === 0) {
-      await this.audit.recordForActor(actor, {
-        resourceType: 'timeline',
-        patientId,
-        action: 'read',
-        meta,
-      });
-    } else {
-      for (const category of sharedReads) {
-        await this.audit.recordForActor(actor, {
-          resourceType: 'timeline',
-          resourceId: category,
-          patientId,
-          action: 'read',
-          consentArtefactId: consentByCategory.get(category) ?? null,
-          meta,
-        });
-      }
-    }
-
-    const last = page.at(-1);
-
-    return {
-      items: page.map((row) => this.toItem(row, hospitalId)),
-      nextBefore: hasMore && last ? last.occurred_cursor : null,
-      sharedCategories: [...consentByCategory.entries()]
-        .filter(([, consentId]) => consentId !== null)
-        .map(([category]) => category),
-    };
+    return [...found];
   }
 
-  private toItem(row: TimelineRow, hospitalId: string): TimelineItem {
+  /** `hospitalId` is the reading hospital; null for a patient, who has no "own" hospital. */
+  private toItem(row: TimelineRow, hospitalId: string | null): TimelineItem {
     let title = row.title ?? '';
     let detail = row.detail;
 
@@ -468,7 +525,7 @@ export class TimelineService {
       hospital: {
         id: row.hospital_id,
         name: row.hospital_name ?? 'Unknown hospital',
-        isOwn: row.hospital_id === hospitalId,
+        isOwn: hospitalId !== null && row.hospital_id === hospitalId,
       },
       encounterId: row.encounter_id,
       systemOfMedicine: row.system_of_medicine,

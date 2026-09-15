@@ -30,6 +30,13 @@ export function formatNumber(value: number): string {
   return value.toLocaleString('en-IN', { maximumFractionDigits: 2 });
 }
 
+/** A file's size: kilobytes under a megabyte, never "0 MB". */
+export function formatBytes(bytes: number): string {
+  const megabyte = 1024 * 1024;
+  if (bytes < megabyte) return `${Math.max(1, Math.round(bytes / 1024)).toLocaleString('en-IN')} KB`;
+  return `${(bytes / megabyte).toLocaleString('en-IN', { maximumFractionDigits: 1 })} MB`;
+}
+
 /** "+91 98200 12345" from E.164 or a typed number, for showing back what was entered. */
 export function displayPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');

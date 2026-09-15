@@ -2,6 +2,16 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useSession } from '../session/SessionProvider';
 
+/** The patient's record, in the order people look for it. */
+const RECORD_LINKS = [
+  ['/timeline', 'shell.timeline'],
+  ['/medicines', 'shell.medicines'],
+  ['/problems', 'shell.problems'],
+  ['/allergies', 'shell.allergies'],
+  ['/reports', 'shell.reports'],
+  ['/results', 'shell.results'],
+] as const;
+
 /** The signed-in frame: whose record is open, the way around, and signing out. */
 export function Shell(): JSX.Element {
   const { t } = useTranslation();
@@ -24,6 +34,11 @@ export function Shell(): JSX.Element {
           <NavLink end to="/">
             {t('shell.home')}
           </NavLink>
+          {RECORD_LINKS.map(([to, label]) => (
+            <NavLink key={to} to={to}>
+              {t(label)}
+            </NavLink>
+          ))}
           {me && me.patients.length > 1 ? <NavLink to="/switch">{t('shell.switch')}</NavLink> : null}
           <NavLink to="/devices">{t('shell.devices')}</NavLink>
         </nav>

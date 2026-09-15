@@ -446,6 +446,11 @@ const ROUTES: RouteExpectation[] = [
   { method: 'post', path: '/api/v1/portal/auth/logout', allow: [], portal: true },
   // The patient's own record (SP5 Phase 2).
   { method: 'get', path: '/api/v1/portal/summary', allow: [], portal: true },
+  { method: 'get', path: '/api/v1/portal/timeline', allow: [], portal: true },
+  { method: 'get', path: '/api/v1/portal/documents', allow: [], portal: true },
+  { method: 'get', path: '/api/v1/portal/documents/:id/files/:fileId/url', allow: [], portal: true },
+  { method: 'get', path: '/api/v1/portal/results', allow: [], portal: true },
+  { method: 'get', path: '/api/v1/portal/results/trends', allow: [], portal: true },
   // Portal access is activated by those who see the patient in person (Decision J1).
   {
     method: 'post',

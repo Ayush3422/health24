@@ -213,9 +213,9 @@ Guardian links are created by records staff with the relationship and the docume
 
 ### Phase 3 — The patient's own record
 
-- [ ] **T8** Portal record API over the existing services with a patient actor; audit as patient (DF6)
-- [ ] **T9** Timeline, medicines, problems and allergies screens
-- [ ] **T10** Reports list and download (DF7); results and trends
+- [x] **T8** Portal record API over the existing services with a patient actor; audit as patient (DF6)
+- [x] **T9** Timeline, medicines, problems and allergies screens
+- [x] **T10** Reports list and download (DF7); results and trends
 
 ### Phase 4 — Consent
 

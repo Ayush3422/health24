@@ -32,6 +32,12 @@
   },
   "shell": {
     "home": "Home",
+    "timeline": "History",
+    "medicines": "Medicines",
+    "problems": "Health problems",
+    "allergies": "Allergies",
+    "reports": "Reports",
+    "results": "Test results",
     "devices": "Signed-in devices",
     "switch": "Switch record",
     "signOut": "Sign out",
@@ -69,6 +75,94 @@
     "inpatient": "Hospital stay",
     "emergency": "Emergency visit",
     "teleconsultation": "Teleconsultation"
+  },
+  "kind": {
+    "encounter": "Visit",
+    "diagnosis": "Diagnosis",
+    "prescription": "Medicine",
+    "allergy": "Allergy",
+    "vitals": "Vitals",
+    "note": "Doctor’s note",
+    "procedure": "Procedure",
+    "document": "Report",
+    "result": "Test results"
+  },
+  "timeline": {
+    "title": "Your health history",
+    "intro": "Everything recorded about you at your Health24 hospitals, newest first.",
+    "empty": "Nothing has been recorded yet.",
+    "older": "Show older entries",
+    "corrected": "Corrected",
+    "openReports": "See it in your reports",
+    "openResults": "See it in your test results"
+  },
+  "medicines": {
+    "title": "Your medicines",
+    "intro": "Every medicine prescribed to you, newest first. One marked stopped or completed is no longer being taken.",
+    "empty": "No medicines have been prescribed."
+  },
+  "problems": {
+    "title": "Your health problems",
+    "intro": "Diagnoses as your doctors recorded them, newest first.",
+    "empty": "No diagnoses have been recorded."
+  },
+  "allergies": {
+    "title": "Your allergies",
+    "intro": "Allergies recorded at your hospitals. Tell every doctor who treats you about them.",
+    "empty": "No allergies have been recorded."
+  },
+  "docType": {
+    "lab_report": "Lab report",
+    "radiology": "Scan or X-ray report",
+    "discharge_summary": "Discharge summary",
+    "prescription": "Prescription",
+    "operative_note": "Operation note",
+    "referral": "Referral letter",
+    "bill_or_receipt": "Bill or receipt",
+    "other": "Document"
+  },
+  "reports": {
+    "title": "Your reports",
+    "intro": "Reports and bills from your hospitals. Opening one makes a link that works for about a minute.",
+    "empty": "No reports yet.",
+    "count_one": "{{count}} report",
+    "count_other": "{{count}} reports",
+    "file": "File {{number}}",
+    "image": "Image",
+    "view": "View",
+    "download": "Download",
+    "viewLabel": "View {{what}}, file {{number}}",
+    "downloadLabel": "Download {{what}}, file {{number}}",
+    "opening": "Opening…",
+    "orderedBy": "ordered by {{name}}",
+    "more": "Show more reports"
+  },
+  "results": {
+    "title": "Your test results",
+    "intro": "Lab values typed from your reports. Choose a test to see how it has changed.",
+    "empty": "No test results have been recorded.",
+    "rangeBoth": "Lab’s range {{low}}–{{high}} {{unit}}",
+    "rangeBelow": "Lab’s range below {{high}} {{unit}}",
+    "rangeAbove": "Lab’s range above {{low}} {{unit}}",
+    "noRange": "No range printed on the report",
+    "flag_high": "Higher than the lab’s range",
+    "flag_low": "Lower than the lab’s range",
+    "flag_abnormal": "Outside the lab’s range",
+    "flag_normal": "Within the lab’s range",
+    "seeTrend": "{{test}}: see how it has changed"
+  },
+  "trend": {
+    "back": "All test results",
+    "caption_one": "{{count}} result, in {{unit}}",
+    "caption_other": "{{count}} results, in {{unit}}",
+    "key": "Key",
+    "bandKey": "The lab’s range",
+    "glyphKey": "▲ higher · ▼ lower than the range",
+    "chartLabel": "{{test}} over time. Every value is listed below the chart.",
+    "pointLabel": "{{value}} on {{date}} at {{hospital}}",
+    "every": "Every result",
+    "asReported": "As reported: {{value}}",
+    "notFound": "This test was not found."
   },
   "switch": {
     "title": "Switch record",

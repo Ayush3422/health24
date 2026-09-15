@@ -333,6 +333,203 @@ main#content {
   opacity: 1;
 }
 
+/* The record: timeline, reports, results */
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.timeline > li > strong,
+.timeline > li > .item__detail {
+  display: block;
+}
+
+.timeline__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.25rem;
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+}
+
+.timeline__meta .badge {
+  margin-left: 0;
+}
+
+.inline-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+}
+
+.result__name {
+  font-weight: 600;
+}
+
+.file-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.file-row__name {
+  flex: 1 1 100%;
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+}
+
+.flag {
+  font-weight: 600;
+}
+
+.flag--high,
+.flag--low,
+.flag--abnormal {
+  color: var(--danger);
+}
+
+.flag--normal {
+  color: var(--ink-muted);
+  font-weight: 400;
+}
+
+/* A test over time */
+
+.trend {
+  --trend-series: #2a78d6;
+  --trend-band: rgba(91, 103, 115, 0.14);
+  margin: 0;
+}
+
+.trend__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  list-style: none;
+  padding: 0;
+  margin: 0.25rem 0 0.5rem;
+  font-size: 0.9rem;
+  color: var(--ink-muted);
+}
+
+.trend__band-key {
+  display: inline-block;
+  width: 14px;
+  height: 10px;
+  background: var(--trend-band);
+  vertical-align: middle;
+}
+
+/* Drawn for a phone: held near that width so its text keeps its size on a wider screen. */
+.trend__plot {
+  position: relative;
+  max-width: 22rem;
+  touch-action: pan-y;
+}
+
+.trend__plot svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.trend__grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.trend__axis {
+  font-size: 11px;
+  fill: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.trend__band {
+  fill: var(--trend-band);
+}
+
+.trend__line {
+  fill: none;
+  stroke: var(--trend-series);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.trend__crosshair {
+  stroke: var(--ink-muted);
+  stroke-width: 1;
+}
+
+.trend__marker {
+  fill: var(--trend-series);
+}
+
+.trend__marker--ringed {
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+
+.trend__hit {
+  fill: transparent;
+}
+
+.trend__point:focus {
+  outline: none;
+}
+
+.trend__point:focus .trend__marker {
+  stroke: var(--ink);
+}
+
+.trend__glyph {
+  font-size: 11px;
+  fill: var(--danger);
+}
+
+.trend__end-label {
+  font-size: 12px;
+  fill: var(--ink);
+}
+
+.trend__tooltip {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 14px));
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.8rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.trend__tooltip--start {
+  transform: translate(-12px, calc(-100% - 14px));
+}
+
+.trend__tooltip--end {
+  transform: translate(calc(-100% + 12px), calc(-100% - 14px));
+}
+
+.trend__heading {
+  margin-top: 1rem;
+}
+
 @media (min-width: 40rem) {
   button.primary {
     width: auto;

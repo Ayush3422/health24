@@ -5,6 +5,8 @@ import { AuditModule } from '../audit/audit.module';
 import { OtpService } from './otp.service';
 import { PortalAccessController } from './portal-access.controller';
 import { PortalAccessService } from './portal-access.service';
+import { ClinicalModule } from '../clinical/clinical.module';
+import { DocumentsModule } from '../documents/documents.module';
 import { PortalAuthController } from './portal-auth.controller';
 import { PortalRecordController } from './portal-record.controller';
 import { PortalRecordService } from './portal-record.service';
@@ -15,6 +17,9 @@ import { LogSmsSender, NotConfiguredSmsSender, SMS_SENDER, type SmsSender } from
 @Module({
   imports: [
     AuditModule,
+    // The patient's own record, read through the services staff use.
+    ClinicalModule,
+    DocumentsModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

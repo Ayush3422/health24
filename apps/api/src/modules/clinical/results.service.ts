@@ -25,7 +25,12 @@ import {
 import type { DbTransaction } from '../../db/client';
 import { DatabaseService } from '../../db/database.service';
 import { observations } from '../../db/schema';
-import { requireHospital, type Actor, type RequestMeta } from '../../common/actor';
+import {
+  requireHospital,
+  type Actor,
+  type PatientActor,
+  type RequestMeta,
+} from '../../common/actor';
 import { AuditService } from '../audit/audit.service';
 import {
   coveringConsentId,
@@ -33,6 +38,7 @@ import {
   requireWritableEncounter,
   toIso,
 } from './clinical-access';
+import { staffName, type ReaderContext } from './staff-names';
 
 type ResultRow = {
   id: string;
@@ -62,14 +68,15 @@ type ResultRow = {
   recorded_by_name: string | null;
 };
 
-const RESULT_SELECT = sql`
+const resultSelect = (context: ReaderContext): SQL => sql`
   SELECT o."id", o."group_id", o."patient_id", o."encounter_id", o."document_id", o."hospital_id",
          d."name" AS hospital_name, o."panel_code", o."code", o."display",
          o."value_quantity"::text AS value, o."unit", o."value_canonical"::text AS value_canonical,
          o."unit_canonical", o."reference_low"::text AS reference_low,
          o."reference_high"::text AS reference_high, o."reference_text", o."lab_flag",
          o."interpretation", o."performing_facility", o."source", o."effective_at", o."recorded_at",
-         o."recorded_by_staff_id", eb."name" AS recorded_by_name
+         o."recorded_by_staff_id",
+         ${staffName(context, sql`eb."name"`, sql`o."recorded_by_staff_id"`)} AS recorded_by_name
     FROM "observation" o
     LEFT JOIN "hospital_directory" d ON d."id" = o."hospital_id"
     LEFT JOIN "staff_user" eb ON eb."id" = o."recorded_by_staff_id"
@@ -180,10 +187,7 @@ export class ResultsService {
   ): Promise<ResultSetList> {
     const hospitalId = requireHospital(actor);
 
-    const filters: SQL[] = [this.currentResultsOf(patientId)];
-    if (query.panel) filters.push(sql`o."panel_code" = ${query.panel}`);
-    if (query.from) filters.push(sql`app.ist_date(o."effective_at") >= ${query.from}::date`);
-    if (query.to) filters.push(sql`app.ist_date(o."effective_at") <= ${query.to}::date`);
+    const where = this.listWhere(patientId, query);
 
     const { rows, consentArtefactId } = await this.db.asTenant(hospitalId, async (tx) => {
       await requireLinkedPatient(tx, hospitalId, patientId);
@@ -191,7 +195,7 @@ export class ResultsService {
       return {
         rows: await this.query(
           tx,
-          sql`WHERE ${sql.join(filters, sql` AND `)}
+          sql`WHERE ${where}
           ORDER BY o."effective_at" DESC, o."group_id"
              LIMIT 1000`,
         ),
@@ -229,7 +233,6 @@ export class ResultsService {
     if (!found) throw new BadRequestException('Not an analyte of any lab panel');
 
     const { analyte } = found;
-    const canonical = analyte.units[0];
 
     const { rows, consentArtefactId } = await this.db.asTenant(hospitalId, async (tx) => {
       await requireLinkedPatient(tx, hospitalId, patientId);
@@ -255,34 +258,67 @@ export class ResultsService {
       meta,
     });
 
-    const inCanonical = (value: string | null, unit: string) =>
-      value === null ? null : toCanonicalValue(analyte, Number(value), unit);
+    return this.toTrend(analyte, rows, hospitalId, consentArtefactId !== null);
+  }
 
-    return {
-      analyte: {
-        code: analyte.code,
-        display: analyte.display,
-        label: analyte.label,
-        unit: canonical.code,
-      },
-      points: rows.map((row) => ({
-        observationId: row.id,
-        setId: row.group_id,
-        collectedAt: toIso(row.effective_at),
-        value: Number(row.value_canonical),
-        referenceLow: inCanonical(row.reference_low, row.unit),
-        referenceHigh: inCanonical(row.reference_high, row.unit),
-        interpretation: row.interpretation,
-        hospital: {
-          id: row.hospital_id,
-          name: row.hospital_name ?? 'Unknown hospital',
-          isOwn: row.hospital_id === hospitalId,
-        },
-        valueAsEntered: Number(row.value),
-        unitAsEntered: row.unit,
-      })),
-      sharedFromOtherHospitals: consentArtefactId !== null,
-    };
+  /**
+   * The patient's own results in the portal (SP5): every hospital, with no
+   * consent involved, audited as the patient (sp5-plan.md, DF6).
+   */
+  async forOwnRecord(
+    patient: PatientActor,
+    query: ListResultsQuery,
+    meta: RequestMeta,
+  ): Promise<ResultSetList> {
+    const where = this.listWhere(patient.patientId, query);
+
+    const rows = await this.db.asPatient(patient.patientId, (tx) =>
+      this.query(
+        tx,
+        sql`WHERE ${where}
+        ORDER BY o."effective_at" DESC, o."group_id"
+           LIMIT 1000`,
+        'patient',
+      ),
+    );
+
+    await this.audit.recordForPatient(patient, {
+      resourceType: 'observation',
+      resourceId: 'laboratory',
+      action: 'read',
+      meta,
+    });
+
+    return { sets: this.toSets(rows, null), sharedFromOtherHospitals: false };
+  }
+
+  /** One analyte over time from the patient's own record, in one unit (SP5). */
+  async trendForOwnRecord(
+    patient: PatientActor,
+    code: string,
+    meta: RequestMeta,
+  ): Promise<ResultTrend> {
+    const found = findAnalyte(code);
+
+    if (!found) throw new BadRequestException('Not an analyte of any lab panel');
+
+    const rows = await this.db.asPatient(patient.patientId, (tx) =>
+      this.query(
+        tx,
+        sql`WHERE ${this.currentResultsOf(patient.patientId)} AND o."code" = ${code}
+        ORDER BY o."effective_at" ASC, o."id"`,
+        'patient',
+      ),
+    );
+
+    await this.audit.recordForPatient(patient, {
+      resourceType: 'observation',
+      resourceId: code,
+      action: 'read',
+      meta,
+    });
+
+    return this.toTrend(found.analyte, rows, null, false);
   }
 
   /** A mistyped set is withdrawn whole, then typed again. */
@@ -365,12 +401,65 @@ export class ResultsService {
     }
   }
 
-  private async query(tx: DbTransaction, tail: SQL): Promise<ResultRow[]> {
-    return [...(await tx.execute<ResultRow>(sql`${RESULT_SELECT} ${tail}`))];
+  private async query(
+    tx: DbTransaction,
+    tail: SQL,
+    context: ReaderContext = 'hospital',
+  ): Promise<ResultRow[]> {
+    return [...(await tx.execute<ResultRow>(sql`${resultSelect(context)} ${tail}`))];
+  }
+
+  private listWhere(patientId: string, query: ListResultsQuery): SQL {
+    const filters: SQL[] = [this.currentResultsOf(patientId)];
+    if (query.panel) filters.push(sql`o."panel_code" = ${query.panel}`);
+    if (query.from) filters.push(sql`app.ist_date(o."effective_at") >= ${query.from}::date`);
+    if (query.to) filters.push(sql`app.ist_date(o."effective_at") <= ${query.to}::date`);
+    return sql.join(filters, sql` AND `);
+  }
+
+  /**
+   * One analyte's rows as a trend, every value and range in its canonical unit.
+   * `hospitalId` is the reading hospital; null for a patient.
+   */
+  private toTrend(
+    analyte: LabAnalyte,
+    rows: ResultRow[],
+    hospitalId: string | null,
+    sharedFromOtherHospitals: boolean,
+  ): ResultTrend {
+    const canonical = analyte.units[0];
+    const inCanonical = (value: string | null, unit: string) =>
+      value === null ? null : toCanonicalValue(analyte, Number(value), unit);
+
+    return {
+      analyte: {
+        code: analyte.code,
+        display: analyte.display,
+        label: analyte.label,
+        unit: canonical.code,
+      },
+      points: rows.map((row) => ({
+        observationId: row.id,
+        setId: row.group_id,
+        collectedAt: toIso(row.effective_at),
+        value: Number(row.value_canonical),
+        referenceLow: inCanonical(row.reference_low, row.unit),
+        referenceHigh: inCanonical(row.reference_high, row.unit),
+        interpretation: row.interpretation,
+        hospital: {
+          id: row.hospital_id,
+          name: row.hospital_name ?? 'Unknown hospital',
+          isOwn: hospitalId !== null && row.hospital_id === hospitalId,
+        },
+        valueAsEntered: Number(row.value),
+        unitAsEntered: row.unit,
+      })),
+      sharedFromOtherHospitals,
+    };
   }
 
   /** Groups rows into sets in the order they arrived, each set's results in panel order. */
-  private toSets(rows: ResultRow[], hospitalId: string): ResultSet[] {
+  private toSets(rows: ResultRow[], hospitalId: string | null): ResultSet[] {
     const sets = new Map<string, ResultSet>();
 
     for (const row of rows) {
@@ -388,7 +477,7 @@ export class ResultsService {
           hospital: {
             id: row.hospital_id,
             name: row.hospital_name ?? 'Unknown hospital',
-            isOwn: row.hospital_id === hospitalId,
+            isOwn: hospitalId !== null && row.hospital_id === hospitalId,
           },
           panel: row.panel_code,
           panelLabel: panel.label,

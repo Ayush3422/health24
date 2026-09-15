@@ -18,11 +18,17 @@ import {
   type DocumentList,
   type DocumentSummary,
   type ListDocumentsQuery,
+  type PortalDocumentsQuery,
 } from '@health24/shared';
 import type { DbTransaction } from '../../db/client';
 import { DatabaseService } from '../../db/database.service';
 import { documentFiles, documentReferences } from '../../db/schema';
-import { requireHospital, type Actor, type RequestMeta } from '../../common/actor';
+import {
+  requireHospital,
+  type Actor,
+  type PatientActor,
+  type RequestMeta,
+} from '../../common/actor';
 import { AuditService } from '../audit/audit.service';
 import {
   coveringConsentId,
@@ -31,6 +37,7 @@ import {
   toIso,
   violatedConstraint,
 } from '../clinical/clinical-access';
+import { staffName, type ReaderContext } from '../clinical/staff-names';
 import { ScanQueue } from '../scanning/scan-queue';
 import { documentFileKey } from '../storage/keys';
 import { StorageService } from '../storage/storage.service';
@@ -64,13 +71,16 @@ type DocumentRow = {
 /** An upload never confirmed within this long is abandoned and its objects removed. */
 export const ABANDON_AFTER_MS = 24 * 60 * 60 * 1000;
 
-const DOCUMENT_SELECT = sql`
+const documentSelect = (context: ReaderContext): SQL => sql`
   SELECT d."id", d."patient_id", d."hospital_id", hd."name" AS hospital_name,
          d."encounter_id", d."import_batch_id", d."doc_type", d."title",
          to_char(d."report_date", 'YYYY-MM-DD') AS report_date, d."performing_facility",
-         d."ordering_clinician_id", oc."name" AS ordering_clinician_account_name,
+         d."ordering_clinician_id",
+         ${staffName(context, sql`oc."name"`, sql`d."ordering_clinician_id"`)} AS ordering_clinician_account_name,
          d."ordering_clinician_name", d."availability", d."upload_confirmed_at",
-         d."recorded_by_staff_id", rb."name" AS recorded_by_name, d."recorded_at",
+         d."recorded_by_staff_id",
+         ${staffName(context, sql`rb."name"`, sql`d."recorded_by_staff_id"`)} AS recorded_by_name,
+         d."recorded_at",
          d."version_status", d."supersedes_id",
          coalesce((
            SELECT json_agg(json_build_object(
@@ -293,7 +303,7 @@ export class DocumentsService {
       await requireLinkedPatient(tx, hospitalId, patientId);
 
       const found = await tx.execute<DocumentRow>(sql`
-        ${DOCUMENT_SELECT}
+        ${documentSelect('hospital')}
          WHERE ${where}
       ORDER BY d."report_date" DESC, d."recorded_at" DESC
          LIMIT ${query.limit} OFFSET ${offset}
@@ -387,13 +397,7 @@ export class DocumentsService {
       };
     });
 
-    if (row.availability !== 'available') {
-      throw new ConflictException(
-        row.availability === 'pending_scan'
-          ? 'This document is still being checked for viruses'
-          : `This document is ${row.availability} and cannot be opened`,
-      );
-    }
+    this.requireAvailable(row);
 
     const signed = await this.storage.presignDownload({ key: file.storageKey, disposition });
 
@@ -403,6 +407,106 @@ export class DocumentsService {
       patientId: row.patient_id,
       action: disposition === 'attachment' ? 'export' : 'read',
       consentArtefactId,
+      meta,
+    });
+
+    return { ...signed, disposition };
+  }
+
+  // ---------------------------------------------------------------------------
+  // The patient's own documents, in the portal (SP5)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * A patient's own documents at every hospital, with no consent involved.
+   * Only those that scanned clean: nothing else can be opened.
+   */
+  async listForOwnRecord(
+    patient: PatientActor,
+    query: PortalDocumentsQuery,
+    meta: RequestMeta,
+  ): Promise<DocumentList> {
+    const filters: SQL[] = [
+      sql`d."patient_id" = ANY (app.patient_record_ids(${patient.patientId}::uuid))`,
+      sql`d."version_status" = 'current'`,
+      sql`d."availability" = 'available'`,
+    ];
+
+    if (query.types?.length) {
+      filters.push(
+        sql`d."doc_type"::text IN (${sql.join(
+          query.types.map((type) => sql`${type}`),
+          sql`, `,
+        )})`,
+      );
+    }
+    if (query.from) filters.push(sql`d."report_date" >= ${query.from}::date`);
+    if (query.to) filters.push(sql`d."report_date" <= ${query.to}::date`);
+
+    const where = sql.join(filters, sql` AND `);
+    const offset = (query.page - 1) * query.limit;
+
+    const { rows, total } = await this.db.asPatient(patient.patientId, async (tx) => {
+      const found = await tx.execute<DocumentRow>(sql`
+        ${documentSelect('patient')}
+         WHERE ${where}
+      ORDER BY d."report_date" DESC, d."recorded_at" DESC
+         LIMIT ${query.limit} OFFSET ${offset}
+      `);
+
+      const [count] = await tx.execute<{ total: number }>(sql`
+        SELECT count(*)::int AS total FROM "document_reference" d WHERE ${where}
+      `);
+
+      return { rows: [...found], total: count?.total ?? 0 };
+    });
+
+    await this.audit.recordForPatient(patient, {
+      resourceType: 'document_reference',
+      action: 'search',
+      meta,
+    });
+
+    return {
+      results: rows.map((row) => this.toSummary(row, null)),
+      total,
+      sharedFromOtherHospitals: false,
+    };
+  }
+
+  /**
+   * A presigned link to one of the patient's own files, as staff get one: a
+   * view audited as a read, a download as an export (sp5-plan.md, DF7).
+   */
+  async fileUrlForOwnRecord(
+    patient: PatientActor,
+    documentId: string,
+    fileId: string,
+    disposition: 'inline' | 'attachment',
+    meta: RequestMeta,
+  ): Promise<DocumentFileUrl> {
+    const { row, file } = await this.db.asPatient(patient.patientId, async (tx) => {
+      const found = await this.load(tx, documentId, 'patient');
+
+      if (!found || found.version_status === 'entered_in_error') {
+        throw new NotFoundException('Document not found');
+      }
+
+      const match = found.files.find((candidate) => candidate.id === fileId);
+      if (!match) throw new NotFoundException('File not found');
+
+      return { row: found, file: match };
+    });
+
+    this.requireAvailable(row);
+
+    const signed = await this.storage.presignDownload({ key: file.storageKey, disposition });
+
+    await this.audit.recordForPatient(patient, {
+      resourceType: 'document_file',
+      resourceId: fileId,
+      patientId: row.patient_id,
+      action: disposition === 'attachment' ? 'export' : 'read',
       meta,
     });
 
@@ -563,9 +667,13 @@ export class DocumentsService {
   // Helpers
   // ---------------------------------------------------------------------------
 
-  private async load(tx: DbTransaction, documentId: string): Promise<DocumentRow | null> {
+  private async load(
+    tx: DbTransaction,
+    documentId: string,
+    context: ReaderContext = 'hospital',
+  ): Promise<DocumentRow | null> {
     const [row] = await tx.execute<DocumentRow>(sql`
-      ${DOCUMENT_SELECT}
+      ${documentSelect(context)}
        WHERE d."id" = ${documentId}::uuid
     `);
     return row ?? null;
@@ -646,6 +754,16 @@ export class DocumentsService {
     }
   }
 
+  private requireAvailable(row: DocumentRow): void {
+    if (row.availability !== 'available') {
+      throw new ConflictException(
+        row.availability === 'pending_scan'
+          ? 'This document is still being checked for viruses'
+          : `This document is ${row.availability} and cannot be opened`,
+      );
+    }
+  }
+
   private refuseFutureDate(reportDate: string): void {
     if (reportDate > istToday()) {
       throw new BadRequestException('The report date cannot be in the future');
@@ -666,14 +784,15 @@ export class DocumentsService {
     }
   }
 
-  private toSummary(row: DocumentRow, hospitalId: string): DocumentSummary {
+  /** `hospitalId` is the reading hospital; null for a patient, who has no "own" hospital. */
+  private toSummary(row: DocumentRow, hospitalId: string | null): DocumentSummary {
     return {
       id: row.id,
       patientId: row.patient_id,
       hospital: {
         id: row.hospital_id,
         name: row.hospital_name ?? 'Unknown hospital',
-        isOwn: row.hospital_id === hospitalId,
+        isOwn: hospitalId !== null && row.hospital_id === hospitalId,
       },
       encounterId: row.encounter_id,
       importBatchId: row.import_batch_id,

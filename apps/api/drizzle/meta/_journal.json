@@ -239,6 +239,13 @@
       "when": 1789474747270,
       "tag": "0033_portal_id_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1789477282534,
+      "tag": "0034_portal_staff_names",
+      "breakpoints": true
     }
   ]
 }
