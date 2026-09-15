@@ -1,12 +1,14 @@
 # SP5 — Patient Portal and Consent: Implementation Plan
 
-**Status:** Draft for review. Decisions I–N below need your answers before any SP5 code is written.
+**Status:** Approved for building. Decisions I–N answered 2026-09-15: **I1, J1, K1, L1, M1, N1**. No SP5 code has been written.
 **Scope:** Patient sign-in by phone and OTP; the patient's own record across every hospital, in plain language; reports and results; consent granted and revoked by the patient; access history; break-glass notification; the emergency card; dependants; and the patient's rights under the DPDP Act — export, correction and erasure requests.
 **Design reference:** `planning.md` D12, §6.4, §8, §10, §11 · `features.md` SP5 and Cross-cutting · `sp3-plan.md` (consent, break-glass) · `sp4-plan.md` (documents, results, DF6)
 
 ---
 
 ## 0. Decisions for you
+
+**Answered 2026-09-15: I1, J1, K1, L1, M1, N1** — a separate portal app; access activated at a hospital desk; patients grant and revoke consent themselves; a printed emergency card with a QR to a live page; children linked to a guardian until 18; export as PDF and FHIR with correction and erasure as reviewed requests. The options considered are kept below for the record.
 
 ### Decision I — Where the portal lives
 
