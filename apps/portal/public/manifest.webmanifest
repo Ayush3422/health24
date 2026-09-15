@@ -1,0 +1,12 @@
+{
+  "name": "Health24 — My health record",
+  "short_name": "Health24",
+  "description": "Your health record from every Health24 hospital",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f6f9",
+  "theme_color": "#14532d",
+  "lang": "en-IN"
+}

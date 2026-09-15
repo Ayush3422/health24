@@ -1,0 +1,86 @@
+{
+  "app": {
+    "name": "Health24",
+    "tagline": "Your health record from every Health24 hospital",
+    "skipToContent": "Skip to content",
+    "loading": "Loading…",
+    "error": "Something went wrong. Please try again.",
+    "retry": "Try again"
+  },
+  "signIn": {
+    "title": "Sign in",
+    "intro": "Use the mobile number your hospital activated for you. We will send you a 6-digit code.",
+    "phoneLabel": "Mobile number",
+    "phoneHint": "For example 98200 12345",
+    "sendCode": "Send code",
+    "sending": "Sending…",
+    "codeTitle": "Enter your code",
+    "codeSent": "We sent a 6-digit code to {{phone}}, if it has access. It expires in 5 minutes.",
+    "codeLabel": "6-digit code",
+    "verify": "Continue",
+    "verifying": "Checking…",
+    "changeNumber": "Use a different number",
+    "resend": "Send a new code",
+    "resendIn_one": "Send a new code in {{count}} second",
+    "resendIn_other": "Send a new code in {{count}} seconds",
+    "noAccess": "No access yet? Ask at the front desk of a hospital where you are registered. They will check who you are and turn it on.",
+    "chooseTitle": "Whose record?",
+    "chooseIntro": "This phone can open more than one record. Choose one — you can switch later.",
+    "relationship_self": "Your record",
+    "relationship_guardian": "Your child’s record",
+    "opening": "Opening…"
+  },
+  "shell": {
+    "home": "Home",
+    "devices": "Signed-in devices",
+    "switch": "Switch record",
+    "signOut": "Sign out",
+    "menu": "Menu",
+    "viewing": "Viewing the record of {{name}}"
+  },
+  "home": {
+    "greeting": "Hello, {{name}}",
+    "age_one": "{{count}} year old",
+    "age_other": "{{count}} years old",
+    "allergies": "Allergies",
+    "noAllergies": "No allergies recorded.",
+    "highRisk": "High risk",
+    "problems": "Health problems being treated",
+    "noProblems": "No health problems recorded.",
+    "since": "Since {{date}}",
+    "code": "Code {{code}}",
+    "medicines": "Medicines you are taking",
+    "noMedicines": "No current medicines recorded.",
+    "started": "Started {{date}}",
+    "results": "Test results outside the lab’s range",
+    "noResults": "No recent results outside the range.",
+    "direction_higher": "Higher than the lab’s range",
+    "direction_lower": "Lower than the lab’s range",
+    "direction_outside": "Outside the lab’s range",
+    "lastVisit": "Last visit",
+    "noVisits": "No visits recorded.",
+    "hospitals": "Your hospitals",
+    "mrn": "Hospital number {{mrn}}",
+    "at": "at {{hospital}}",
+    "notAdvice": "This is your record as your doctors wrote it. It is not medical advice — ask your doctor about anything here."
+  },
+  "visit": {
+    "outpatient": "OPD visit",
+    "inpatient": "Hospital stay",
+    "emergency": "Emergency visit",
+    "teleconsultation": "Teleconsultation"
+  },
+  "switch": {
+    "title": "Switch record",
+    "current": "Open now"
+  },
+  "devices": {
+    "title": "Signed-in devices",
+    "intro": "Sign out of any device you do not recognise or no longer use.",
+    "thisDevice": "This device",
+    "lastUsed": "Last used {{date}}",
+    "unknownDevice": "Unknown device",
+    "signOutDevice": "Sign out this device",
+    "none": "No other devices are signed in."
+  }
+}

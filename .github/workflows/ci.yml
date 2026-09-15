@@ -108,6 +108,9 @@ jobs:
       - name: Create the unprivileged application role
         run: pnpm db:bootstrap
 
+      - name: Portal unit tests
+        run: pnpm --filter @health24/portal test
+
       - name: Clinical app unit tests
         # No database: the offline cache runs against fake-indexeddb.
         run: pnpm --filter @health24/clinical test
@@ -120,3 +123,6 @@ jobs:
 
       - name: Build clinical app
         run: pnpm --filter @health24/clinical build
+
+      - name: Build patient portal
+        run: pnpm --filter @health24/portal build

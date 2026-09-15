@@ -207,9 +207,9 @@ Guardian links are created by records staff with the relationship and the docume
 
 ### Phase 2 — The portal app
 
-- [ ] **T5** `apps/portal` scaffold: build, routing, i18n catalogue, accessibility baseline, CI
-- [ ] **T6** Sign-in, patient choice, sessions screen
-- [ ] **T7** Home: the summary card in plain language (DF5)
+- [x] **T5** `apps/portal` scaffold: build, routing, i18n catalogue, accessibility baseline, CI
+- [x] **T6** Sign-in, patient choice, sessions screen
+- [x] **T7** Home: the summary card in plain language (DF5)
 
 ### Phase 3 — The patient's own record
 

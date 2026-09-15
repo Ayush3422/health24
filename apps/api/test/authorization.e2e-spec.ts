@@ -444,6 +444,8 @@ const ROUTES: RouteExpectation[] = [
   { method: 'get', path: '/api/v1/portal/auth/sessions', allow: [], portal: true },
   { method: 'delete', path: '/api/v1/portal/auth/sessions/:id', allow: [], portal: true },
   { method: 'post', path: '/api/v1/portal/auth/logout', allow: [], portal: true },
+  // The patient's own record (SP5 Phase 2).
+  { method: 'get', path: '/api/v1/portal/summary', allow: [], portal: true },
   // Portal access is activated by those who see the patient in person (Decision J1).
   {
     method: 'post',

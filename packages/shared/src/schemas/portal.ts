@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PORTAL_RELATIONSHIPS } from '../enums.js';
+import { ENCOUNTER_CLASSES, PORTAL_RELATIONSHIPS } from '../enums.js';
 import { phoneSchema, uuidSchema } from '../primitives.js';
 import { hospitalRefSchema, staffRefSchema } from './clinical.js';
 
@@ -123,3 +123,66 @@ export const portalAccessSummarySchema = z.object({
   revokedReason: z.string().nullable(),
 });
 export type PortalAccessSummary = z.infer<typeof portalAccessSummarySchema>;
+
+// ---------------------------------------------------------------------------
+// The patient's own summary (Phase 2)
+// ---------------------------------------------------------------------------
+
+/**
+ * What a patient sees first: their own record at every hospital, without
+ * consent, in plain words. Diagnoses keep the name the doctor chose and its
+ * code; nothing is explained or rephrased (sp5-plan.md, DF5).
+ */
+export const portalSummarySchema = z.object({
+  patient: z.object({
+    name: z.string(),
+    ageYears: z.number().int().nullable(),
+  }),
+  allergies: z.array(
+    z.object({
+      id: uuidSchema,
+      substance: z.string(),
+      highRisk: z.boolean(),
+      reaction: z.string().nullable(),
+      hospitalName: z.string(),
+    }),
+  ),
+  problems: z.array(
+    z.object({
+      id: uuidSchema,
+      name: z.string(),
+      code: z.string().nullable(),
+      since: z.string(),
+      hospitalName: z.string(),
+    }),
+  ),
+  medicines: z.array(
+    z.object({
+      id: uuidSchema,
+      name: z.string(),
+      howToTake: z.string().nullable(),
+      startDate: z.string().nullable(),
+      hospitalName: z.string(),
+    }),
+  ),
+  abnormalResults: z.array(
+    z.object({
+      id: uuidSchema,
+      label: z.string(),
+      value: z.number(),
+      unit: z.string(),
+      direction: z.enum(['higher', 'lower', 'outside']),
+      collectedAt: z.string(),
+      hospitalName: z.string(),
+    }),
+  ),
+  lastVisit: z
+    .object({
+      date: z.string(),
+      kind: z.enum(ENCOUNTER_CLASSES),
+      hospitalName: z.string(),
+    })
+    .nullable(),
+  hospitals: z.array(z.object({ id: uuidSchema, name: z.string(), mrn: z.string() })),
+});
+export type PortalSummary = z.infer<typeof portalSummarySchema>;

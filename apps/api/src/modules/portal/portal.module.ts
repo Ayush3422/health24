@@ -6,6 +6,8 @@ import { OtpService } from './otp.service';
 import { PortalAccessController } from './portal-access.controller';
 import { PortalAccessService } from './portal-access.service';
 import { PortalAuthController } from './portal-auth.controller';
+import { PortalRecordController } from './portal-record.controller';
+import { PortalRecordService } from './portal-record.service';
 import { PortalSessionService } from './portal-session.service';
 import { LogSmsSender, NotConfiguredSmsSender, SMS_SENDER, type SmsSender } from './sms';
 
@@ -20,11 +22,12 @@ import { LogSmsSender, NotConfiguredSmsSender, SMS_SENDER, type SmsSender } from
       }),
     }),
   ],
-  controllers: [PortalAuthController, PortalAccessController],
+  controllers: [PortalAuthController, PortalAccessController, PortalRecordController],
   providers: [
     OtpService,
     PortalSessionService,
     PortalAccessService,
+    PortalRecordService,
     LogSmsSender,
     // The log outside production; in production, only a configured provider —
     // none exists until one is chosen before the pilot (sp5-plan.md, DF2).
