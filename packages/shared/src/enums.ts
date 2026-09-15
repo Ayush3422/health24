@@ -364,3 +364,19 @@ export const DOCUMENT_MIME_TYPES = ['application/pdf', 'image/jpeg', 'image/png'
 export type DocumentMimeType = (typeof DOCUMENT_MIME_TYPES)[number];
 
 export const MAX_DOCUMENT_FILE_BYTES = 25 * 1024 * 1024;
+
+// ---------------------------------------------------------------------------
+// Observations (SP4)
+// ---------------------------------------------------------------------------
+
+/** Vital signs are a clinician's; lab results are typed from a report (sp4-plan.md, DF7). */
+export const OBSERVATION_CATEGORIES = ['vital_signs', 'laboratory'] as const;
+export type ObservationCategory = (typeof OBSERVATION_CATEGORIES)[number];
+
+/** Typed by a person, or — later — extracted from a report and awaiting review (planning.md §9). */
+export const OBSERVATION_SOURCES = ['entered', 'extracted'] as const;
+export type ObservationSource = (typeof OBSERVATION_SOURCES)[number];
+
+/** A lab value against the range printed on its report. A comparison, not an interpretation. */
+export const RESULT_INTERPRETATIONS = ['normal', 'low', 'high', 'abnormal'] as const;
+export type ResultInterpretation = (typeof RESULT_INTERPRETATIONS)[number];

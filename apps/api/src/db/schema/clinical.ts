@@ -40,6 +40,9 @@ import {
   mapEquivalenceEnum,
   medicationRequestStatusEnum,
   medicationRouteEnum,
+  observationCategoryEnum,
+  observationSourceEnum,
+  resultInterpretationEnum,
   systemOfMedicineEnum,
   versionStatusEnum,
 } from './enums';
@@ -438,7 +441,27 @@ export const observations = pgTable(
     groupId: uuid('group_id'),
     effectiveAt: timestamp('effective_at', { withTimezone: true }).notNull(),
 
+    /** Vital signs, or lab results typed from a report (SP4). */
+    category: observationCategoryEnum('category').notNull().default('vital_signs'),
+    source: observationSourceEnum('source').notNull().default('entered'),
+
+    // Lab results only. The report typed from; the panel; the lab's printed
+    // range and flag beside the computed comparison; and the value in the
+    // analyte's canonical unit, so a trend spans laboratories.
+    documentId: uuid('document_id'),
+    panelCode: text('panel_code'),
+    referenceLow: numeric('reference_low', { precision: 12, scale: 4 }),
+    referenceHigh: numeric('reference_high', { precision: 12, scale: 4 }),
+    referenceText: text('reference_text'),
+    interpretation: resultInterpretationEnum('interpretation'),
+    labFlag: text('lab_flag'),
+    valueCanonical: numeric('value_canonical', { precision: 14, scale: 4 }),
+    unitCanonical: text('unit_canonical'),
+    performingFacility: text('performing_facility'),
+
     ...versioning(),
+    /** A vital sign's clinician. Empty for a lab result, which is nobody's decision (DF7). */
+    attributedClinicianId: uuid('attributed_clinician_id'),
   },
   (table) => [
     unique('observation_identity').on(table.id, table.patientId, table.hospitalId),

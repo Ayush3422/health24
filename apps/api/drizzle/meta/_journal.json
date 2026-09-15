@@ -176,6 +176,20 @@
       "when": 1789442529159,
       "tag": "0024_upload_confirmed_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1789444291660,
+      "tag": "0025_lab_results",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1789444294578,
+      "tag": "0026_lab_results_rules",
+      "breakpoints": true
     }
   ]
 }

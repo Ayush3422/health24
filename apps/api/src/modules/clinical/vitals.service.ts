@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import {
   LOINC_SYSTEM,
@@ -170,7 +170,7 @@ export class VitalsService {
       const found = await this.query(
         tx,
         sql`WHERE o."patient_id" = ANY (app.patient_record_ids(${patientId}::uuid))
-             AND o."code_system" = ${LOINC_SYSTEM}
+             AND o."code_system" = ${LOINC_SYSTEM} AND o."category" = 'vital_signs'
              AND o."version_status" = 'current'
         ORDER BY o."effective_at" DESC, o."group_id"
            LIMIT 500`,
@@ -215,7 +215,7 @@ export class VitalsService {
         const found = await this.query(
           tx,
           sql`WHERE o."encounter_id" = ${encounterId}::uuid
-               AND o."code_system" = ${LOINC_SYSTEM}
+               AND o."code_system" = ${LOINC_SYSTEM} AND o."category" = 'vital_signs'
                AND o."version_status" = 'current'
           ORDER BY o."effective_at" DESC, o."group_id"`,
         );
@@ -256,7 +256,7 @@ export class VitalsService {
       const members = await tx
         .select({ id: observations.id, versionStatus: observations.versionStatus })
         .from(observations)
-        .where(eq(observations.groupId, groupId));
+        .where(and(eq(observations.groupId, groupId), eq(observations.category, 'vital_signs')));
 
       if (members.length === 0) throw new NotFoundException('Vitals not found');
 

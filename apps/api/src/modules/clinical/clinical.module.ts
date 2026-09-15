@@ -21,6 +21,8 @@ import { PrescriptionsController } from './prescriptions.controller';
 import { PrescriptionsService } from './prescriptions.service';
 import { ProceduresController } from './procedures.controller';
 import { ProceduresService } from './procedures.service';
+import { ResultsController } from './results.controller';
+import { ResultsService } from './results.service';
 import { SummaryService } from './summary.service';
 import { TimelineController } from './timeline.controller';
 import { TimelineService } from './timeline.service';
@@ -40,6 +42,7 @@ import { VitalsService } from './vitals.service';
     NotesController,
     ProceduresController,
     CorrectionsController,
+    ResultsController,
     ConsentController,
     TimelineController,
     CodingReviewController,
@@ -55,6 +58,7 @@ import { VitalsService } from './vitals.service';
     NotesService,
     ProceduresService,
     CorrectionsService,
+    ResultsService,
     ConsentService,
     TimelineService,
     SummaryService,

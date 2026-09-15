@@ -187,6 +187,7 @@ export class TimelineService {
         FROM "observation" o
        WHERE o."patient_id" = ANY (${ids}) AND o."version_status" = 'current'
          AND o."group_id" IS NOT NULL AND o."code_system" = ${LOINC_SYSTEM}
+         AND o."category" = 'vital_signs'
        GROUP BY o."group_id"
 
       UNION ALL

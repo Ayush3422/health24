@@ -191,10 +191,10 @@ Records staff open an import batch for a patient and upload the scanned folder: 
 
 ### Phase 4 — Results API
 
-- [ ] **T10** Panel definitions in the shared package: LOINC codes, units and conversions, plausibility bounds, default ranges — marked for verification and clinical review
-- [ ] **T11** Observation extension migration: source, document link, reference range, interpretation, canonical value
-- [ ] **T12** Results entry with the abnormal flag; corrections
-- [ ] **T13** Trends endpoint across hospitals under consent
+- [x] **T10** Panel definitions in the shared package: LOINC codes, units and conversions, plausibility bounds, default ranges — marked for verification and clinical review — seven panels (CBC, LFT, KFT, lipid profile, HbA1c, TSH, fasting and post-prandial glucose) in `schemas/results.ts`, flagged `LAB_PANELS_REVIEWED = false`. Units convert only through explicit factors (µmol/L bilirubin, lakh/µL platelets, mmol/L glucose and more); the abnormal flag compares against the range on the report, falling back to the lab's own flag
+- [x] **T11** Observation extension migration: source, document link, reference range, interpretation, canonical value — migrations 0025 and 0026: a `category` separates vital signs from laboratory results. A lab result carries no clinician attribution (DF7) and is typed directly by the front desk, records staff or a clinician; the database enforces both, keeps laboratory columns off vital signs, and ties a result to a report of the same patient and hospital. Vitals and the timeline now read vital signs only
+- [x] **T12** Results entry with the abnormal flag; corrections — `POST /results`, `GET /patients/:id/results`; a mistyped set is withdrawn whole (`POST /results/:setId/entered-in-error`) and typed again, as vitals are
+- [x] **T13** Trends endpoint across hospitals under consent — `GET /patients/:id/results/trends?code=`: every point in the canonical unit with its range converted alike, oldest first, each naming its hospital and audited with its consent. `results.e2e-spec.ts` (9) and `lab-panels.spec.ts` (8)
 
 ### Phase 5 — Screens
 

@@ -8,5 +8,6 @@ export * from './schemas/terminology.js';
 export * from './schemas/clinical.js';
 export * from './schemas/offline.js';
 export * from './schemas/documents.js';
+export * from './schemas/results.js';
 export * from './terminology/fold.js';
 export * from './permissions.js';

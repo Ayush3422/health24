@@ -392,6 +392,24 @@ const ROUTES: RouteExpectation[] = [
     path: '/api/v1/documents/:id/entered-in-error',
     allow: ['clinician', 'frontDesk', 'records'],
   },
+  // Lab results (SP4 Phase 4): typed by whoever holds the report; read by roles
+  // that read clinical records (Decision H1).
+  { method: 'post', path: '/api/v1/results', allow: ['clinician', 'frontDesk', 'records'] },
+  {
+    method: 'get',
+    path: '/api/v1/patients/:patientId/results',
+    allow: ['clinician', 'records'],
+  },
+  {
+    method: 'get',
+    path: '/api/v1/patients/:patientId/results/trends',
+    allow: ['clinician', 'records'],
+  },
+  {
+    method: 'post',
+    path: '/api/v1/results/:setId/entered-in-error',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
   { method: 'post', path: '/api/v1/coding-reviews/:conditionId/acknowledge', allow: ['clinician'] },
 ];
 

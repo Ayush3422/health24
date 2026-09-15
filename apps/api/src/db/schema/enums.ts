@@ -29,6 +29,9 @@ import {
   HOSPITAL_STATUSES,
   MEDICATION_REQUEST_STATUSES,
   MEDICATION_ROUTES,
+  OBSERVATION_CATEGORIES,
+  OBSERVATION_SOURCES,
+  RESULT_INTERPRETATIONS,
   VERSION_STATUSES,
   MAP_ELEMENT_STATUSES,
   MAP_EQUIVALENCES,
@@ -150,3 +153,15 @@ export const documentAvailabilityEnum = pgEnum(
 );
 export const fileScanStatusEnum = pgEnum('file_scan_status', tuple(FILE_SCAN_STATUSES));
 export const importBatchStatusEnum = pgEnum('import_batch_status', tuple(IMPORT_BATCH_STATUSES));
+
+// Observations (SP4)
+
+export const observationCategoryEnum = pgEnum(
+  'observation_category',
+  tuple(OBSERVATION_CATEGORIES),
+);
+export const observationSourceEnum = pgEnum('observation_source', tuple(OBSERVATION_SOURCES));
+export const resultInterpretationEnum = pgEnum(
+  'result_interpretation',
+  tuple(RESULT_INTERPRETATIONS),
+);
