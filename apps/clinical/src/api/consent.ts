@@ -42,6 +42,8 @@ export const TIMELINE_KIND_LABELS: Record<TimelineKind, string> = {
   vitals: 'Vitals',
   note: 'Note',
   procedure: 'Procedure',
+  document: 'Document',
+  result: 'Lab result',
 };
 
 // ---------------------------------------------------------------------------

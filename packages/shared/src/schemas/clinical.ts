@@ -886,6 +886,10 @@ export const TIMELINE_KINDS = [
   'vitals',
   'note',
   'procedure',
+  /** A report or other document, on the date printed on it (SP4). */
+  'document',
+  /** A set of lab results, when the sample was collected (SP4). */
+  'result',
 ] as const;
 export type TimelineKind = (typeof TIMELINE_KINDS)[number];
 
@@ -929,6 +933,21 @@ export const timelinePageSchema = z.object({
 });
 export type TimelinePage = z.infer<typeof timelinePageSchema>;
 
+/** A lab value outside its range, for the summary card (SP4). */
+export const abnormalResultSchema = z.object({
+  setId: uuidSchema,
+  observationId: uuidSchema,
+  collectedAt: z.string(),
+  label: z.string(),
+  value: z.number(),
+  unit: z.string(),
+  referenceLow: z.number().nullable(),
+  referenceHigh: z.number().nullable(),
+  interpretation: z.enum(['high', 'low', 'abnormal']),
+  hospital: hospitalRefSchema,
+});
+export type AbnormalResult = z.infer<typeof abnormalResultSchema>;
+
 /** The thirty-second view of a patient. */
 export const patientSummaryCardSchema = z.object({
   allergies: allergyBannerSchema,
@@ -936,6 +955,8 @@ export const patientSummaryCardSchema = z.object({
   medications: currentMedicationsSchema,
   latestVitals: vitalSetSchema.nullable(),
   recentEncounters: z.array(encounterSummarySchema),
+  /** The latest lab values outside their range, newest first. */
+  recentAbnormalResults: z.array(abnormalResultSchema),
   sharing: z.object({
     /** Categories other hospitals share with this one, under active consent. */
     categories: z.array(z.enum(CLINICAL_DATA_CATEGORIES)),

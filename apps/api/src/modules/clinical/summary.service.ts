@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
-import type { ClinicalDataCategory, PatientSummaryCard } from '@health24/shared';
+import type { AbnormalResult, ClinicalDataCategory, PatientSummaryCard } from '@health24/shared';
 import { DatabaseService } from '../../db/database.service';
 import { requireHospital, type Actor, type RequestMeta } from '../../common/actor';
 import { AllergiesService } from './allergies.service';
@@ -8,14 +8,19 @@ import { requireLinkedPatient, toIso } from './clinical-access';
 import { DiagnosesService } from './diagnoses.service';
 import { EncountersService } from './encounters.service';
 import { PrescriptionsService } from './prescriptions.service';
+import { ResultsService } from './results.service';
 import { VitalsService } from './vitals.service';
+
+/** How many abnormal lab values the card carries. */
+const ABNORMAL_RESULTS_SHOWN = 5;
 
 /**
  * The patient summary card: the thirty-second view.
  *
  * Composed from the same services the full screens use, so the card can never
  * show something the lists would not — and each part is audited as the read it
- * is. Recent abnormal lab results join in SP4.
+ * is. Recent abnormal lab results come from the results list, under the same
+ * consent for observations.
  */
 @Injectable()
 export class SummaryService {
@@ -26,6 +31,7 @@ export class SummaryService {
     private readonly prescriptions: PrescriptionsService,
     private readonly vitals: VitalsService,
     private readonly encounters: EncountersService,
+    private readonly results: ResultsService,
   ) {}
 
   async forPatient(
@@ -68,13 +74,38 @@ export class SummaryService {
       };
     });
 
-    const [allergies, problems, medications, vitals, encounters] = await Promise.all([
+    const [allergies, problems, medications, vitals, encounters, results] = await Promise.all([
       this.allergies.banner(actor, patientId, meta),
       this.diagnoses.problemList(actor, patientId, meta),
       this.prescriptions.current(actor, patientId, meta),
       this.vitals.forPatient(actor, patientId, meta),
       this.encounters.list(actor, { patientId, page: 1, limit: 3 }, meta),
+      this.results.forPatient(actor, patientId, {}, meta),
     ]);
+
+    // Sets arrive newest first; within a set, in panel order.
+    const recentAbnormalResults: AbnormalResult[] = results.sets
+      .flatMap((set) =>
+        set.results.flatMap((result) =>
+          result.interpretation && result.interpretation !== 'normal'
+            ? [
+                {
+                  setId: set.id,
+                  observationId: result.observationId,
+                  collectedAt: set.collectedAt,
+                  label: result.label,
+                  value: result.value,
+                  unit: result.unit,
+                  referenceLow: result.referenceLow,
+                  referenceHigh: result.referenceHigh,
+                  interpretation: result.interpretation,
+                  hospital: set.hospital,
+                },
+              ]
+            : [],
+        ),
+      )
+      .slice(0, ABNORMAL_RESULTS_SHOWN);
 
     return {
       allergies,
@@ -82,6 +113,7 @@ export class SummaryService {
       medications,
       latestVitals: vitals.sets[0] ?? null,
       recentEncounters: encounters.results,
+      recentAbnormalResults,
       sharing,
     };
   }

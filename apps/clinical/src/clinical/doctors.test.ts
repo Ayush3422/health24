@@ -53,6 +53,17 @@ describe('grouping the record by doctor', () => {
     expect(second!.systems).toEqual(['ayurveda']);
   });
 
+  it('leaves out documents and lab results, which are not treatment and have their own tab', () => {
+    const frontDesk = { id: '00000000-0000-4000-8000-0000000000c3', name: 'Front Desk' };
+
+    expect(
+      groupByDoctor([
+        item({ kind: 'document', category: 'documents', title: 'Lab report', clinician: frontDesk }),
+        item({ kind: 'result', category: 'observations', title: 'LFT', clinician: frontDesk }),
+      ]),
+    ).toEqual([]);
+  });
+
   it('keeps the same clinician at two hospitals apart', () => {
     const groups = groupByDoctor([item({}), item({ hospital: other })]);
     expect(groups).toHaveLength(2);

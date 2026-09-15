@@ -1,12 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { sql, type SQL } from 'drizzle-orm';
 import {
+  LAB_PANELS,
   LOINC_SYSTEM,
   NOTE_TEMPLATES,
   VITAL_SIGNS,
   VITAL_SIGN_KEYS,
+  findAnalyte,
   type ClinicalDataCategory,
+  type DocumentType,
   type EncounterClass,
+  type LabPanelKey,
   type NoteTemplateKey,
   type SystemOfMedicine,
   type TimelineItem,
@@ -20,6 +24,8 @@ import { requireHospital, type Actor, type RequestMeta } from '../../common/acto
 import { AuditService } from '../audit/audit.service';
 import { coveringConsentId, requireLinkedPatient, toIso } from './clinical-access';
 
+type Reading = { code: string; value: string; unit: string | null; interpretation?: string | null };
+
 type TimelineRow = {
   kind: TimelineKind;
   id: string;
@@ -32,7 +38,7 @@ type TimelineRow = {
   system_of_medicine: SystemOfMedicine | null;
   title: string | null;
   detail: string | null;
-  readings: Array<{ code: string; value: string; unit: string | null }> | null;
+  readings: Reading[] | null;
   clinician_id: string;
   clinician_name: string | null;
   entry_source: 'direct' | 'transcribed';
@@ -50,20 +56,66 @@ const CLASS_LABELS: Record<EncounterClass, string> = {
   teleconsultation: 'Teleconsultation',
 };
 
+const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+  lab_report: 'Lab report',
+  radiology: 'Radiology',
+  discharge_summary: 'Discharge summary',
+  prescription: 'Prescription',
+  operative_note: 'Operative note',
+  referral: 'Referral',
+  bill_or_receipt: 'Bill or receipt',
+  other: 'Document',
+};
+
 const UNIT_LABELS: Record<string, string> = {
   'mm[Hg]': 'mmHg',
   Cel: '°C',
   'kg/m2': 'kg/m²',
 };
 
+/** The most rows one vital-sign set or lab set can have: a page reads this many per set. */
+const VITAL_READINGS_PER_SET = VITAL_SIGN_KEYS.length;
+const LAB_RESULTS_PER_SET = Math.max(
+  ...Object.values(LAB_PANELS).map((panel) => panel.analytes.length),
+);
+
 const KEY_BY_CODE = new Map<string, VitalSignKey>(
   VITAL_SIGN_KEYS.map((key) => [VITAL_SIGNS[key].code, key]),
 );
 
+/**
+ * "ALT (SGPT) 82 U/L high · 3 tests" from a lab set's results: the values
+ * outside their range first, since those are what a clinician looks for.
+ */
+export function describeResults(readings: Reading[]): string {
+  const count = `${readings.length} ${readings.length === 1 ? 'test' : 'tests'}`;
+  const outside = readings.filter(
+    (reading) => reading.interpretation && reading.interpretation !== 'normal',
+  );
+
+  if (outside.length === 0) {
+    return readings.every((reading) => reading.interpretation === 'normal')
+      ? `${count}, all within range`
+      : count;
+  }
+
+  return [
+    ...outside.map((reading) =>
+      [
+        findAnalyte(reading.code)?.analyte.label ?? reading.code,
+        reading.value,
+        reading.unit ?? '',
+        reading.interpretation,
+      ]
+        .filter(Boolean)
+        .join(' '),
+    ),
+    count,
+  ].join(' · ');
+}
+
 /** "BP 130/85 mmHg · Pulse 78 /min · …" from a set's readings. */
-export function describeVitals(
-  readings: Array<{ code: string; value: string; unit: string | null }>,
-): string {
+export function describeVitals(readings: Reading[]): string {
   const byKey = new Map(
     readings.flatMap((reading) => {
       const key = KEY_BY_CODE.get(reading.code);
@@ -114,9 +166,20 @@ export class TimelineService {
     meta: RequestMeta,
   ): Promise<TimelinePage> {
     const hospitalId = requireHospital(actor);
-    const ids = sql`app.patient_record_ids(${patientId}::uuid)`;
+    const limit = query.limit + 1;
+
+    // Each branch reads only the newest rows that could reach this page: an
+    // index scan in time order per record id, stopping at the page size. The
+    // page is still exact — the newest `limit` entries overall are among each
+    // branch's newest `limit` — but row-level security, and so consent, is
+    // evaluated for a page's worth of rows rather than the whole history.
+    const window = (time: SQL, hospital: SQL): SQL =>
+      sql`${query.before ? sql`AND ${time} < ${query.before}::timestamptz` : sql``} ${
+        query.scope === 'own' ? sql`AND ${hospital} = ${hospitalId}::uuid` : sql``
+      }`;
 
     const union = sql`
+      WITH pids AS (SELECT unnest(app.patient_record_ids(${patientId}::uuid)) AS id)
       SELECT 'encounter'::text AS kind, e."id", e."hospital_id", e."id" AS encounter_id,
              e."started_at" AS occurred_at, e."system_of_medicine"::text AS system_of_medicine,
              e."class"::text AS title,
@@ -124,8 +187,11 @@ export class TimelineService {
              NULL::json AS readings, e."attending_staff_id" AS clinician_id,
              e."entry_source"::text AS entry_source, e."recorded_by_staff_id" AS entered_by_id,
              'encounters'::text AS category, false AS corrected, NULL::text AS template
-        FROM "encounter" e
-       WHERE e."patient_id" = ANY (${ids})
+        FROM pids CROSS JOIN LATERAL (
+          SELECT * FROM "encounter" x
+           WHERE x."patient_id" = pids.id ${window(sql`x."started_at"`, sql`x."hospital_id"`)}
+           ORDER BY x."started_at" DESC LIMIT ${limit}
+        ) e
 
       UNION ALL
       SELECT 'diagnosis', c."id", c."hospital_id", c."encounter_id", c."recorded_at",
@@ -140,9 +206,13 @@ export class TimelineService {
                CASE WHEN c."clinical_status" <> 'active' THEN c."clinical_status"::text END),
              NULL::json, c."attributed_clinician_id", c."entry_source"::text,
              c."recorded_by_staff_id", 'diagnoses', c."supersedes_id" IS NOT NULL, NULL
-        FROM "condition" c
+        FROM pids CROSS JOIN LATERAL (
+          SELECT * FROM "condition" x
+           WHERE x."patient_id" = pids.id AND x."version_status" = 'current'
+                 ${window(sql`x."recorded_at"`, sql`x."hospital_id"`)}
+           ORDER BY x."recorded_at" DESC LIMIT ${limit}
+        ) c
         LEFT JOIN "encounter" en ON en."id" = c."encounter_id"
-       WHERE c."patient_id" = ANY (${ids}) AND c."version_status" = 'current'
 
       UNION ALL
       SELECT 'prescription', r."id", r."hospital_id", r."encounter_id", r."recorded_at",
@@ -158,8 +228,12 @@ export class TimelineService {
                CASE WHEN r."status" <> 'active' THEN r."status"::text END),
              NULL::json, r."attributed_clinician_id", r."entry_source"::text,
              r."recorded_by_staff_id", 'medications', r."supersedes_id" IS NOT NULL, NULL
-        FROM "medication_request" r
-       WHERE r."patient_id" = ANY (${ids}) AND r."version_status" = 'current'
+        FROM pids CROSS JOIN LATERAL (
+          SELECT * FROM "medication_request" x
+           WHERE x."patient_id" = pids.id AND x."version_status" = 'current'
+                 ${window(sql`x."recorded_at"`, sql`x."hospital_id"`)}
+           ORDER BY x."recorded_at" DESC LIMIT ${limit}
+        ) r
 
       UNION ALL
       SELECT 'allergy', a."id", a."hospital_id", a."encounter_id", a."recorded_at", NULL::text,
@@ -171,8 +245,12 @@ export class TimelineService {
                CASE WHEN a."clinical_status" <> 'active' THEN a."clinical_status"::text END),
              NULL::json, a."attributed_clinician_id", a."entry_source"::text,
              a."recorded_by_staff_id", 'allergies', a."supersedes_id" IS NOT NULL, NULL
-        FROM "allergy_intolerance" a
-       WHERE a."patient_id" = ANY (${ids}) AND a."version_status" = 'current'
+        FROM pids CROSS JOIN LATERAL (
+          SELECT * FROM "allergy_intolerance" x
+           WHERE x."patient_id" = pids.id AND x."version_status" = 'current'
+                 ${window(sql`x."recorded_at"`, sql`x."hospital_id"`)}
+           ORDER BY x."recorded_at" DESC LIMIT ${limit}
+        ) a
 
       UNION ALL
       SELECT 'vitals', o."group_id", min(o."hospital_id"::text)::uuid,
@@ -184,10 +262,15 @@ export class TimelineService {
                'unit', o."unit")),
              min(o."attributed_clinician_id"::text)::uuid, min(o."entry_source"::text),
              min(o."recorded_by_staff_id"::text)::uuid, 'observations', false, NULL
-        FROM "observation" o
-       WHERE o."patient_id" = ANY (${ids}) AND o."version_status" = 'current'
-         AND o."group_id" IS NOT NULL AND o."code_system" = ${LOINC_SYSTEM}
-         AND o."category" = 'vital_signs'
+        FROM pids CROSS JOIN LATERAL (
+          -- Enough readings for a page of complete sets.
+          SELECT * FROM "observation" x
+           WHERE x."patient_id" = pids.id AND x."category" = 'vital_signs'
+             AND x."version_status" = 'current' AND x."group_id" IS NOT NULL
+             AND x."code_system" = ${LOINC_SYSTEM}
+                 ${window(sql`x."effective_at"`, sql`x."hospital_id"`)}
+           ORDER BY x."effective_at" DESC LIMIT ${limit * VITAL_READINGS_PER_SET}
+        ) o
        GROUP BY o."group_id"
 
       UNION ALL
@@ -195,17 +278,71 @@ export class TimelineService {
              en."system_of_medicine"::text, n."title", left(n."body", 280),
              NULL::json, n."attributed_clinician_id", n."entry_source"::text,
              n."recorded_by_staff_id", 'notes', n."supersedes_id" IS NOT NULL, n."template"
-        FROM "clinical_note" n
+        FROM pids CROSS JOIN LATERAL (
+          SELECT * FROM "clinical_note" x
+           WHERE x."patient_id" = pids.id AND x."version_status" = 'current'
+                 ${window(sql`x."recorded_at"`, sql`x."hospital_id"`)}
+           ORDER BY x."recorded_at" DESC LIMIT ${limit}
+        ) n
         LEFT JOIN "encounter" en ON en."id" = n."encounter_id"
-       WHERE n."patient_id" = ANY (${ids}) AND n."version_status" = 'current'
 
       UNION ALL
       SELECT 'procedure', p."id", p."hospital_id", p."encounter_id", p."performed_at",
              p."system_of_medicine"::text, p."name", p."outcome",
              NULL::json, p."attributed_clinician_id", p."entry_source"::text,
              p."recorded_by_staff_id", 'procedures', p."supersedes_id" IS NOT NULL, NULL
-        FROM "procedure" p
-       WHERE p."patient_id" = ANY (${ids}) AND p."version_status" = 'current'
+        FROM pids CROSS JOIN LATERAL (
+          SELECT * FROM "procedure" x
+           WHERE x."patient_id" = pids.id AND x."version_status" = 'current'
+                 ${window(sql`x."performed_at"`, sql`x."hospital_id"`)}
+           ORDER BY x."performed_at" DESC LIMIT ${limit}
+        ) p
+
+      -- A document sits on the date printed on it, at midday in India; only one
+      -- that scanned clean, since nothing else can be opened.
+      UNION ALL
+      SELECT 'document', d."id", d."hospital_id", d."encounter_id",
+             (d."report_date"::timestamp + interval '12 hours') AT TIME ZONE 'Asia/Kolkata',
+             NULL::text, d."doc_type"::text,
+             concat_ws(' · ', d."title", d."performing_facility",
+               CASE WHEN d."ordering_clinician_name" IS NOT NULL
+                    THEN 'ordered by ' || d."ordering_clinician_name" END),
+             NULL::json, coalesce(d."ordering_clinician_id", d."recorded_by_staff_id"), 'direct',
+             d."recorded_by_staff_id", 'documents', d."supersedes_id" IS NOT NULL, NULL
+        FROM pids CROSS JOIN LATERAL (
+          SELECT * FROM "document_reference" x
+           WHERE x."patient_id" = pids.id AND x."version_status" = 'current'
+             AND x."availability" = 'available'
+                 ${window(
+                   sql`((x."report_date"::timestamp + interval '12 hours') AT TIME ZONE 'Asia/Kolkata')`,
+                   sql`x."hospital_id"`,
+                 )}
+           ORDER BY x."report_date" DESC LIMIT ${limit}
+        ) d
+
+      -- A lab set is one entry, when its sample was collected. Attributed to
+      -- whoever typed it, as the results themselves are (DF7).
+      UNION ALL
+      SELECT 'result', o."group_id", min(o."hospital_id"::text)::uuid,
+             min(o."encounter_id"::text)::uuid, max(o."effective_at"), NULL::text,
+             min(o."panel_code"::text), NULL::text,
+             json_agg(json_build_object(
+               'code', o."code",
+               'value', trim_scale(o."value_quantity")::text,
+               'unit', o."unit",
+               'interpretation', o."interpretation"::text)),
+             min(coalesce(o."attributed_clinician_id", o."recorded_by_staff_id")::text)::uuid,
+             min(o."entry_source"::text), min(o."recorded_by_staff_id"::text)::uuid,
+             'observations', false, NULL
+        FROM pids CROSS JOIN LATERAL (
+          -- Enough results for a page of complete sets.
+          SELECT * FROM "observation" x
+           WHERE x."patient_id" = pids.id AND x."category" = 'laboratory'
+             AND x."version_status" = 'current' AND x."group_id" IS NOT NULL
+                 ${window(sql`x."effective_at"`, sql`x."hospital_id"`)}
+           ORDER BY x."effective_at" DESC LIMIT ${limit * LAB_RESULTS_PER_SET}
+        ) o
+       GROUP BY o."group_id"
     `;
 
     const filters: SQL[] = [sql`true`];
@@ -257,6 +394,7 @@ export class TimelineService {
         'observations',
         'notes',
         'procedures',
+        'documents',
       ];
 
       for (const category of categories) {
@@ -315,6 +453,11 @@ export class TimelineService {
     } else if (row.kind === 'note') {
       title =
         row.title ?? NOTE_TEMPLATES[row.template as NoteTemplateKey]?.label ?? 'Clinical note';
+    } else if (row.kind === 'document') {
+      title = DOCUMENT_TYPE_LABELS[row.title as DocumentType] ?? 'Document';
+    } else if (row.kind === 'result') {
+      title = LAB_PANELS[row.title as LabPanelKey]?.label ?? 'Lab results';
+      detail = row.readings ? describeResults(row.readings) : null;
     }
 
     return {

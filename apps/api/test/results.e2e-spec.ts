@@ -249,6 +249,51 @@ describe('lab results', () => {
       });
       expect(wrongRoute.status).toBe(404);
     });
+
+    it('puts the set and its report on the timeline, and its abnormal values on the summary card', async () => {
+      type Item = { kind: string; id: string; title: string; detail: string | null; category: string; at: string };
+
+      const timeline = await get(`/patients/${patientId}/timeline`, clinicianToken);
+      expect(timeline.status).toBe(200);
+      const items = timeline.body.items as Item[];
+
+      // One entry for the set, when the sample was collected, its abnormal values first.
+      const result = items.find((item) => item.kind === 'result');
+      expect(result).toMatchObject({
+        id: lftAtA,
+        title: 'Liver function tests (LFT)',
+        category: 'observations',
+      });
+      expect(new Date(result!.at).toISOString()).toBe('2026-09-01T04:00:00.000Z');
+      expect(result!.detail).toContain('ALT (SGPT) 82 U/L high');
+      expect(result!.detail).toContain('Albumin 3.2 g/dL low');
+      expect(result!.detail).toContain('3 tests');
+
+      // The report it was typed from, on the date printed on it.
+      expect(items.find((item) => item.kind === 'document' && item.id === reportA)).toMatchObject({
+        title: 'Lab report',
+        category: 'documents',
+      });
+
+      const summary = await get(`/patients/${patientId}/summary`, clinicianToken);
+      expect(summary.status).toBe(200);
+      expect(
+        (summary.body.recentAbnormalResults as Array<{ label: string; interpretation: string }>).map(
+          (entry) => [entry.label, entry.interpretation],
+        ),
+      ).toEqual([
+        ['ALT (SGPT)', 'high'],
+        ['Albumin', 'low'],
+      ]);
+
+      // Another hospital, without consent, sees neither.
+      const elsewhere = await get(`/patients/${patientId}/timeline`, clinicianBToken);
+      expect(
+        (elsewhere.body.items as Item[]).filter(
+          (item) => item.kind === 'result' || item.kind === 'document',
+        ),
+      ).toEqual([]);
+    });
   });
 
   describe('reading across hospitals', () => {

@@ -21,7 +21,8 @@ import {
  * The volume: one chronic patient seen every fortnight for ten years, half at
  * an Ayurvedic hospital and half at an allopathic one — 240 encounters with
  * two diagnoses, three prescriptions, a set of four vitals and a note each,
- * and a procedure at every fourth — beside 300 other patients at the same
+ * a procedure at every fourth, and a lab report with its three-test LFT typed
+ * from it at every second (SP4) — beside 300 other patients at the same
  * hospitals, so every index has real neighbours to skip.
  */
 
@@ -219,6 +220,39 @@ describe('timeline performance', { timeout: 120_000 }, () => {
          WHERE e.n % 4 = 0
       `;
 
+      // A lab report at every second encounter, scanned clean…
+      await tx`
+        INSERT INTO document_reference
+          (patient_id, hospital_id, encounter_id, doc_type, title, report_date, performing_facility,
+           recorded_by_staff_id, availability, availability_changed_at, upload_confirmed_at, recorded_at)
+        SELECT e.patient_id, e.hospital_id, e.id, 'lab_report', 'LFT',
+               (e.started_at AT TIME ZONE 'Asia/Kolkata')::date, 'Metro Diagnostics',
+               e.attending_staff_id, 'available', e.started_at, e.started_at,
+               e.started_at + interval '18 minutes'
+          FROM (SELECT e.*, row_number() OVER (ORDER BY e.started_at) AS n FROM encounter e) e
+         WHERE e.n % 2 = 0
+      `;
+
+      // …with its LFT typed from it, collected the day before.
+      await tx`
+        INSERT INTO observation
+          (patient_id, hospital_id, encounter_id, document_id, category, source, code_system, code,
+           display, value_quantity, unit, value_canonical, unit_canonical, reference_low,
+           reference_high, interpretation, panel_code, group_id, effective_at,
+           recorded_by_staff_id, recorded_at)
+        SELECT d.patient_id, d.hospital_id, d.encounter_id, d.id, 'laboratory', 'entered',
+               'http://loinc.org', r.code, r.display, r.value, r.unit, r.value, r.unit, r.low, r.high,
+               (CASE WHEN r.value > r.high THEN 'high' ELSE 'normal' END)::result_interpretation,
+               'lft', d.group_id, d.recorded_at - interval '1 day', d.recorded_by_staff_id,
+               d.recorded_at
+          FROM (SELECT d.*, gen_random_uuid() AS group_id FROM document_reference d) d
+         CROSS JOIN (VALUES
+           ('1742-6', 'Alanine aminotransferase', 62, 'U/L', 7, 56),
+           ('1920-8', 'Aspartate aminotransferase', 38, 'U/L', 10, 40),
+           ('1975-2', 'Bilirubin.total', 0.9, 'mg/dL', 0.2, 1.2)
+         ) AS r(code, display, value, unit, low, high)
+      `;
+
       return subject!.id;
     })) as string;
 
@@ -238,6 +272,7 @@ describe('timeline performance', { timeout: 120_000 }, () => {
           'observations',
           'notes',
           'procedures',
+          'documents',
         ],
         validForDays: 365,
         captureMethod: 'signed_form',
@@ -255,18 +290,23 @@ describe('timeline performance', { timeout: 120_000 }, () => {
       SELECT (SELECT count(*)::int FROM encounter) AS encounters,
              (SELECT count(*)::int FROM condition) AS conditions,
              (SELECT count(*)::int FROM medication_request) AS prescriptions,
-             (SELECT count(*)::int FROM observation) AS observations,
+             (SELECT count(*)::int FROM observation WHERE category = 'vital_signs') AS vitals,
+             (SELECT count(*)::int FROM observation WHERE category = 'laboratory') AS lab_results,
+             (SELECT count(*)::int FROM document_reference) AS documents,
              (SELECT count(*)::int FROM clinical_note) AS notes,
              (SELECT count(*)::int FROM procedure) AS procedures,
              (SELECT count(*)::int FROM encounter WHERE patient_id = ${patientId}) AS subject_encounters
     `;
 
     const encounters = SUBJECT_ENCOUNTERS + OTHER_PATIENTS * ENCOUNTERS_PER_OTHER_PATIENT;
+    const documents = Math.floor(encounters / 2);
     expect(counts).toMatchObject({
       encounters,
       conditions: encounters * 2,
       prescriptions: encounters * 3,
-      observations: encounters * 4,
+      vitals: encounters * 4,
+      lab_results: documents * 3,
+      documents,
       notes: encounters,
       subject_encounters: SUBJECT_ENCOUNTERS,
     });

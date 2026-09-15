@@ -28,7 +28,8 @@ export function PatientSummaryCard({ patientId }: { patientId: string }): JSX.El
   if (summary.isPending) return <div className="summary-card muted">Loading summary…</div>;
   if (summary.isError) return null;
 
-  const { problems, medications, latestVitals, recentEncounters, sharing } = summary.data;
+  const { problems, medications, latestVitals, recentEncounters, recentAbnormalResults, sharing } =
+    summary.data;
   const lastVisit = recentEncounters[0];
 
   return (
@@ -87,6 +88,35 @@ export function PatientSummaryCard({ patientId }: { patientId: string }): JSX.El
           </p>
         ) : (
           <p className="muted">None recorded</p>
+        )}
+      </div>
+
+      <div>
+        <h3>Abnormal lab results</h3>
+        {recentAbnormalResults.length === 0 ? (
+          <p className="muted">None recorded</p>
+        ) : (
+          <ul>
+            {recentAbnormalResults.slice(0, 3).map((result) => (
+              <li key={result.observationId}>
+                {/* The direction as a glyph and a word, never colour alone. */}
+                <span className={`flag flag--${result.interpretation}`}>
+                  {result.interpretation === 'high' ? '▲' : result.interpretation === 'low' ? '▼' : '!'}
+                </span>{' '}
+                {result.label} {result.value} {result.unit} ({result.interpretation})
+                <span className="small muted">
+                  {' '}
+                  · {formatDate(result.collectedAt)}
+                  {result.hospital.isOwn ? '' : ` · ${result.hospital.name}`}
+                </span>
+              </li>
+            ))}
+            {recentAbnormalResults.length > 3 ? (
+              <li>
+                <Link to={`/patients/${patientId}/reports`}>All lab results</Link>
+              </li>
+            ) : null}
+          </ul>
         )}
       </div>
 
@@ -218,7 +248,7 @@ export function PatientTimeline({
           <h3 className="timeline__day">{day}</h3>
           <ol className="timeline">
             {dayItems.map((item) => (
-              <TimelineEntry key={`${item.kind}-${item.id}`} item={item} />
+              <TimelineEntry key={`${item.kind}-${item.id}`} item={item} patientId={patientId} />
             ))}
           </ol>
         </div>
@@ -240,9 +270,12 @@ export function PatientTimeline({
   );
 }
 
-function TimelineEntry({ item }: { item: TimelineItem }): JSX.Element {
+function TimelineEntry({ item, patientId }: { item: TimelineItem; patientId: string }): JSX.Element {
+  // Documents and lab results open on the reports tab.
+  const inReports = item.kind === 'document' || item.kind === 'result';
   // Another hospital's encounter page opens only where its visits are shared.
-  const canOpen = item.encounterId && (item.hospital.isOwn || item.kind === 'encounter');
+  const canOpen =
+    !inReports && item.encounterId && (item.hospital.isOwn || item.kind === 'encounter');
 
   return (
     <li className={`timeline__item${item.hospital.isOwn ? '' : ' timeline__item--shared'}`}>
@@ -259,6 +292,12 @@ function TimelineEntry({ item }: { item: TimelineItem }): JSX.Element {
         {item.detail ? <div className="timeline__detail">{item.detail}</div> : null}
         <div className="small muted">
           <Provenance hospital={item.hospital} clinician={item.clinician} entry={item.entry} />
+          {inReports ? (
+            <>
+              {' · '}
+              <Link to={`/patients/${patientId}/reports`}>Open in reports</Link>
+            </>
+          ) : null}
           {canOpen ? (
             <>
               {' · '}

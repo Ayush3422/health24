@@ -1,6 +1,11 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import type { ClinicalDataCategory, SystemOfMedicine, TimelineItem } from '@health24/shared';
+import type {
+  ClinicalDataCategory,
+  SystemOfMedicine,
+  TimelineItem,
+  TimelineKind,
+} from '@health24/shared';
 import { ApiError } from '../api/client';
 import { CATEGORY_LABELS, usePatientTimeline } from '../api/consent';
 import { formatDate } from './format';
@@ -16,6 +21,9 @@ const TREATMENT_CATEGORIES: ClinicalDataCategory[] = [
   'procedures',
   'notes',
 ];
+
+/** Allergies, vitals, documents and lab results have their own tabs. */
+const TREATMENT_KINDS: TimelineKind[] = ['encounter', 'diagnosis', 'prescription', 'procedure', 'note'];
 
 type DoctorGroup = {
   key: string;
@@ -37,7 +45,7 @@ export function groupByDoctor(items: TimelineItem[]): DoctorGroup[] {
   const groups = new Map<string, DoctorGroup>();
 
   for (const item of items) {
-    if (item.kind === 'allergy' || item.kind === 'vitals') continue;
+    if (!TREATMENT_KINDS.includes(item.kind)) continue;
 
     const key = `${item.hospital.id}:${item.clinician.id}`;
     let group = groups.get(key);
@@ -63,14 +71,14 @@ export function groupByDoctor(items: TimelineItem[]): DoctorGroup[] {
       group.systems.push(item.systemOfMedicine);
     }
 
-    const bucket = {
+    const buckets: Partial<Record<TimelineKind, TimelineItem[]>> = {
       encounter: group.visits,
       diagnosis: group.diagnoses,
       prescription: group.prescriptions,
       procedure: group.procedures,
       note: group.notes,
-    }[item.kind];
-    bucket.push(item);
+    };
+    buckets[item.kind]?.push(item);
   }
 
   return [...groups.values()].sort((a, b) => b.lastSeen.localeCompare(a.lastSeen));
