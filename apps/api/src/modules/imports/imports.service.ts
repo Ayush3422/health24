@@ -199,11 +199,13 @@ export class ImportsService {
       const current = await this.summary(tx, hospitalId, batchId);
 
       if (!current.canFinish) {
-        const { filesInProgress, unassigned } = current.progress;
+        const { files, filesInProgress, unassigned } = current.progress;
         throw new ConflictException(
-          filesInProgress > 0
-            ? `${filesInProgress} file(s) are still being uploaded, checked or cut into pages`
-            : `${unassigned} page(s) are neither in a document nor excluded`,
+          files === 0
+            ? 'Upload the folder before finishing the import'
+            : filesInProgress > 0
+              ? `${filesInProgress} file(s) are still being uploaded, checked or cut into pages`
+              : `${unassigned} page(s) are neither in a document nor excluded`,
         );
       }
 
@@ -803,8 +805,10 @@ export class ImportsService {
         pageCount: document.page_count,
         versionStatus: document.version_status,
       })),
+      // An empty import has nothing to finish.
       canFinish:
         batch.status !== 'done' &&
+        item.progress.files > 0 &&
         item.progress.filesInProgress === 0 &&
         item.progress.unassigned === 0,
     };

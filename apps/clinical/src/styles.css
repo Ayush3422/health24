@@ -1797,7 +1797,7 @@ button.chip[aria-pressed='true'] {
   padding: 0;
   margin: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
   gap: 0.5rem;
 }
 
@@ -1832,6 +1832,7 @@ button.chip[aria-pressed='true'] {
   align-items: center;
   gap: 0.4rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .page-card__order {

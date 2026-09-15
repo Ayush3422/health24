@@ -165,12 +165,15 @@ function ImportBatch({ patientId, batchId }: { patientId: string; batchId: strin
                     ].join(' ')}
                   >
                     <label className="page-card__select">
-                      <input
-                        type="checkbox"
-                        checked={order >= 0}
-                        disabled={settled || !open}
-                        onChange={() => toggle(page.id)}
-                      />
+                      {open ? (
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${pageLabel(page)}`}
+                          checked={order >= 0}
+                          disabled={settled}
+                          onChange={() => toggle(page.id)}
+                        />
+                      ) : null}
                       <span>{pageLabel(page)}</span>
                       {order >= 0 ? (
                         <span className="page-card__order" title="Its place in the document">
@@ -315,7 +318,9 @@ function FinishImport({ batch }: { batch: ImportBatchSummary }): JSX.Element {
   const [error, setError] = useState<string | null>(null);
 
   const hint =
-    batch.progress.filesInProgress > 0
+    batch.progress.files === 0
+      ? 'Upload the folder first.'
+      : batch.progress.filesInProgress > 0
       ? 'Wait until every file has been checked and cut into pages.'
       : batch.progress.unassigned > 0
         ? 'Every page must be in a document or excluded.'

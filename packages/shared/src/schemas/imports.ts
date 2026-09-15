@@ -159,7 +159,7 @@ export const importBatchSummarySchema = z.object({
   files: z.array(importFileSummarySchema),
   pages: z.array(importPageSummarySchema),
   documents: z.array(importBatchDocumentSchema),
-  /** Every page classified or excluded, and no file still in progress. */
+  /** At least one file, every page classified or excluded, and no file still in progress. */
   canFinish: z.boolean(),
 });
 export type ImportBatchSummary = z.infer<typeof importBatchSummarySchema>;

@@ -164,7 +164,11 @@ describe('imports API', { timeout: 180_000 }, () => {
     batchId = await openBatch('OPD folder, 2014–2019');
 
     const opened = await get(`/imports/${batchId}`, recordsToken);
-    expect(opened.body).toMatchObject({ status: 'open', note: 'OPD folder, 2014–2019', canFinish: true });
+    // Nothing to finish until the folder is uploaded.
+    expect(opened.body).toMatchObject({ status: 'open', note: 'OPD folder, 2014–2019', canFinish: false });
+    const empty = await post(`/imports/${batchId}/finish`, recordsToken);
+    expect(empty.status).toBe(409);
+    expect(empty.body.message).toMatch(/Upload the folder/);
 
     expect((await post('/imports', frontDeskToken, { patientId })).status).toBe(403);
     expect((await get(`/imports/${batchId}`, frontDeskToken)).status).toBe(403);
