@@ -1774,6 +1774,19 @@ button.chip[aria-pressed='true'] {
 
 /* Patient record tabs */
 
+/* The allergy warning and the tabs stick as one block, never over each other. */
+.patient-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  background: var(--ground);
+}
+
+.patient-sticky .allergy-banner,
+.patient-sticky .patient-tabs {
+  position: static;
+}
+
 .patient-tabs {
   position: sticky;
   top: 0;

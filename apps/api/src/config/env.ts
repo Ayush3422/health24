@@ -58,6 +58,14 @@ const envSchema = z
     CLAMAV_HOST: z.string().default('localhost'),
     CLAMAV_PORT: z.coerce.number().int().min(1).max(65535).default(3310),
     SCAN_QUEUE_NAME: z.string().optional(),
+
+    /**
+     * How sign-in codes and alerts reach patients (SP5). `log` writes them to
+     * the API log and is used when unset outside production; unset in
+     * production, codes cannot be sent. A DLT-registered provider is chosen
+     * before the pilot.
+     */
+    SMS_PROVIDER: z.enum(['log']).optional(),
   })
   .superRefine((env, ctx) => {
     // Data residency is a legal requirement: patient documents stay in India.
@@ -94,6 +102,15 @@ const envSchema = z
         code: z.ZodIssueCode.custom,
         path: ['ALLOW_DEMO_TERMINOLOGY'],
         message: 'Refusing to start in production with demo terminology allowed on patient records',
+      });
+    }
+
+    // A sign-in code written to a log is a code anyone with log access can use.
+    if (env.NODE_ENV === 'production' && env.SMS_PROVIDER === 'log') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SMS_PROVIDER'],
+        message: 'Refusing to start in production without a real SMS provider',
       });
     }
   });

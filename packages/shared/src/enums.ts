@@ -380,3 +380,7 @@ export type ObservationSource = (typeof OBSERVATION_SOURCES)[number];
 /** A lab value against the range printed on its report. A comparison, not an interpretation. */
 export const RESULT_INTERPRETATIONS = ['normal', 'low', 'high', 'abnormal'] as const;
 export type ResultInterpretation = (typeof RESULT_INTERPRETATIONS)[number];
+
+/** Whom a portal account acts for: the patient themself, or a child as guardian (SP5, Decision M1). */
+export const PORTAL_RELATIONSHIPS = ['self', 'guardian'] as const;
+export type PortalRelationship = (typeof PORTAL_RELATIONSHIPS)[number];

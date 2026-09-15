@@ -2,7 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { AccessAction, ActorType } from '@health24/shared';
 import { DatabaseService } from '../../db/database.service';
 import { accessLog } from '../../db/schema';
-import type { Actor, RequestMeta } from '../../common/actor';
+import type { Actor, PatientActor, RequestMeta } from '../../common/actor';
+import { maskPhone } from '../../common/phone';
 
 export interface AuditEntry {
   actorId: string | null;
@@ -92,6 +93,21 @@ export class AuditService {
       actorType: 'staff',
       actorLabel: `${actor.name} <${actor.email}>`,
       hospitalId: actor.hospitalId,
+    });
+  }
+
+  /** An action by a patient in the portal (SP5): recorded against the account, with no hospital. */
+  async recordForPatient(
+    actor: PatientActor,
+    entry: Omit<AuditEntry, 'actorId' | 'actorType' | 'actorLabel' | 'hospitalId'>,
+  ): Promise<void> {
+    await this.record({
+      ...entry,
+      patientId: entry.patientId ?? actor.patientId,
+      actorId: actor.accountId,
+      actorType: 'patient',
+      actorLabel: `patient portal ${maskPhone(actor.phone)}`,
+      hospitalId: null,
     });
   }
 }

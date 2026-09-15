@@ -1,18 +1,22 @@
+import { sql } from 'drizzle-orm';
 import {
   date,
   doublePrecision,
+  foreignKey,
   index,
   integer,
   jsonb,
+  pgEnum,
   pgTable,
   primaryKey,
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { v7 as uuidv7 } from 'uuid';
-import type { Address } from '@health24/shared';
+import { PORTAL_RELATIONSHIPS, type Address } from '@health24/shared';
 import { hospitals } from './hospitals';
 import { staffUsers } from './staff';
 import {
@@ -126,19 +130,125 @@ export const patientHospitalLinks = pgTable(
 
 export type PatientHospitalLink = typeof patientHospitalLinks.$inferSelect;
 
-/** Patient portal login. Schema lands in SP1; the portal itself is SP5. */
+/**
+ * A phone number that may sign in to the patient portal (SP5, Decision J1).
+ *
+ * The account is the phone, not a patient: a family sharing one phone has one
+ * account acting for several patients, each activated in person at a desk.
+ * No password — patients sign in with a one-time code (planning.md D12).
+ */
 export const patientAccounts = pgTable('patient_account', {
   id: uuid('id').primaryKey().$defaultFn(uuidv7),
-  patientId: uuid('patient_id')
-    .notNull()
-    .unique()
-    .references(() => patients.id, { onDelete: 'cascade' }),
+  /** E.164. */
   phone: text('phone').notNull().unique(),
-  passwordHash: text('password_hash'),
-  status: userStatusEnum('status').notNull().default('invited'),
+  status: userStatusEnum('status').notNull().default('active'),
   lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const portalRelationshipEnum = pgEnum('portal_relationship', PORTAL_RELATIONSHIPS);
+
+/**
+ * A patient an account may act for: activated at a hospital desk by staff who
+ * saw the patient, and revocable by any hospital the patient is linked to.
+ * A guardian's access to a child ends at the child's 18th birthday (Decision M1).
+ */
+export const patientPortalAccess = pgTable(
+  'patient_portal_access',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`)
+      .$defaultFn(uuidv7),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => patientAccounts.id, { onDelete: 'restrict' }),
+    patientId: uuid('patient_id')
+      .notNull()
+      .references(() => patients.id, { onDelete: 'restrict' }),
+    /** The account's phone, copied, so the desk never reads the account table. */
+    phone: text('phone').notNull(),
+    relationship: portalRelationshipEnum('relationship').notNull().default('self'),
+
+    activatedAtHospitalId: uuid('activated_at_hospital_id')
+      .notNull()
+      .references(() => hospitals.id, { onDelete: 'restrict' }),
+    activatedByStaffId: uuid('activated_by_staff_id').notNull(),
+    activatedAt: timestamp('activated_at', { withTimezone: true }).notNull().defaultNow(),
+    endsAt: timestamp('ends_at', { withTimezone: true }),
+
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    revokedByStaffId: uuid('revoked_by_staff_id'),
+    revokedReason: text('revoked_reason'),
+  },
+  (table) => [
+    foreignKey({
+      name: 'patient_portal_access_activated_by_same_hospital_fk',
+      columns: [table.activatedByStaffId, table.activatedAtHospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    foreignKey({
+      name: 'patient_portal_access_revoked_by_fk',
+      columns: [table.revokedByStaffId],
+      foreignColumns: [staffUsers.id],
+    }),
+    index('patient_portal_access_account_idx').on(table.accountId),
+    index('patient_portal_access_patient_idx').on(table.patientId),
+    uniqueIndex('patient_portal_access_active_once')
+      .on(table.accountId, table.patientId)
+      .where(sql`"revoked_at" IS NULL`),
+  ],
+);
+
+export type PatientPortalAccess = typeof patientPortalAccess.$inferSelect;
+
+/** A one-time sign-in code, stored only as a keyed hash. */
+export const otpChallenges = pgTable(
+  'otp_challenge',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`)
+      .$defaultFn(uuidv7),
+    phone: text('phone').notNull(),
+    codeHash: text('code_hash').notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    ipAddress: text('ip_address'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('otp_challenge_phone_idx').on(table.phone, table.createdAt)],
+);
+
+/**
+ * A portal session, for one patient at a time. Refresh tokens are opaque and
+ * stored as a hash, rotated on use and revocable, as for staff.
+ */
+export const patientSessions = pgTable(
+  'patient_session',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`)
+      .$defaultFn(uuidv7),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => patientAccounts.id, { onDelete: 'restrict' }),
+    patientId: uuid('patient_id')
+      .notNull()
+      .references(() => patients.id, { onDelete: 'restrict' }),
+    refreshTokenHash: text('refresh_token_hash').notNull().unique(),
+    issuedAt: timestamp('issued_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }).notNull().defaultNow(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    revokedReason: text('revoked_reason'),
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
+  },
+  (table) => [index('patient_session_account_idx').on(table.accountId)],
+);
 
 /**
  * A possible duplicate awaiting human review.

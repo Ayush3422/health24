@@ -4,8 +4,9 @@ import { eq } from 'drizzle-orm';
 import { DatabaseService } from '../../db/database.service';
 import { staffUsers } from '../../db/schema';
 import { SessionService } from '../../modules/auth/session.service';
-import { IS_PUBLIC_KEY } from '../decorators';
-import type { Actor } from '../actor';
+import { PortalSessionService } from '../../modules/portal/portal-session.service';
+import { IS_PORTAL_KEY, IS_PUBLIC_KEY } from '../decorators';
+import type { Actor, PatientActor } from '../actor';
 
 /**
  * Authenticates the request and attaches the actor.
@@ -22,6 +23,7 @@ export class AuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly sessions: SessionService,
     private readonly db: DatabaseService,
+    private readonly portalSessions: PortalSessionService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -37,12 +39,25 @@ export class AuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<{
       headers: Record<string, string | string[] | undefined>;
       actor?: Actor;
+      patientActor?: PatientActor;
     }>();
 
     const token = this.extractBearerToken(request.headers.authorization);
 
     if (!token) {
       throw new UnauthorizedException('Authentication required');
+    }
+
+    // A portal route admits only a patient session (SP5). Tokens carry their
+    // audience, so a staff token fails here and a patient token fails below.
+    const isPortal = this.reflector.getAllAndOverride<boolean>(IS_PORTAL_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    if (isPortal) {
+      request.patientActor = await this.portalSessions.authenticate(token);
+      return true;
     }
 
     const payload = await this.sessions.verifyAccessToken(token);

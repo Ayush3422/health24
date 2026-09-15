@@ -8,6 +8,7 @@ import { AllergyBanner, RecordAllergyForm } from '../clinical/AllergyBanner';
 import { DoctorsAndTreatment } from '../clinical/DoctorsAndTreatment';
 import { PatientDocuments } from '../clinical/Documents';
 import { PatientImports } from '../clinical/Imports';
+import { PatientPortalAccess } from '../clinical/PortalAccess';
 import {
   CurrentMedications,
   EncounterHistory,
@@ -87,6 +88,8 @@ export function PatientDetailPage(): JSX.Element {
         </div>
       </header>
 
+      {/* One sticky block, so the allergy warning and the tabs never cover each other. */}
+      <div className="patient-sticky">
       {readsClinical(staff.role) ? <AllergyBanner patientId={record.id} /> : null}
 
       <nav className="patient-tabs" aria-label="Patient record">
@@ -103,6 +106,7 @@ export function PatientDetailPage(): JSX.Element {
           </NavLink>
         ))}
       </nav>
+      </div>
 
       <div className="patient-tab-panel">
         <TabContent tab={current.key} record={record} role={staff.role} />
@@ -206,6 +210,8 @@ function Overview({ record, role }: { record: PatientSummary; role: StaffRole })
       </dl>
 
       {hasPermission(role, 'patient:update') ? <CorrectBloodGroup patientId={record.id} /> : null}
+
+      <PatientPortalAccess patientId={record.id} defaultPhone={record.phone} />
 
       {readsClinical(role) ? (
         <div className="clinical-record">

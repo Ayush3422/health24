@@ -78,6 +78,10 @@ export const PERMISSIONS = [
    * that read clinical records hold it.
    */
   'documents:import',
+
+  // Patient portal (SP5)
+  /** Activate and revoke a patient's portal access, with the patient in front of you (Decision J1). */
+  'portal:activate',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -148,6 +152,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'results:enter',
     // A single-doctor clinic has no records staff to import its old files.
     'documents:import',
+    'portal:activate',
   ],
 
   front_desk: [
@@ -166,6 +171,8 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     // afterwards, which is reading clinical records (Decision H1).
     'documents:upload',
     'results:enter',
+    // The desk sees the patient in person, which is what activation rests on.
+    'portal:activate',
   ],
 
   /**
@@ -192,6 +199,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'documents:upload',
     'results:enter',
     'documents:import',
+    'portal:activate',
   ],
 };
 

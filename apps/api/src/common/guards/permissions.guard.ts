@@ -2,7 +2,7 @@ import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@
 import { Reflector } from '@nestjs/core';
 import { hasPermission, type Permission } from '@health24/shared';
 import { AuditService } from '../../modules/audit/audit.service';
-import { IS_PUBLIC_KEY, REQUIRED_PERMISSION_KEY } from '../decorators';
+import { IS_PORTAL_KEY, IS_PUBLIC_KEY, REQUIRED_PERMISSION_KEY } from '../decorators';
 import type { Actor, RequestMeta } from '../actor';
 
 /**
@@ -26,6 +26,18 @@ export class PermissionsGuard implements CanActivate {
     ]);
 
     if (isPublic) {
+      return true;
+    }
+
+    // The staff permission matrix does not apply to the patient portal: the
+    // authentication guard admitted a patient session, and row-level security
+    // admits only that patient's record.
+    if (
+      this.reflector.getAllAndOverride<boolean>(IS_PORTAL_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ])
+    ) {
       return true;
     }
 

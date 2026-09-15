@@ -2,6 +2,7 @@ import { Inject, Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   createDb,
+  withPatient,
   withSystemContext,
   withTenant,
   type Db,
@@ -34,6 +35,11 @@ export class DatabaseService implements OnModuleDestroy {
   /** Runs a unit of work scoped to one hospital. */
   async asTenant<T>(hospitalId: string, fn: (tx: DbTransaction) => Promise<T>): Promise<T> {
     return withTenant(this.handle.db, hospitalId, fn);
+  }
+
+  /** Runs a unit of work as a patient in the portal, over their own record only (SP5). */
+  async asPatient<T>(patientId: string, fn: (tx: DbTransaction) => Promise<T>): Promise<T> {
+    return withPatient(this.handle.db, patientId, fn);
   }
 
   /**

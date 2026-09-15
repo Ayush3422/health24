@@ -55,14 +55,33 @@ export async function withTenant<T>(
 }
 
 /**
+ * Runs a unit of work as a patient reading their own record (SP5).
+ *
+ * Sets `app.current_patient_id` and never a hospital: the read policies'
+ * patient branch admits that patient's rows at every hospital, and nothing
+ * else, and no write policy admits anything by it.
+ */
+export async function withPatient<T>(
+  db: Db,
+  patientId: string,
+  fn: (tx: DbTransaction) => Promise<T>,
+): Promise<T> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select set_config('app.current_patient_id', ${patientId}, true)`);
+    return fn(tx);
+  });
+}
+
+/**
  * Runs a unit of work outside tenant scoping.
  *
  * This is the escape hatch from row-level security, and it is deliberately
  * awkward to reach. There are exactly four legitimate uses:
  *
  *   1. Migrations and seeding.
- *   2. The pre-authentication staff lookup, which cannot know a hospital yet
- *      because it has not identified the user.
+ *   2. Pre-authentication lookups — staff sign-in, and the patient portal's
+ *      sign-in and session checks (SP5) — which cannot know a tenant or a
+ *      patient yet because they have not identified the caller.
  *   3. Executing a patient merge, which spans hospitals by definition.
  *   4. Platform administration — onboarding hospitals.
  *

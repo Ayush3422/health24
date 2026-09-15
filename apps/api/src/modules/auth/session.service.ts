@@ -26,6 +26,9 @@ export interface SessionOrigin {
   userAgent: string | null;
 }
 
+/** A staff access token's audience; the portal's is different (sp5-plan.md, DF3). */
+export const STAFF_TOKEN_AUDIENCE = 'health24-staff';
+
 /**
  * Session lifecycle.
  *
@@ -92,12 +95,12 @@ export class SessionService {
   }
 
   private async signAccessToken(payload: AccessTokenPayload): Promise<string> {
-    return this.jwt.signAsync(payload, { expiresIn: this.accessTtl });
+    return this.jwt.signAsync(payload, { expiresIn: this.accessTtl, audience: STAFF_TOKEN_AUDIENCE });
   }
 
   async verifyAccessToken(token: string): Promise<AccessTokenPayload> {
     try {
-      return await this.jwt.verifyAsync<AccessTokenPayload>(token);
+      return await this.jwt.verifyAsync<AccessTokenPayload>(token, { audience: STAFF_TOKEN_AUDIENCE });
     } catch {
       throw new UnauthorizedException('Invalid or expired access token');
     }

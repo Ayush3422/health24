@@ -66,6 +66,11 @@ interface RouteExpectation {
    * unauthenticated callers, and covered by dedicated tests below.
    */
   selfDestructive?: boolean;
+  /**
+   * A patient portal route (SP5): reached only with a patient session, so every
+   * staff token is refused with 401. Probed separately from the role matrix.
+   */
+  portal?: boolean;
 }
 
 const EVERY_ROLE = ALL_ROLES;
@@ -428,6 +433,33 @@ const ROUTES: RouteExpectation[] = [
     path: '/api/v1/external-clinicians',
     allow: ['clinician', 'frontDesk', 'records'],
   },
+  // Patient portal sign-in (SP5 Phase 1): public until a code is spent, then
+  // patient sessions only.
+  { method: 'post', path: '/api/v1/portal/auth/otp', allow: [], public: true },
+  { method: 'post', path: '/api/v1/portal/auth/verify', allow: [], public: true },
+  { method: 'post', path: '/api/v1/portal/auth/session', allow: [], public: true },
+  { method: 'post', path: '/api/v1/portal/auth/refresh', allow: [], public: true },
+  { method: 'get', path: '/api/v1/portal/auth/me', allow: [], portal: true },
+  { method: 'post', path: '/api/v1/portal/auth/switch', allow: [], portal: true },
+  { method: 'get', path: '/api/v1/portal/auth/sessions', allow: [], portal: true },
+  { method: 'delete', path: '/api/v1/portal/auth/sessions/:id', allow: [], portal: true },
+  { method: 'post', path: '/api/v1/portal/auth/logout', allow: [], portal: true },
+  // Portal access is activated by those who see the patient in person (Decision J1).
+  {
+    method: 'post',
+    path: '/api/v1/patients/:id/portal-access',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
+  {
+    method: 'get',
+    path: '/api/v1/patients/:id/portal-access',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
+  {
+    method: 'post',
+    path: '/api/v1/portal-access/:id/revoke',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
 ];
 
 const ABSENT_ID = '00000000-0000-4000-8000-000000000000';
@@ -582,7 +614,7 @@ describe('authorization', () => {
     const failures: string[] = [];
 
     for (const route of ROUTES) {
-      if (route.public || route.selfDestructive) continue;
+      if (route.public || route.selfDestructive || route.portal) continue;
 
       for (const role of ALL_ROLES) {
         const agent = ctx.http();
@@ -601,6 +633,25 @@ describe('authorization', () => {
           failures.push(
             `${role} reached ${route.method} ${route.path} (status ${response.status}) but should be forbidden`,
           );
+        }
+      }
+    }
+
+    expect(failures).toEqual([]);
+  });
+
+  it('refuses every staff token on every patient portal route', async () => {
+    const failures: string[] = [];
+
+    for (const route of ROUTES.filter((candidate) => candidate.portal)) {
+      for (const role of ALL_ROLES) {
+        const agent = ctx.http();
+        const response = await agent[route.method](route.path.replace(/:[A-Za-z]+/g, ABSENT_ID))
+          .set('Authorization', `Bearer ${tokens[role]}`)
+          .send(route.body ?? {});
+
+        if (response.status !== 401) {
+          failures.push(`${role} got ${response.status} from ${route.method} ${route.path}`);
         }
       }
     }

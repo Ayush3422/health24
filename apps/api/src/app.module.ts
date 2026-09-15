@@ -12,6 +12,7 @@ import { TerminologyModule } from './modules/terminology/terminology.module';
 import { ClinicalModule } from './modules/clinical/clinical.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { ImportsModule } from './modules/imports/imports.module';
+import { PortalModule } from './modules/portal/portal.module';
 import { ScanningModule } from './modules/scanning/scanning.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { StaffModule } from './modules/staff/staff.module';
@@ -41,6 +42,8 @@ import { HealthController } from './health.controller';
     ScanningModule,
     DocumentsModule,
     ImportsModule,
+    // The patient portal (SP5).
+    PortalModule,
   ],
   controllers: [HealthController],
   providers: [

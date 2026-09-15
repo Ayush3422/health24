@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import type { StaffRole } from '@health24/shared';
+import type { PortalRelationship, StaffRole } from '@health24/shared';
 
 /**
  * The authenticated caller, resolved once per request by the auth guard and
@@ -19,6 +19,19 @@ export interface Actor {
   email: string;
 }
 
+/**
+ * A patient signed in to the portal (SP5), acting for one patient at a time —
+ * themself, or a child as guardian.
+ */
+export interface PatientActor {
+  accountId: string;
+  patientId: string;
+  sessionId: string;
+  relationship: PortalRelationship;
+  /** E.164; masked wherever it is shown or logged. */
+  phone: string;
+}
+
 /** Request-scoped metadata attached alongside the actor, for audit rows. */
 export interface RequestMeta {
   requestId: string;
@@ -29,6 +42,7 @@ export interface RequestMeta {
 
 export interface AuthenticatedRequest {
   actor?: Actor;
+  patientActor?: PatientActor;
   meta: RequestMeta;
 }
 
