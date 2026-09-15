@@ -844,9 +844,12 @@ export const consentSummarySchema = z.object({
   captureMethod: z.enum(CONSENT_CAPTURE_METHODS),
   witnessName: z.string().nullable(),
   emergencyReason: z.string().nullable(),
-  recordedBy: staffRefSchema,
+  /** Null when the patient granted it in the portal. */
+  recordedBy: staffRefSchema.nullable(),
   revokedAt: z.string().nullable(),
   revokedBy: staffRefSchema.nullable(),
+  /** True when the patient revoked it in the portal. */
+  revokedInPortal: z.boolean(),
   revocationReason: z.string().nullable(),
   review: z
     .object({

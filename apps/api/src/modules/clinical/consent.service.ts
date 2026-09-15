@@ -5,25 +5,36 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, type SQL } from 'drizzle-orm';
 import {
   CLINICAL_DATA_CATEGORIES,
   type BreakGlassInput,
   type BreakGlassReviewItem,
   type ConsentSummary,
+  type PortalConsent,
+  type PortalConsents,
+  type PortalGrantConsentInput,
   type RecordConsentInput,
   type ReviewBreakGlassInput,
 } from '@health24/shared';
 import { DatabaseService } from '../../db/database.service';
 import type { DbTransaction } from '../../db/client';
 import { consentArtefacts } from '../../db/schema';
-import { requireHospital, type Actor, type RequestMeta } from '../../common/actor';
+import {
+  requireHospital,
+  type Actor,
+  type PatientActor,
+  type RequestMeta,
+} from '../../common/actor';
 import { AuditService } from '../audit/audit.service';
 import { requireLinkedPatient, toIso } from './clinical-access';
+import { staffName, type ReaderContext } from './staff-names';
 
 type ConsentRow = {
   id: string;
   patient_id: string;
+  grantee_hospital_id: string;
+  grantee_hospital_name: string | null;
   data_categories: ConsentSummary['dataCategories'];
   date_range_from: string | null;
   date_range_to: string | null;
@@ -33,10 +44,12 @@ type ConsentRow = {
   capture_method: ConsentSummary['captureMethod'];
   witness_name: string | null;
   emergency_reason: string | null;
-  recorded_by_staff_id: string;
+  recorded_by_staff_id: string | null;
+  recorded_by_patient_account_id: string | null;
   recorded_by_name: string | null;
   revoked_at: string | Date | null;
   revoked_by_staff_id: string | null;
+  revoked_by_patient_account_id: string | null;
   revoked_by_name: string | null;
   revocation_reason: string | null;
   review_outcome: 'justified' | 'unjustified' | null;
@@ -48,12 +61,17 @@ type ConsentRow = {
   mrn: string | null;
 };
 
+/** Said when a patient revokes without giving a reason; the database requires one. */
+const PORTAL_REVOCATION_REASON = 'Revoked by the patient in the portal';
+
 /**
- * Row-level security confines every read here to consents granted to the
- * caller's own hospital; expiry is computed from the date rather than stored.
+ * Row-level security confines every read here: to consents granted to the
+ * caller's own hospital, or to the patient's own. Expiry is computed from the
+ * date rather than stored.
  */
-const CONSENT_SELECT = sql`
-  SELECT ca."id", ca."patient_id", ca."data_categories"::text[] AS data_categories,
+const consentSelect = (context: ReaderContext): SQL => sql`
+  SELECT ca."id", ca."patient_id", ca."grantee_hospital_id", hd."name" AS grantee_hospital_name,
+         ca."data_categories"::text[] AS data_categories,
          to_char(ca."date_range_from", 'YYYY-MM-DD') AS date_range_from,
          to_char(ca."date_range_to", 'YYYY-MM-DD') AS date_range_to,
          ca."granted_at", ca."expires_at",
@@ -61,12 +79,15 @@ const CONSENT_SELECT = sql`
               WHEN ca."expires_at" <= now() THEN 'expired'
               ELSE 'active' END AS effective_status,
          ca."capture_method", ca."witness_name", ca."emergency_reason",
-         ca."recorded_by_staff_id", rb."name" AS recorded_by_name,
-         ca."revoked_at", ca."revoked_by_staff_id", vb."name" AS revoked_by_name,
+         ca."recorded_by_staff_id", ca."recorded_by_patient_account_id",
+         ${staffName(context, sql`rb."name"`, sql`ca."recorded_by_staff_id"`)} AS recorded_by_name,
+         ca."revoked_at", ca."revoked_by_staff_id", ca."revoked_by_patient_account_id",
+         ${staffName(context, sql`vb."name"`, sql`ca."revoked_by_staff_id"`)} AS revoked_by_name,
          ca."revocation_reason", ca."review_outcome", ca."review_note", ca."reviewed_at",
          ca."reviewed_by_staff_id", wb."name" AS reviewed_by_name, ca."patient_notified_at",
          l."mrn"
     FROM "consent_artefact" ca
+    LEFT JOIN "hospital_directory" hd ON hd."id" = ca."grantee_hospital_id"
     LEFT JOIN "staff_user" rb ON rb."id" = ca."recorded_by_staff_id"
     LEFT JOIN "staff_user" vb ON vb."id" = ca."revoked_by_staff_id"
     LEFT JOIN "staff_user" wb ON wb."id" = ca."reviewed_by_staff_id"
@@ -76,13 +97,15 @@ const CONSENT_SELECT = sql`
 `;
 
 /**
- * Consent recorded at the desk (Decision A1), and emergency access.
+ * Consent recorded at the desk (Decision A1), granted by the patient in the
+ * portal (SP5, Decision K1), and emergency access.
  *
- * Both are consent artefacts, so the same database policies decide what they
+ * All are consent artefacts, so the same database policies decide what they
  * reveal — there is no second path to another hospital's record. What differs
  * is who may create them and what happens afterwards: consent is asked of the
- * patient in person; emergency access is taken by a clinician with a reason,
- * lasts hours, and is reviewed by the hospital.
+ * patient in person or given by the patient themselves; emergency access is
+ * taken by a clinician with a reason, lasts hours, and is reviewed by the
+ * hospital.
  */
 @Injectable()
 export class ConsentService {
@@ -140,7 +163,7 @@ export class ConsentService {
       await requireLinkedPatient(tx, hospitalId, patientId);
 
       const found = await tx.execute<ConsentRow>(sql`
-        ${CONSENT_SELECT}
+        ${consentSelect('hospital')}
          WHERE ca."patient_id" = ANY (app.patient_record_ids(${patientId}::uuid))
       ORDER BY ca."granted_at" DESC
       `);
@@ -200,6 +223,144 @@ export class ConsentService {
     return this.toSummary(row);
   }
 
+  // ---------------------------------------------------------------------------
+  // The patient's own consents, in the portal (SP5, Decision K1)
+  // ---------------------------------------------------------------------------
+
+  /** Every consent over the patient's record, and the hospitals they may grant one to. */
+  async listForOwnRecord(patient: PatientActor, meta: RequestMeta): Promise<PortalConsents> {
+    const { rows, hospitals } = await this.db.asPatient(patient.patientId, async (tx) => {
+      const found = await tx.execute<ConsentRow>(sql`
+        ${consentSelect('patient')}
+         WHERE ca."patient_id" = ANY (app.patient_record_ids(${patient.patientId}::uuid))
+      ORDER BY ca."granted_at" DESC
+      `);
+
+      const linked = await tx.execute<{ id: string; name: string }>(sql`
+        SELECT l."hospital_id" AS id, h."name"
+          FROM "patient_hospital_link" l
+          JOIN "hospital_directory" h ON h."id" = l."hospital_id"
+         WHERE l."patient_id" = ANY (app.patient_record_ids(${patient.patientId}::uuid))
+      GROUP BY l."hospital_id", h."name"
+      ORDER BY min(l."first_seen_at")
+      `);
+
+      return { rows: [...found], hospitals: [...linked] };
+    });
+
+    await this.audit.recordForPatient(patient, {
+      resourceType: 'consent_artefact',
+      action: 'read',
+      meta,
+    });
+
+    return {
+      hospitals,
+      consents: rows.map((row) => this.toPortalConsent(row, patient.accountId)),
+    };
+  }
+
+  /**
+   * The patient lets a hospital where they are registered see their record
+   * from their other hospitals: the categories, dates and length they choose.
+   */
+  async grantForOwnRecord(
+    patient: PatientActor,
+    input: PortalGrantConsentInput,
+    meta: RequestMeta,
+  ): Promise<PortalConsent> {
+    const row = await this.db.asPatient(patient.patientId, async (tx) => {
+      const [linked] = await tx.execute<{ hospital_id: string }>(sql`
+        SELECT l."hospital_id" FROM "patient_hospital_link" l
+         WHERE l."patient_id" = ANY (app.patient_record_ids(${patient.patientId}::uuid))
+           AND l."hospital_id" = ${input.hospitalId}::uuid
+         LIMIT 1
+      `);
+
+      if (!linked) {
+        throw new BadRequestException('Choose a hospital where you are registered');
+      }
+
+      const [created] = await tx
+        .insert(consentArtefacts)
+        .values({
+          patientId: patient.patientId,
+          granteeHospitalId: input.hospitalId,
+          dataCategories: input.dataCategories,
+          dateRangeFrom: input.dateRangeFrom ?? null,
+          dateRangeTo: input.dateRangeTo ?? null,
+          expiresAt: sql`now() + make_interval(days => ${input.validForDays})`,
+          captureMethod: 'patient_portal',
+          recordedByPatientAccountId: patient.accountId,
+        })
+        .returning({ id: consentArtefacts.id });
+
+      if (!created) throw new Error('Failed to record the consent');
+
+      return this.load(tx, created.id, 'patient');
+    });
+
+    await this.audit.recordForPatient(patient, {
+      resourceType: 'consent_artefact',
+      resourceId: row.id,
+      action: 'create',
+      meta,
+    });
+
+    return this.toPortalConsent(row, patient.accountId);
+  }
+
+  /** Takes effect at once, whoever recorded the consent. Emergency access is not the patient's to end. */
+  async revokeForOwnRecord(
+    patient: PatientActor,
+    consentId: string,
+    reason: string | undefined,
+    meta: RequestMeta,
+  ): Promise<PortalConsent> {
+    const row = await this.db.asPatient(patient.patientId, async (tx) => {
+      const current = await this.load(tx, consentId, 'patient');
+
+      if (current.capture_method === 'break_glass') {
+        throw new ForbiddenException(
+          'Emergency access ends on its own within hours, and the hospital reviews it',
+        );
+      }
+
+      if (current.effective_status !== 'active') {
+        throw new ConflictException(`This consent is already ${current.effective_status}`);
+      }
+
+      const updated = await tx
+        .update(consentArtefacts)
+        .set({
+          status: 'revoked',
+          revokedAt: sql`now()`,
+          revokedByPatientAccountId: patient.accountId,
+          revocationReason: reason ?? PORTAL_REVOCATION_REASON,
+        })
+        .where(eq(consentArtefacts.id, consentId))
+        .returning({ id: consentArtefacts.id });
+
+      if (updated.length === 0) throw new NotFoundException('Consent not found');
+
+      return this.load(tx, consentId, 'patient');
+    });
+
+    await this.audit.recordForPatient(patient, {
+      resourceType: 'consent_artefact',
+      resourceId: consentId,
+      patientId: row.patient_id,
+      action: 'update',
+      meta,
+    });
+
+    return this.toPortalConsent(row, patient.accountId);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Emergency access
+  // ---------------------------------------------------------------------------
+
   /**
    * Emergency access: every category, for a few hours, with a reason. The
    * reason is also written to the access log itself, where it stays with the
@@ -252,7 +413,7 @@ export class ConsentService {
 
     const rows = await this.db.asTenant(hospitalId, async (tx) => {
       const found = await tx.execute<ConsentRow>(sql`
-        ${CONSENT_SELECT}
+        ${consentSelect('hospital')}
          WHERE ca."capture_method"::text = 'break_glass' AND ca."reviewed_at" IS NULL
       ORDER BY ca."granted_at" ASC
       `);
@@ -273,7 +434,8 @@ export class ConsentService {
       grantedAt: toIso(row.granted_at),
       expiresAt: toIso(row.expires_at),
       status: row.effective_status,
-      clinician: { id: row.recorded_by_staff_id, name: row.recorded_by_name },
+      // Emergency access is always taken by staff.
+      clinician: { id: row.recorded_by_staff_id ?? '', name: row.recorded_by_name },
       patientNotified: row.patient_notified_at !== null,
     }));
   }
@@ -326,9 +488,13 @@ export class ConsentService {
     return this.toSummary(row);
   }
 
-  private async load(tx: DbTransaction, consentId: string): Promise<ConsentRow> {
+  private async load(
+    tx: DbTransaction,
+    consentId: string,
+    context: ReaderContext = 'hospital',
+  ): Promise<ConsentRow> {
     const [row] = await tx.execute<ConsentRow>(sql`
-      ${CONSENT_SELECT}
+      ${consentSelect(context)}
        WHERE ca."id" = ${consentId}::uuid
     `);
 
@@ -350,11 +516,14 @@ export class ConsentService {
       captureMethod: row.capture_method,
       witnessName: row.witness_name,
       emergencyReason: row.emergency_reason,
-      recordedBy: { id: row.recorded_by_staff_id, name: row.recorded_by_name },
+      recordedBy: row.recorded_by_staff_id
+        ? { id: row.recorded_by_staff_id, name: row.recorded_by_name }
+        : null,
       revokedAt: row.revoked_at ? toIso(row.revoked_at) : null,
       revokedBy: row.revoked_by_staff_id
         ? { id: row.revoked_by_staff_id, name: row.revoked_by_name }
         : null,
+      revokedInPortal: row.revoked_by_patient_account_id !== null,
       revocationReason: row.revocation_reason,
       review:
         row.review_outcome && row.reviewed_at && row.reviewed_by_staff_id
@@ -366,6 +535,34 @@ export class ConsentService {
             }
           : null,
       patientNotifiedAt: row.patient_notified_at ? toIso(row.patient_notified_at) : null,
+    };
+  }
+
+  /** As the patient sees a consent: whose hospital, what, and who granted or ended it. */
+  private toPortalConsent(row: ConsentRow, accountId: string): PortalConsent {
+    const byPatient = (account: string) => ({ kind: 'patient' as const, you: account === accountId });
+
+    return {
+      id: row.id,
+      hospital: { id: row.grantee_hospital_id, name: row.grantee_hospital_name ?? 'Unknown hospital' },
+      dataCategories: row.data_categories,
+      dateRangeFrom: row.date_range_from,
+      dateRangeTo: row.date_range_to,
+      grantedAt: toIso(row.granted_at),
+      expiresAt: toIso(row.expires_at),
+      status: row.effective_status,
+      captureMethod: row.capture_method,
+      emergencyReason: row.emergency_reason,
+      recordedBy: row.recorded_by_patient_account_id
+        ? byPatient(row.recorded_by_patient_account_id)
+        : { kind: 'staff', name: row.recorded_by_name },
+      revokedAt: row.revoked_at ? toIso(row.revoked_at) : null,
+      revokedBy: !row.revoked_at
+        ? null
+        : row.revoked_by_patient_account_id
+          ? byPatient(row.revoked_by_patient_account_id)
+          : { kind: 'staff', name: row.revoked_by_name },
+      revocationReason: row.revocation_reason,
     };
   }
 }

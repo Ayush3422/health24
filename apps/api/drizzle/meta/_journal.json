@@ -246,6 +246,27 @@
       "when": 1789477282534,
       "tag": "0034_portal_staff_names",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1789480014124,
+      "tag": "0035_portal_consent_recorder",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1789480015993,
+      "tag": "0036_portal_consent_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1789480133161,
+      "tag": "0037_portal_consent_review_check",
+      "breakpoints": true
     }
   ]
 }

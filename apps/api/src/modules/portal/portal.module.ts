@@ -8,6 +8,7 @@ import { PortalAccessService } from './portal-access.service';
 import { ClinicalModule } from '../clinical/clinical.module';
 import { DocumentsModule } from '../documents/documents.module';
 import { PortalAuthController } from './portal-auth.controller';
+import { PortalConsentController } from './portal-consent.controller';
 import { PortalRecordController } from './portal-record.controller';
 import { PortalRecordService } from './portal-record.service';
 import { PortalSessionService } from './portal-session.service';
@@ -27,7 +28,12 @@ import { LogSmsSender, NotConfiguredSmsSender, SMS_SENDER, type SmsSender } from
       }),
     }),
   ],
-  controllers: [PortalAuthController, PortalAccessController, PortalRecordController],
+  controllers: [
+    PortalAuthController,
+    PortalAccessController,
+    PortalRecordController,
+    PortalConsentController,
+  ],
   providers: [
     OtpService,
     PortalSessionService,

@@ -219,8 +219,8 @@ Guardian links are created by records staff with the relationship and the docume
 
 ### Phase 4 — Consent
 
-- [ ] **T11** Consent grant and revoke API for patients (K1)
-- [ ] **T12** Consent screens and history; the hospital's sharing screen shows portal-granted consents
+- [x] **T11** Consent grant and revoke API for patients (K1)
+- [x] **T12** Consent screens and history; the hospital's sharing screen shows portal-granted consents
 
 ### Phase 5 — Access history and notifications
 

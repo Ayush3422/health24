@@ -1,7 +1,18 @@
 import { z } from 'zod';
-import { ENCOUNTER_CLASSES, PORTAL_RELATIONSHIPS } from '../enums.js';
+import {
+  CLINICAL_DATA_CATEGORIES,
+  CONSENT_CAPTURE_METHODS,
+  ENCOUNTER_CLASSES,
+  PORTAL_RELATIONSHIPS,
+} from '../enums.js';
 import { phoneSchema, uuidSchema } from '../primitives.js';
-import { hospitalRefSchema, staffRefSchema, timelineQuerySchema } from './clinical.js';
+import {
+  CONSENT_EFFECTIVE_STATUSES,
+  clinicalDateSchema,
+  hospitalRefSchema,
+  staffRefSchema,
+  timelineQuerySchema,
+} from './clinical.js';
 import { listDocumentsQuerySchema } from './documents.js';
 
 /**
@@ -199,3 +210,70 @@ export type PortalTimelineQuery = z.infer<typeof portalTimelineQuerySchema>;
 
 export const portalDocumentsQuerySchema = listDocumentsQuerySchema.omit({ scope: true });
 export type PortalDocumentsQuery = z.infer<typeof portalDocumentsQuerySchema>;
+
+// ---------------------------------------------------------------------------
+// Consent from the portal (Phase 4, Decision K1)
+// ---------------------------------------------------------------------------
+
+/**
+ * The patient lets a hospital where they are registered see their record from
+ * their other hospitals: the kinds of record, optionally the dates, and for how
+ * long — a year at most, as at the desk.
+ */
+export const portalGrantConsentSchema = z
+  .object({
+    hospitalId: uuidSchema,
+    dataCategories: z
+      .array(z.enum(CLINICAL_DATA_CATEGORIES))
+      .min(1, 'Choose at least one kind of record')
+      .refine((values) => new Set(values).size === values.length, {
+        message: 'Each kind of record once',
+      }),
+    dateRangeFrom: clinicalDateSchema.optional(),
+    dateRangeTo: clinicalDateSchema.optional(),
+    validForDays: z.number().int().min(1).max(365),
+  })
+  .refine(
+    (value) =>
+      !value.dateRangeFrom || !value.dateRangeTo || value.dateRangeFrom <= value.dateRangeTo,
+    { message: 'The date range ends before it starts', path: ['dateRangeTo'] },
+  );
+export type PortalGrantConsentInput = z.infer<typeof portalGrantConsentSchema>;
+
+/** A reason is the patient's to give or not. */
+export const portalRevokeConsentSchema = z.object({
+  reason: z.string().trim().min(1).max(500).optional(),
+});
+export type PortalRevokeConsentInput = z.infer<typeof portalRevokeConsentSchema>;
+
+/** Who recorded or revoked a consent, as the patient is told: themselves, or a hospital's staff. */
+const portalConsentActorSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('patient'), you: z.boolean() }),
+  z.object({ kind: z.literal('staff'), name: z.string().nullable() }),
+]);
+
+export const portalConsentSchema = z.object({
+  id: uuidSchema,
+  /** The hospital the consent lets see the patient's other records. */
+  hospital: z.object({ id: uuidSchema, name: z.string() }),
+  dataCategories: z.array(z.enum(CLINICAL_DATA_CATEGORIES)),
+  dateRangeFrom: z.string().nullable(),
+  dateRangeTo: z.string().nullable(),
+  grantedAt: z.string(),
+  expiresAt: z.string(),
+  status: z.enum(CONSENT_EFFECTIVE_STATUSES),
+  captureMethod: z.enum(CONSENT_CAPTURE_METHODS),
+  emergencyReason: z.string().nullable(),
+  recordedBy: portalConsentActorSchema,
+  revokedAt: z.string().nullable(),
+  revokedBy: portalConsentActorSchema.nullable(),
+  revocationReason: z.string().nullable(),
+});
+export type PortalConsent = z.infer<typeof portalConsentSchema>;
+
+export const portalConsentsSchema = z.object({
+  /** Where the patient is registered: the hospitals they may grant consent to. */
+  hospitals: z.array(z.object({ id: uuidSchema, name: z.string() })),
+  consents: z.array(portalConsentSchema),
+});
+export type PortalConsents = z.infer<typeof portalConsentsSchema>;

@@ -17,7 +17,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { v7 as uuidv7 } from 'uuid';
 import { hospitals } from './hospitals';
-import { patients } from './patients';
+import { patientAccounts, patients } from './patients';
 import { staffUsers } from './staff';
 import { conceptMapElements } from './terminology';
 import {
@@ -656,11 +656,18 @@ export const consentArtefacts = pgTable(
     captureMethod: consentCaptureMethodEnum('capture_method').notNull(),
     /** Required for verbal consent: the person who heard the patient agree. */
     witnessName: text('witness_name'),
-    recordedByStaffId: uuid('recorded_by_staff_id').notNull(),
+    /** Exactly one recorder: a staff member, or the patient in the portal (SP5). */
+    recordedByStaffId: uuid('recorded_by_staff_id'),
+    recordedByPatientAccountId: uuid('recorded_by_patient_account_id').references(
+      () => patientAccounts.id,
+    ),
 
     status: consentStatusEnum('status').notNull().default('active'),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
     revokedByStaffId: uuid('revoked_by_staff_id').references(() => staffUsers.id),
+    revokedByPatientAccountId: uuid('revoked_by_patient_account_id').references(
+      () => patientAccounts.id,
+    ),
     revocationReason: text('revocation_reason'),
 
     /** Break-glass only: why emergency access was needed. */

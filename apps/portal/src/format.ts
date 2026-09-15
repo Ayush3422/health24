@@ -30,6 +30,16 @@ export function formatNumber(value: number): string {
   return value.toLocaleString('en-IN', { maximumFractionDigits: 2 });
 }
 
+/** Today's date in India, as YYYY-MM-DD: the latest a clinical date can be. */
+export function istToday(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
 /** A file's size: kilobytes under a megabyte, never "0 MB". */
 export function formatBytes(bytes: number): string {
   const megabyte = 1024 * 1024;

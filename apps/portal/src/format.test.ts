@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { DOCUMENT_TYPES, RESULT_INTERPRETATIONS, TIMELINE_KINDS } from '@health24/shared';
+import {
+  CLINICAL_DATA_CATEGORIES,
+  DOCUMENT_TYPES,
+  RESULT_INTERPRETATIONS,
+  TIMELINE_KINDS,
+} from '@health24/shared';
 import en from './locales/en.json';
 import { describeDevice, displayPhone, formatBytes, formatDate } from './format';
 
@@ -51,6 +56,7 @@ describe('the message catalogue', () => {
   it('names every kind of timeline entry, document and result flag', () => {
     expect(Object.keys(en.kind).sort()).toEqual([...TIMELINE_KINDS].sort());
     expect(Object.keys(en.docType).sort()).toEqual([...DOCUMENT_TYPES].sort());
+    expect(Object.keys(en.category).sort()).toEqual([...CLINICAL_DATA_CATEGORIES].sort());
     for (const interpretation of RESULT_INTERPRETATIONS) {
       expect(en.results).toHaveProperty(`flag_${interpretation}`);
     }

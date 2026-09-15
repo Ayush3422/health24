@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ConsentsScreen } from './screens/ConsentsScreen';
 import { Shell } from './screens/Shell';
 import { DevicesScreen } from './screens/DevicesScreen';
 import { HomeScreen } from './screens/HomeScreen';
@@ -36,6 +37,7 @@ export function App(): JSX.Element {
         <Route path="reports" element={<ReportsScreen />} />
         <Route path="results" element={<ResultsScreen />} />
         <Route path="results/:code" element={<TrendScreen />} />
+        <Route path="consents" element={<ConsentsScreen />} />
         <Route path="switch" element={<SwitchScreen />} />
         <Route path="devices" element={<DevicesScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />

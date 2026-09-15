@@ -66,6 +66,6 @@ import { VitalsService } from './vitals.service';
     OfflineAuditService,
   ],
   // The patient portal reads the same record through them (SP5).
-  exports: [TimelineService, ResultsService],
+  exports: [TimelineService, ResultsService, ConsentService],
 })
 export class ClinicalModule {}

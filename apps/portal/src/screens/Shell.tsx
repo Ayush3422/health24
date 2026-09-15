@@ -10,6 +10,7 @@ const RECORD_LINKS = [
   ['/allergies', 'shell.allergies'],
   ['/reports', 'shell.reports'],
   ['/results', 'shell.results'],
+  ['/consents', 'shell.consents'],
 ] as const;
 
 /** The signed-in frame: whose record is open, the way around, and signing out. */

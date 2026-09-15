@@ -200,10 +200,12 @@ function ConsentItem({
 
       <p className="small muted">
         {emergency
-          ? `Taken by ${consent.recordedBy.name ?? 'a clinician'}`
-          : consent.captureMethod === 'verbal_witnessed'
-            ? `Given verbally, witnessed by ${consent.witnessName}; recorded by ${consent.recordedBy.name ?? 'staff'}`
-            : `Signed consent form; recorded by ${consent.recordedBy.name ?? 'staff'}`}{' '}
+          ? `Taken by ${consent.recordedBy?.name ?? 'a clinician'}`
+          : consent.captureMethod === 'patient_portal'
+            ? 'Granted by the patient in the Health24 portal'
+            : consent.captureMethod === 'verbal_witnessed'
+              ? `Given verbally, witnessed by ${consent.witnessName}; recorded by ${consent.recordedBy?.name ?? 'staff'}`
+              : `Signed consent form; recorded by ${consent.recordedBy?.name ?? 'staff'}`}{' '}
         on {formatDate(consent.grantedAt)}
         {consent.dateRangeFrom || consent.dateRangeTo
           ? ` · covers records from ${consent.dateRangeFrom ?? 'the beginning'} to ${consent.dateRangeTo ?? 'today'}`
@@ -213,7 +215,12 @@ function ConsentItem({
       {consent.status === 'revoked' ? (
         <p className="small muted">
           Revoked {consent.revokedAt ? formatDate(consent.revokedAt) : ''}
-          {consent.revokedBy?.name ? ` by ${consent.revokedBy.name}` : ''}:{' '}
+          {consent.revokedInPortal
+            ? ' by the patient in the portal'
+            : consent.revokedBy?.name
+              ? ` by ${consent.revokedBy.name}`
+              : ''}
+          :{' '}
           {consent.revocationReason}
         </p>
       ) : null}
