@@ -177,6 +177,13 @@ export const patientPortalAccess = pgTable(
     activatedAt: timestamp('activated_at', { withTimezone: true }).notNull().defaultNow(),
     endsAt: timestamp('ends_at', { withTimezone: true }),
 
+    /** A guardian's access (Decision M1): who, how related, and the document the desk checked. */
+    guardianName: text('guardian_name'),
+    guardianRelation: text('guardian_relation'),
+    guardianDocument: text('guardian_document'),
+    /** When the worker ended a guardian's access at the child's 18th birthday and told the young adult. */
+    handedOverAt: timestamp('handed_over_at', { withTimezone: true }),
+
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
     revokedByStaffId: uuid('revoked_by_staff_id'),
     revokedReason: text('revoked_reason'),

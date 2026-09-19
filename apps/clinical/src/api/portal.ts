@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { PortalAccessSummary } from '@health24/shared';
+import type { LinkGuardianInput, PortalAccessSummary } from '@health24/shared';
 import { api } from './client';
 
 /** A patient's portal access, as the desk sees it (SP5, Decision J1). */
@@ -32,6 +32,20 @@ export function useRevokePortalAccess(patientId: string) {
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       api<PortalAccessSummary>(`/portal-access/${id}/revoke`, { method: 'POST', body: { reason } }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: accessKey(patientId) }),
+  });
+}
+
+/** A child's record linked to a guardian's phone, until the child turns 18 (SP5, Decision M1). */
+export function useLinkGuardian(patientId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: LinkGuardianInput) =>
+      api<PortalAccessSummary>(`/patients/${patientId}/portal-access/guardian`, {
+        method: 'POST',
+        body: input,
+      }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: accessKey(patientId) }),
   });
 }

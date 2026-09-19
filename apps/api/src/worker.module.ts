@@ -7,6 +7,7 @@ import { DocumentCleanupTimer } from './modules/documents/document-cleanup.timer
 import { DocumentScanHandler } from './modules/documents/document-scan.handler';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { ImportsModule } from './modules/imports/imports.module';
+import { GuardianHandoverTimer } from './modules/notifications/guardian-handover.timer';
 import { NotificationSweepTimer } from './modules/notifications/notification-sweep.timer';
 import { NotificationWorker } from './modules/notifications/notification.worker';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -38,6 +39,7 @@ import { StorageModule } from './modules/storage/storage.module';
     DocumentCleanupTimer,
     NotificationWorker,
     NotificationSweepTimer,
+    GuardianHandoverTimer,
   ],
 })
 export class WorkerModule {}

@@ -288,6 +288,20 @@
       "when": 1789490110811,
       "tag": "0040_emergency_card_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1789491131925,
+      "tag": "0041_guardian_links",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1789491133917,
+      "tag": "0042_guardian_rules",
+      "breakpoints": true
     }
   ]
 }

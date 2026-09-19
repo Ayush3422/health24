@@ -399,3 +399,7 @@ export const EMERGENCY_CARD_FIELDS = [
   'emergency_contact',
 ] as const;
 export type EmergencyCardField = (typeof EMERGENCY_CARD_FIELDS)[number];
+
+/** How a guardian is related to the child whose record they act for (SP5, Decision M1). */
+export const GUARDIAN_RELATIONS = ['mother', 'father', 'legal_guardian'] as const;
+export type GuardianRelation = (typeof GUARDIAN_RELATIONS)[number];

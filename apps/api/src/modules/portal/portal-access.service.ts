@@ -1,8 +1,15 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import type {
   ActivatePortalAccessInput,
+  GuardianRelation,
+  LinkGuardianInput,
   PortalAccessSummary,
   PortalRelationship,
 } from '@health24/shared';
@@ -25,15 +32,22 @@ type AccessRow = {
   activated_at_hospital_id: string;
   activated_at_hospital_name: string | null;
   ends_at: string | Date | null;
+  guardian_name: string | null;
+  guardian_relation: GuardianRelation | null;
+  guardian_document: string | null;
   revoked_at: string | Date | null;
   revoked_reason: string | null;
 };
+
+/** Midnight in India on a patient's 18th birthday — the same date the database checks. */
+const EIGHTEENTH_BIRTHDAY = sql`((p."date_of_birth" + interval '18 years')::date::timestamp) AT TIME ZONE 'Asia/Kolkata'`;
 
 const ACCESS_SELECT = sql`
   SELECT p."id", p."patient_id", p."account_id", p."phone", p."relationship", p."activated_at",
          p."activated_by_staff_id", s."name" AS activated_by_name,
          p."activated_at_hospital_id", h."name" AS activated_at_hospital_name,
-         p."ends_at", p."revoked_at", p."revoked_reason"
+         p."ends_at", p."guardian_name", p."guardian_relation", p."guardian_document",
+         p."revoked_at", p."revoked_reason"
     FROM "patient_portal_access" p
     LEFT JOIN "staff_user" s ON s."id" = p."activated_by_staff_id"
     LEFT JOIN "hospital_directory" h ON h."id" = p."activated_at_hospital_id"
@@ -107,6 +121,79 @@ export class PortalAccessService {
         meta,
       });
     }
+
+    return this.toSummary(row, hospitalId);
+  }
+
+  /**
+   * Links a child's record to a guardian's phone (Decision M1), after the desk
+   * has checked the relationship and a document. The access ends at the
+   * child's 18th birthday, worked out from the recorded date of birth.
+   */
+  async linkGuardian(
+    actor: Actor,
+    patientId: string,
+    input: LinkGuardianInput,
+    meta: RequestMeta,
+  ): Promise<PortalAccessSummary> {
+    const hospitalId = requireHospital(actor);
+
+    const row = await this.db.asTenant(hospitalId, async (tx) => {
+      await requireLinkedPatient(tx, hospitalId, patientId);
+
+      const [child] = await tx.execute<{ has_birth_date: boolean; adult: boolean }>(sql`
+        SELECT p."date_of_birth" IS NOT NULL AS has_birth_date,
+               coalesce(${EIGHTEENTH_BIRTHDAY} <= now(), false) AS adult
+          FROM "patient" p
+         WHERE p."id" = ${patientId}::uuid
+      `);
+
+      if (!child?.has_birth_date) {
+        throw new BadRequestException(
+          'Record the child’s date of birth before linking a guardian: access ends on their 18th birthday',
+        );
+      }
+
+      if (child.adult) {
+        throw new BadRequestException(
+          'This patient is 18 or older. Activate their own portal access instead.',
+        );
+      }
+
+      const [account] = await tx.execute<{ id: string }>(
+        sql`SELECT app.portal_account_for_phone(${input.phone}) AS id`,
+      );
+
+      const id = uuidv7();
+
+      try {
+        await tx.execute(sql`
+          INSERT INTO "patient_portal_access"
+            ("id", "account_id", "patient_id", "phone", "relationship", "activated_at_hospital_id",
+             "activated_by_staff_id", "ends_at", "guardian_name", "guardian_relation", "guardian_document")
+          SELECT ${id}::uuid, ${account!.id}::uuid, p."id", ${input.phone}, 'guardian'::portal_relationship,
+                 ${hospitalId}::uuid, ${actor.staffUserId}::uuid, ${EIGHTEENTH_BIRTHDAY},
+                 ${input.guardianName}, ${input.guardianRelation}, ${input.documentChecked}
+            FROM "patient" p
+           WHERE p."id" = ${patientId}::uuid
+        `);
+      } catch (error) {
+        if (violatedConstraint(error) === 'patient_portal_access_active_once') {
+          throw new ConflictException('This phone already has portal access to this patient');
+        }
+        throw error;
+      }
+
+      return (await this.load(tx, id))!;
+    });
+
+    await this.audit.recordForActor(actor, {
+      resourceType: 'patient_portal_access',
+      resourceId: row.id,
+      patientId,
+      action: 'create',
+      meta,
+    });
 
     return this.toSummary(row, hospitalId);
   }
@@ -204,6 +291,17 @@ export class PortalAccessService {
       endsAt,
       revokedAt: row.revoked_at ? toIso(row.revoked_at) : null,
       revokedReason: row.revoked_reason,
+      guardian:
+        row.relationship === 'guardian' &&
+        row.guardian_name &&
+        row.guardian_relation &&
+        row.guardian_document
+          ? {
+              name: row.guardian_name,
+              relation: row.guardian_relation,
+              documentChecked: row.guardian_document,
+            }
+          : null,
     };
   }
 }

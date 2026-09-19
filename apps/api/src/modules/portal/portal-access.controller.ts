@@ -1,8 +1,10 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import {
   activatePortalAccessSchema,
+  linkGuardianSchema,
   revokePortalAccessSchema,
   type ActivatePortalAccessInput,
+  type LinkGuardianInput,
   type PortalAccessSummary,
   type RevokePortalAccessInput,
 } from '@health24/shared';
@@ -25,6 +27,18 @@ export class PortalAccessController {
     @CurrentMeta() meta: RequestMeta,
   ): Promise<PortalAccessSummary> {
     return this.access.activate(actor, id, body, meta);
+  }
+
+  /** A child's record linked to a guardian's phone, until the child turns 18 (Decision M1). */
+  @Post('patients/:id/portal-access/guardian')
+  @RequirePermission('portal:link_guardian')
+  async linkGuardian(
+    @CurrentActor() actor: Actor,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(linkGuardianSchema)) body: LinkGuardianInput,
+    @CurrentMeta() meta: RequestMeta,
+  ): Promise<PortalAccessSummary> {
+    return this.access.linkGuardian(actor, id, body, meta);
   }
 
   @Get('patients/:id/portal-access')

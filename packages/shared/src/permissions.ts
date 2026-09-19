@@ -82,6 +82,11 @@ export const PERMISSIONS = [
   // Patient portal (SP5)
   /** Activate and revoke a patient's portal access, with the patient in front of you (Decision J1). */
   'portal:activate',
+  /**
+   * Link a child's record to a guardian's phone, after checking the relationship
+   * and a document that shows it (Decision M1).
+   */
+  'portal:link_guardian',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -173,6 +178,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'results:enter',
     // The desk sees the patient in person, which is what activation rests on.
     'portal:activate',
+    'portal:link_guardian',
   ],
 
   /**
@@ -200,6 +206,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'results:enter',
     'documents:import',
     'portal:activate',
+    'portal:link_guardian',
   ],
 };
 

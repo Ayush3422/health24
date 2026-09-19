@@ -32,7 +32,13 @@ export function Shell(): JSX.Element {
             {t('shell.signOut')}
           </button>
         </div>
-        {me ? <p className="topbar__viewing">{t('shell.viewing', { name: me.patient.name })}</p> : null}
+        {me ? (
+          <p className="topbar__viewing">
+            {me.patient.relationship === 'guardian'
+              ? t('shell.actingForChild', { name: me.patient.name })
+              : t('shell.viewing', { name: me.patient.name })}
+          </p>
+        ) : null}
         <nav aria-label={t('shell.menu')} className="tabs">
           <NavLink end to="/">
             {t('shell.home')}

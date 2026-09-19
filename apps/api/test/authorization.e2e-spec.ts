@@ -481,6 +481,12 @@ const ROUTES: RouteExpectation[] = [
     path: '/api/v1/portal-access/:id/revoke',
     allow: ['clinician', 'frontDesk', 'records'],
   },
+  // A guardian for a child (SP5 Phase 7): the desk and records staff, who check the document.
+  {
+    method: 'post',
+    path: '/api/v1/patients/:id/portal-access/guardian',
+    allow: ['frontDesk', 'records'],
+  },
 ];
 
 const ABSENT_ID = '00000000-0000-4000-8000-000000000000';

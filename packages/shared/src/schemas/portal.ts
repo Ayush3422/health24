@@ -6,6 +6,7 @@ import {
   CONSENT_CAPTURE_METHODS,
   EMERGENCY_CARD_FIELDS,
   ENCOUNTER_CLASSES,
+  GUARDIAN_RELATIONS,
   PORTAL_RELATIONSHIPS,
   STAFF_ROLES,
 } from '../enums.js';
@@ -123,6 +124,22 @@ export const revokePortalAccessSchema = z.object({
 });
 export type RevokePortalAccessInput = z.infer<typeof revokePortalAccessSchema>;
 
+/**
+ * A child's record linked to a guardian's phone (Decision M1), after the desk
+ * has checked the relationship in person and a document that shows it. The
+ * link ends by itself at the child's 18th birthday.
+ */
+export const linkGuardianSchema = z.object({
+  phone: phoneSchema,
+  guardianName: z.string().trim().min(2, 'Give the guardian’s name').max(120),
+  guardianRelation: z.enum(GUARDIAN_RELATIONS),
+  documentChecked: z.string().trim().min(3, 'Name the document you checked').max(200),
+  relationshipConfirmed: z.literal(true, {
+    errorMap: () => ({ message: 'Confirm that you have checked the relationship in person' }),
+  }),
+});
+export type LinkGuardianInput = z.infer<typeof linkGuardianSchema>;
+
 export const PORTAL_ACCESS_STATUSES = ['active', 'ended', 'revoked'] as const;
 
 export const portalAccessSummarySchema = z.object({
@@ -131,6 +148,14 @@ export const portalAccessSummarySchema = z.object({
   phone: z.string(),
   relationship: z.enum(PORTAL_RELATIONSHIPS),
   status: z.enum(PORTAL_ACCESS_STATUSES),
+  /** For a guardian's access: who they are, how related, and what the desk checked. */
+  guardian: z
+    .object({
+      name: z.string(),
+      relation: z.enum(GUARDIAN_RELATIONS),
+      documentChecked: z.string(),
+    })
+    .nullable(),
   activatedAt: z.string(),
   activatedBy: staffRefSchema,
   activatedAtHospital: hospitalRefSchema,

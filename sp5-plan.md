@@ -234,8 +234,8 @@ Guardian links are created by records staff with the relationship and the docume
 
 ### Phase 7 — Dependants
 
-- [ ] **T17** Guardian links at the desk; acting for a child in the portal (M1)
-- [ ] **T18** The hand-over at 18
+- [x] **T17** Guardian links at the desk; acting for a child in the portal (M1)
+- [x] **T18** The hand-over at 18
 
 ### Phase 8 — Rights under the DPDP Act
 

@@ -45,7 +45,8 @@
     "switch": "Switch record",
     "signOut": "Sign out",
     "menu": "Menu",
-    "viewing": "Viewing the record of {{name}}"
+    "viewing": "Viewing the record of {{name}}",
+    "actingForChild": "Acting for {{name}}, as their guardian, until they turn 18"
   },
   "home": {
     "greeting": "Hello, {{name}}",
