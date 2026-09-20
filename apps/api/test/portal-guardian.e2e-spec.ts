@@ -254,6 +254,17 @@ describe('guardians and the hand-over at 18', () => {
 
     expect(await handover.handOver(accessId)).toBe('skipped');
 
+    // The guardian's phone no longer opens the young adult's record: asking for
+    // a code is answered as any number is, no code is sent, and a guess fails.
+    await owner`DELETE FROM otp_challenge`;
+    const lastMessage = sms.lastTo('+919820044301');
+
+    expect((await post('/portal/auth/otp', null, { phone: '9820044301' })).status).toBe(202);
+    expect(sms.lastTo('+919820044301')).toBe(lastMessage);
+    expect((await post('/portal/auth/verify', null, { phone: '9820044301', code: '123456' })).status).toBe(
+      401,
+    );
+
     // The child's own access is untouched by any of this.
     expect(await handover.handOver(guardianAccessId)).toBe('skipped');
   });

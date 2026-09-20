@@ -252,6 +252,21 @@ describe('patient portal sign-in', () => {
     expect((await post('/portal/auth/verify', null, { phone: lakshmi.phone, code })).status).toBe(401);
   });
 
+  it('refuses a code past its five minutes', async () => {
+    await clearCodes();
+    await post('/portal/auth/otp', null, { phone: lakshmi.phone });
+    const code = latestCode(PHONE)!;
+
+    // The database keeps a code's life after its creation, so the whole row moves back.
+    await owner`
+      UPDATE otp_challenge
+         SET created_at = now() - interval '10 minutes', expires_at = now() - interval '5 minutes'
+       WHERE phone = ${PHONE}
+    `;
+
+    expect((await post('/portal/auth/verify', null, { phone: lakshmi.phone, code })).status).toBe(401);
+  });
+
   it('refuses a patient the phone has no access to, and a stale selection', async () => {
     const { selectionToken } = await verifiedSelection();
 

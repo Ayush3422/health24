@@ -261,7 +261,7 @@ function CardSettings({
       <p className="hint">{t('emergencyCard.alwaysShown')}</p>
 
       <fieldset>
-        <legend className="visually-hidden">{t('emergencyCard.whatShows')}</legend>
+        <legend className="visually-hidden">{t('emergencyCard.chooseWhatShows')}</legend>
         {CARD_FIELDS.map((field) => (
           <label key={field} className="choice-row choice-row--top">
             <input type="checkbox" checked={fields.includes(field)} onChange={() => toggle(field)} />

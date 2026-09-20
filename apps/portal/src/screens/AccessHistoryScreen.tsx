@@ -16,12 +16,19 @@ function byDay(entries: AccessHistoryEntry[]): Array<[string, AccessHistoryEntry
   return days;
 }
 
-const verbFor = (actions: AccessHistoryEntry['actions']) =>
-  actions.includes('export')
-    ? 'export'
-    : actions.some((action) => action === 'create' || action === 'update' || action === 'delete')
-      ? 'change'
-      : 'view';
+/** How many kinds of record an entry names before it says "and n more". */
+const NAMED = 4;
+
+const verbFor = (actions: AccessHistoryEntry['actions']) => {
+  const changed = actions.some(
+    (action) => action === 'create' || action === 'update' || action === 'delete',
+  );
+  const looked = actions.some((action) => action === 'read' || action === 'search');
+
+  if (actions.includes('export')) return 'export';
+  if (changed && looked) return 'both';
+  return changed ? 'change' : 'view';
+};
 
 /**
  * Who has seen the patient's record (sp5-plan.md, DF6): each person, their
@@ -112,13 +119,19 @@ function AccessEntry({ entry }: { entry: AccessHistoryEntry }): JSX.Element {
           ? t('access.cardOpened')
           : t('access.system');
 
-  const what = [
+  // A day's work at one hospital can touch a dozen kinds of record; the entry
+  // names the first few and counts the rest, rather than running off the screen.
+  const names = [
     ...new Set(
       entry.resources.map((resource) =>
         t(`resource.${resource}`, { defaultValue: t('resource.other') }),
       ),
     ),
-  ].join(', ');
+  ];
+  const what =
+    names.length > NAMED
+      ? `${names.slice(0, NAMED).join(', ')}${t('access.andMore', { count: names.length - NAMED })}`
+      : names.join(', ');
 
   const from = formatTime(entry.firstAt);
   const to = formatTime(entry.lastAt);

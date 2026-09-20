@@ -258,7 +258,10 @@
     "cardOpened": "Someone opened your emergency card",
     "did_view": "Looked at {{what}}",
     "did_change": "Added to or changed {{what}}",
+    "did_both": "Looked at, added to or changed {{what}}",
     "did_export": "Downloaded {{what}}",
+    "andMore_one": ", and {{count}} more",
+    "andMore_other": ", and {{count}} more",
     "yourConsent": "Allowed by the sharing you set up on {{date}}",
     "deskConsent": "Allowed by consent recorded at a hospital on {{date}}",
     "ownRecords": "Records this hospital holds about you"
@@ -310,6 +313,7 @@
     "title": "Your emergency card",
     "intro": "A card for your wallet and an image for your phone’s lock screen, so whoever treats you in an emergency knows what matters. You choose what it shows. Its QR code opens a page with the same details, kept up to date, without signing in.",
     "whatShows": "What should the card show?",
+    "chooseWhatShows": "Choose what the card shows",
     "alwaysShown": "Your name and age are always on it, so the card can be matched to you.",
     "notRecorded": "Not recorded",
     "noneRecorded": "None recorded",

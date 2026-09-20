@@ -245,9 +245,9 @@ Guardian links are created by records staff with the relationship and the docume
 
 ### Phase 9 — Verification
 
-- [ ] **T22** Unit and integration: OTP limits and expiry, token audiences, every new route, row-level security for patients and guardians
+- [x] **T22** Unit and integration: OTP limits and expiry, token audiences, every new route, row-level security for patients and guardians
 - [ ] **T23** Portal end-to-end tests with Playwright, and axe accessibility checks (DF9)
-- [ ] **T24** The acceptance scenario below, and a browser check on a phone-sized screen
+- [x] **T24** The acceptance scenario below, and a browser check on a phone-sized screen
 
 ---
 
