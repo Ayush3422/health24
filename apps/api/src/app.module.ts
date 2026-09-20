@@ -10,6 +10,9 @@ import { HospitalsModule } from './modules/hospitals/hospitals.module';
 import { PatientsModule } from './modules/patients/patients.module';
 import { TerminologyModule } from './modules/terminology/terminology.module';
 import { ClinicalModule } from './modules/clinical/clinical.module';
+import { CorrectionsModule } from './modules/corrections/corrections.module';
+import { PrivacyModule } from './modules/privacy/privacy.module';
+import { ExportsModule } from './modules/exports/exports.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { ImportsModule } from './modules/imports/imports.module';
 import { PortalModule } from './modules/portal/portal.module';
@@ -44,6 +47,9 @@ import { HealthController } from './health.controller';
     ImportsModule,
     // The patient portal (SP5).
     PortalModule,
+    ExportsModule,
+    CorrectionsModule,
+    PrivacyModule,
   ],
   controllers: [HealthController],
   providers: [

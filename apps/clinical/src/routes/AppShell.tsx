@@ -37,6 +37,8 @@ export function AppShell(): JSX.Element {
   const canCurate = hasPermission(staff.role, 'terminology:curate');
   const canReviewCoding = hasPermission(staff.role, 'clinical:write');
   const canReviewEmergencyAccess = hasPermission(staff.role, 'consent:review');
+  const canAnswerCorrections = hasPermission(staff.role, 'patient:update');
+  const canReviewErasure = hasPermission(staff.role, 'privacy:review');
 
   return (
     <div className="shell">
@@ -82,6 +84,16 @@ export function AppShell(): JSX.Element {
           {canSeeMergeQueue ? (
             <NavLink to="/merge-queue" className={navClass}>
               Duplicates
+            </NavLink>
+          ) : null}
+          {canAnswerCorrections ? (
+            <NavLink to="/correction-requests" className={navClass}>
+              Corrections
+            </NavLink>
+          ) : null}
+          {canReviewErasure ? (
+            <NavLink to="/erasure-requests" className={navClass}>
+              Erasure requests
             </NavLink>
           ) : null}
           {canReadTerminology ? (

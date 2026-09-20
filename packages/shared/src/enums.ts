@@ -55,6 +55,12 @@ export const STAFF_ROLES = [
   'clinician',
   'front_desk',
   'medical_records',
+  /**
+   * Health24's data-protection officer: reviews erasure requests under the
+   * DPDP Act (SP5, Decision N1). Belongs to no hospital and never reads a
+   * clinical record.
+   */
+  'data_protection_officer',
 ] as const;
 export type StaffRole = (typeof STAFF_ROLES)[number];
 
@@ -403,3 +409,23 @@ export type EmergencyCardField = (typeof EMERGENCY_CARD_FIELDS)[number];
 /** How a guardian is related to the child whose record they act for (SP5, Decision M1). */
 export const GUARDIAN_RELATIONS = ['mother', 'father', 'legal_guardian'] as const;
 export type GuardianRelation = (typeof GUARDIAN_RELATIONS)[number];
+
+/** What a patient may ask to have corrected about themselves (SP5, Decision N1). */
+export const CORRECTION_FIELDS = [
+  'name',
+  'date_of_birth',
+  'gender',
+  'phone',
+  'blood_group',
+  'emergency_contact_name',
+  'emergency_contact_phone',
+] as const;
+export type CorrectionField = (typeof CORRECTION_FIELDS)[number];
+
+/**
+ * What a data-protection officer decided about an erasure request (SP5,
+ * Decision N1). Clinical records are kept as law requires, so a request is
+ * often met in part.
+ */
+export const ERASURE_OUTCOMES = ['erased', 'partly_erased', 'refused'] as const;
+export type ErasureOutcome = (typeof ERASURE_OUTCOMES)[number];

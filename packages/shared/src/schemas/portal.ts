@@ -3,9 +3,11 @@ import {
   ACCESS_ACTIONS,
   BREAK_GLASS_REVIEW_OUTCOMES,
   CLINICAL_DATA_CATEGORIES,
+  CORRECTION_FIELDS,
   CONSENT_CAPTURE_METHODS,
   EMERGENCY_CARD_FIELDS,
   ENCOUNTER_CLASSES,
+  ERASURE_OUTCOMES,
   GUARDIAN_RELATIONS,
   PORTAL_RELATIONSHIPS,
   STAFF_ROLES,
@@ -443,3 +445,132 @@ export const emergencyPageSchema = z.object({
   cardUpdatedAt: z.string(),
 });
 export type EmergencyPage = z.infer<typeof emergencyPageSchema>;
+
+// ---------------------------------------------------------------------------
+// The patient's copy of their record (Phase 8, Decision N1)
+// ---------------------------------------------------------------------------
+
+export const EXPORT_STATUSES = ['pending', 'ready', 'failed', 'expired'] as const;
+export const EXPORT_FORMATS = ['pdf', 'fhir'] as const;
+export type ExportFormat = (typeof EXPORT_FORMATS)[number];
+
+export const dataExportSchema = z.object({
+  id: uuidSchema,
+  status: z.enum(EXPORT_STATUSES),
+  requestedAt: z.string(),
+  readyAt: z.string().nullable(),
+  /** After this the files are removed; the patient can ask for another copy. */
+  expiresAt: z.string().nullable(),
+  entryCount: z.number().int().nullable(),
+  failureReason: z.string().nullable(),
+});
+export type DataExportSummary = z.infer<typeof dataExportSchema>;
+
+export const exportDownloadQuerySchema = z.object({ format: z.enum(EXPORT_FORMATS) });
+export type ExportDownloadQuery = z.infer<typeof exportDownloadQuerySchema>;
+
+export const exportDownloadSchema = z.object({
+  url: z.string(),
+  expiresAt: z.string(),
+  format: z.enum(EXPORT_FORMATS),
+});
+export type ExportDownload = z.infer<typeof exportDownloadSchema>;
+
+// ---------------------------------------------------------------------------
+// Corrections (Phase 8, Decision N1)
+// ---------------------------------------------------------------------------
+
+export const CORRECTION_STATUSES = ['pending', 'applied', 'declined'] as const;
+
+/** A patient asking a hospital to correct something it holds about them. */
+export const requestCorrectionSchema = z.object({
+  hospitalId: uuidSchema,
+  field: z.enum(CORRECTION_FIELDS),
+  requestedValue: z.string().trim().min(1, 'Say what it should be').max(200),
+  note: z.string().trim().max(500).optional(),
+});
+export type RequestCorrectionInput = z.infer<typeof requestCorrectionSchema>;
+
+export const correctionRequestSchema = z.object({
+  id: uuidSchema,
+  patientId: uuidSchema,
+  hospital: z.object({ id: uuidSchema, name: z.string() }),
+  field: z.enum(CORRECTION_FIELDS),
+  /** What the record said when the patient asked. */
+  currentValue: z.string().nullable(),
+  requestedValue: z.string(),
+  note: z.string().nullable(),
+  status: z.enum(CORRECTION_STATUSES),
+  createdAt: z.string(),
+  resolvedAt: z.string().nullable(),
+  resolvedBy: staffRefSchema.nullable(),
+  resolutionNote: z.string().nullable(),
+});
+export type CorrectionRequestSummary = z.infer<typeof correctionRequestSchema>;
+
+/** What the portal needs to ask for a correction: where to send it, and what the record says now. */
+export const portalCorrectionsSchema = z.object({
+  hospitals: z.array(z.object({ id: uuidSchema, name: z.string() })),
+  current: z.record(z.enum(CORRECTION_FIELDS), z.string().nullable()),
+  requests: z.array(correctionRequestSchema),
+});
+export type PortalCorrections = z.infer<typeof portalCorrectionsSchema>;
+
+/** A hospital's queue of corrections patients have asked for. */
+export const correctionQueueItemSchema = correctionRequestSchema.extend({
+  patient: z.object({ id: uuidSchema, name: z.string(), mrn: z.string().nullable() }),
+});
+export type CorrectionQueueItem = z.infer<typeof correctionQueueItemSchema>;
+
+export const resolveCorrectionSchema = z.object({
+  note: z.string().trim().max(500).optional(),
+});
+export type ResolveCorrectionInput = z.infer<typeof resolveCorrectionSchema>;
+
+export const declineCorrectionSchema = z.object({
+  note: z.string().trim().min(3, 'Say why it is declined').max(500),
+});
+export type DeclineCorrectionInput = z.infer<typeof declineCorrectionSchema>;
+
+// ---------------------------------------------------------------------------
+// Erasure (Phase 8, Decision N1)
+// ---------------------------------------------------------------------------
+
+export const requestErasureSchema = z.object({
+  /** The patient's own words, if they want to give a reason. */
+  reason: z.string().trim().max(1000).optional(),
+});
+export type RequestErasureInput = z.infer<typeof requestErasureSchema>;
+
+export const erasureRequestSchema = z.object({
+  id: uuidSchema,
+  status: z.enum(['pending', 'decided']),
+  reason: z.string().nullable(),
+  createdAt: z.string(),
+  decidedAt: z.string().nullable(),
+  outcome: z.enum(ERASURE_OUTCOMES).nullable(),
+  /** What law requires be kept, and for how long. */
+  retentionNote: z.string().nullable(),
+  /** What was erased. */
+  erasedSummary: z.string().nullable(),
+});
+export type ErasureRequestSummary = z.infer<typeof erasureRequestSchema>;
+
+/** As the data-protection officer sees a request: never the record it is about. */
+export const erasureQueueItemSchema = erasureRequestSchema.extend({
+  patientId: uuidSchema,
+  /** Masked, so the officer can tell requests apart without reading contact details. */
+  requestedByPhone: z.string(),
+  decidedBy: staffRefSchema.nullable(),
+});
+export type ErasureQueueItem = z.infer<typeof erasureQueueItemSchema>;
+
+export const decideErasureSchema = z.object({
+  outcome: z.enum(ERASURE_OUTCOMES),
+  retentionNote: z
+    .string()
+    .trim()
+    .min(10, 'Say what is kept, and what law requires it')
+    .max(2000),
+});
+export type DecideErasureInput = z.infer<typeof decideErasureSchema>;

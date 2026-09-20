@@ -6,6 +6,7 @@ import { DevicesScreen } from './screens/DevicesScreen';
 import { EmergencyCardScreen } from './screens/EmergencyCardScreen';
 import { EmergencyPublicScreen } from './screens/EmergencyPublicScreen';
 import { HomeScreen } from './screens/HomeScreen';
+import { MyDataScreen } from './screens/MyDataScreen';
 import { ReportsScreen } from './screens/ReportsScreen';
 import { ResultsScreen } from './screens/ResultsScreen';
 import { Shell } from './screens/Shell';
@@ -53,6 +54,7 @@ function PatientApp(): JSX.Element {
         <Route path="consents" element={<ConsentsScreen />} />
         <Route path="access" element={<AccessHistoryScreen />} />
         <Route path="emergency-card" element={<EmergencyCardScreen />} />
+        <Route path="my-data" element={<MyDataScreen />} />
         <Route path="switch" element={<SwitchScreen />} />
         <Route path="devices" element={<DevicesScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />

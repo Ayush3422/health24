@@ -87,6 +87,10 @@ export const PERMISSIONS = [
    * and a document that shows it (Decision M1).
    */
   'portal:link_guardian',
+
+  // The patient's rights under the DPDP Act (SP5)
+  /** Review erasure requests and record what was erased and what law requires kept (Decision N1). */
+  'privacy:review',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -208,6 +212,13 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'portal:activate',
     'portal:link_guardian',
   ],
+
+  /**
+   * The data-protection officer decides erasure requests and records the
+   * outcome. Nothing else: reviewing a request never means reading the record
+   * it is about.
+   */
+  data_protection_officer: [...BASELINE, 'privacy:review'],
 };
 
 export function hasPermission(role: StaffRole, permission: Permission): boolean {

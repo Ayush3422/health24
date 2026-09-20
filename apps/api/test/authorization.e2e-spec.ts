@@ -27,7 +27,8 @@ type RoleKey =
   | 'frontDesk'
   | 'records'
   | 'otherHospitalAdmin'
-  | 'curator';
+  | 'curator'
+  | 'dpo';
 
 const ALL_ROLES: RoleKey[] = [
   'platformAdmin',
@@ -37,6 +38,7 @@ const ALL_ROLES: RoleKey[] = [
   'records',
   'otherHospitalAdmin',
   'curator',
+  'dpo',
 ];
 
 /**
@@ -465,6 +467,43 @@ const ROUTES: RouteExpectation[] = [
   { method: 'post', path: '/api/v1/portal/emergency-card/replace', allow: [], portal: true },
   { method: 'post', path: '/api/v1/portal/emergency-card/revoke', allow: [], portal: true },
   { method: 'get', path: '/api/v1/emergency/:token', allow: [], public: true },
+  // The patient's copy of their record (SP5 Phase 8).
+  { method: 'get', path: '/api/v1/portal/exports', allow: [], portal: true },
+  { method: 'post', path: '/api/v1/portal/exports', allow: [], portal: true },
+  { method: 'get', path: '/api/v1/portal/exports/:id/download', allow: [], portal: true },
+  // Corrections a patient asks for, and the hospital's queue of them (SP5 Phase 8).
+  { method: 'get', path: '/api/v1/portal/corrections', allow: [], portal: true },
+  { method: 'post', path: '/api/v1/portal/corrections', allow: [], portal: true },
+  {
+    method: 'get',
+    path: '/api/v1/correction-requests',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
+  {
+    method: 'post',
+    path: '/api/v1/correction-requests/:id/apply',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
+  {
+    method: 'post',
+    path: '/api/v1/correction-requests/:id/decline',
+    allow: ['clinician', 'frontDesk', 'records'],
+    body: { note: 'Not the patient we hold' },
+  },
+  // Erasure: asked for by the patient, decided by Health24's data-protection
+  // officer — and by nobody at a hospital (SP5 Phase 8).
+  { method: 'get', path: '/api/v1/portal/erasure-requests', allow: [], portal: true },
+  { method: 'post', path: '/api/v1/portal/erasure-requests', allow: [], portal: true },
+  { method: 'get', path: '/api/v1/erasure-requests', allow: ['dpo'] },
+  {
+    method: 'post',
+    path: '/api/v1/erasure-requests/:id/decide',
+    allow: ['dpo'],
+    body: {
+      outcome: 'refused',
+      retentionNote: 'Clinical records are kept for as long as law requires.',
+    },
+  },
   // Portal access is activated by those who see the patient in person (Decision J1).
   {
     method: 'post',
@@ -562,6 +601,14 @@ describe('authorization', () => {
         role: 'terminology_curator',
         email: 'probe.curator@example.in',
         name: 'Probe Curator',
+      }),
+    );
+    tokens.dpo = await signIn(
+      ctx,
+      await seedPlatformUser({
+        role: 'data_protection_officer',
+        email: 'probe.dpo@example.in',
+        name: 'Probe Officer',
       }),
     );
 

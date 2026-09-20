@@ -239,9 +239,9 @@ Guardian links are created by records staff with the relationship and the docume
 
 ### Phase 8 — Rights under the DPDP Act
 
-- [ ] **T19** Export: PDF and FHIR R4 bundle (N1)
-- [ ] **T20** Correction requests into the records queue
-- [ ] **T21** Erasure requests: the data-protection officer role, queue and recorded outcome
+- [x] **T19** Export: PDF and FHIR R4 bundle (N1)
+- [x] **T20** Correction requests into the records queue
+- [x] **T21** Erasure requests: the data-protection officer role, queue and recorded outcome
 
 ### Phase 9 — Verification
 

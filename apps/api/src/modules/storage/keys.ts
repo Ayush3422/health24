@@ -11,6 +11,10 @@
  *   documents/{document}/{file}   a file of a document, served once scanned clean
  *   imports/{batch}/files/{file}  a legacy folder's file as uploaded, kept as the original
  *   imports/{batch}/pages/{page}  one page cut from an import file that scanned clean
+ *
+ * One kind belongs to the patient rather than to any hospital:
+ *
+ *   patients/{patient}/exports/{export}/record.pdf   their own copy of their record (SP5)
  */
 
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
@@ -23,8 +27,21 @@ const DOCUMENT_FILE_KEY = new RegExp(`^(?:${QUARANTINE_PREFIX})?${RECORD}/docume
 const IMPORT_FILE_KEY = new RegExp(`^(?:${QUARANTINE_PREFIX})?${RECORD}/imports/(${UUID})/files/(${UUID})$`);
 // A page is cut from a file already scanned clean, so it is never quarantined.
 const IMPORT_PAGE_KEY = new RegExp(`^${RECORD}/imports/(${UUID})/pages/(${UUID})$`);
+// A patient's own copy of their record, which belongs to no hospital.
+const EXPORT_FILE_KEY = new RegExp(
+  `^patients/(${UUID})/exports/(${UUID})/record\\.(?:pdf|fhir\\.json)$`,
+);
 
-export type StorageKeyKind = 'document_file' | 'import_file' | 'import_page';
+export type StorageKeyKind = 'document_file' | 'import_file' | 'import_page' | 'export_file';
+
+/** How a patient's record is exported (SP5, Decision N1). */
+export type ExportFileFormat = 'pdf' | 'fhir';
+
+export interface ExportFileKeyParts {
+  patientId: string;
+  exportId: string;
+  format: ExportFileFormat;
+}
 
 export interface DocumentFileKeyParts {
   hospitalId: string;
@@ -65,11 +82,19 @@ export function importPageKey(parts: ImportPageKeyParts): string {
   return key;
 }
 
+export function exportFileKey(parts: ExportFileKeyParts): string {
+  const name = parts.format === 'pdf' ? 'record.pdf' : 'record.fhir.json';
+  const key = `patients/${parts.patientId}/exports/${parts.exportId}/${name}`;
+  assertStorageKey(key);
+  return key;
+}
+
 /** Which kind of object a key names, or null for a key this application could not have built. */
 export function storageKeyKind(key: string): StorageKeyKind | null {
   if (DOCUMENT_FILE_KEY.test(key)) return 'document_file';
   if (IMPORT_FILE_KEY.test(key)) return 'import_file';
   if (IMPORT_PAGE_KEY.test(key)) return 'import_page';
+  if (EXPORT_FILE_KEY.test(key)) return 'export_file';
   return null;
 }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CLINICAL_DATA_CATEGORIES,
+  CORRECTION_FIELDS,
   DOCUMENT_TYPES,
   EMERGENCY_CARD_FIELDS,
   RESULT_INTERPRETATIONS,
@@ -61,6 +62,7 @@ describe('the message catalogue', () => {
     expect(Object.keys(en.category).sort()).toEqual([...CLINICAL_DATA_CATEGORIES].sort());
     expect(Object.keys(en.role).sort()).toEqual([...STAFF_ROLES].sort());
     expect(Object.keys(en.emergencyField).sort()).toEqual([...EMERGENCY_CARD_FIELDS].sort());
+    expect(Object.keys(en.correctionField).sort()).toEqual([...CORRECTION_FIELDS].sort());
     // Access history words an unknown resource type rather than showing its name.
     expect(en.resource.other).toBeTruthy();
     for (const interpretation of RESULT_INTERPRETATIONS) {

@@ -13,6 +13,7 @@ const RECORD_LINKS = [
   ['/consents', 'shell.consents'],
   ['/access', 'shell.access'],
   ['/emergency-card', 'shell.emergencyCard'],
+  ['/my-data', 'shell.myData'],
 ] as const;
 
 /** The signed-in frame: whose record is open, the way around, and signing out. */

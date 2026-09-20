@@ -339,7 +339,7 @@ function encryptForFixture(base32: string): string {
  * terminology curator — with a second factor already enrolled.
  */
 export async function seedPlatformUser(options: {
-  role: 'platform_admin' | 'terminology_curator';
+  role: 'platform_admin' | 'terminology_curator' | 'data_protection_officer';
   email: string;
   name: string;
 }): Promise<SeededStaff> {

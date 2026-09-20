@@ -8,6 +8,8 @@ import { BreakGlassReviewPage } from './routes/BreakGlassReviewPage';
 import { CodingReviewPage } from './routes/CodingReviewPage';
 import { CurationPage } from './routes/CurationPage';
 import { EncounterPage } from './routes/EncounterPage';
+import { CorrectionRequestsPage } from './routes/CorrectionRequestsPage';
+import { ErasureRequestsPage } from './routes/ErasureRequestsPage';
 import { MergeQueuePage } from './routes/MergeQueuePage';
 import { ImportBatchPage } from './routes/ImportBatchPage';
 import { PatientDetailPage } from './routes/PatientDetailPage';
@@ -29,6 +31,7 @@ function homeFor(role: StaffRole): string {
   if (hasPermission(role, 'clinical:read')) return '/encounters';
   if (hasPermission(role, 'patient:search')) return '/patients';
   if (hasPermission(role, 'terminology:curate')) return '/terminology/review';
+  if (hasPermission(role, 'privacy:review')) return '/erasure-requests';
   if (hasPermission(role, 'staff:read')) return '/staff';
   if (hasPermission(role, 'terminology:read')) return '/terminology';
   return '/patients';
@@ -63,6 +66,8 @@ export function App(): JSX.Element {
         <Route path="/encounters" element={<WorklistPage />} />
         <Route path="/encounters/:id" element={<EncounterPage />} />
         <Route path="/merge-queue" element={<MergeQueuePage />} />
+        <Route path="/correction-requests" element={<CorrectionRequestsPage />} />
+        <Route path="/erasure-requests" element={<ErasureRequestsPage />} />
         <Route path="/coding-reviews" element={<CodingReviewPage />} />
         <Route path="/break-glass/reviews" element={<BreakGlassReviewPage />} />
         <Route path="/staff" element={<StaffPage />} />

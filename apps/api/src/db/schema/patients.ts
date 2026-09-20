@@ -301,6 +301,139 @@ export const emergencyCards = pgTable(
 export type EmergencyCard = typeof emergencyCards.$inferSelect;
 
 /**
+ * A copy of the patient's whole record, asked for in the portal (SP5,
+ * Decision N1): a readable PDF and a FHIR R4 bundle, built by the worker,
+ * downloaded through short-lived links, and removed when they expire.
+ */
+export const dataExports = pgTable(
+  'data_export',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`)
+      .$defaultFn(uuidv7),
+    patientId: uuid('patient_id')
+      .notNull()
+      .references(() => patients.id, { onDelete: 'restrict' }),
+    requestedByAccountId: uuid('requested_by_account_id')
+      .notNull()
+      .references(() => patientAccounts.id, { onDelete: 'restrict' }),
+
+    /** pending, ready, failed or expired. */
+    status: text('status').notNull().default('pending'),
+    pdfKey: text('pdf_key'),
+    fhirKey: text('fhir_key'),
+    /** How many entries of the record the export holds, for the patient to see it is complete. */
+    entryCount: integer('entry_count'),
+
+    requestedAt: timestamp('requested_at', { withTimezone: true }).notNull().defaultNow(),
+    readyAt: timestamp('ready_at', { withTimezone: true }),
+    /** After this the files are removed: a whole record is not left lying in storage. */
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    failureReason: text('failure_reason'),
+  },
+  (table) => [index('data_export_patient_idx').on(table.patientId, table.requestedAt)],
+);
+
+export type DataExport = typeof dataExports.$inferSelect;
+
+/**
+ * A patient asking a hospital to correct something it holds about them (SP5,
+ * Decision N1): the request goes to that hospital's records staff, who apply
+ * it through the ordinary demographic correction, with the request as the
+ * reason — or decline it, saying why.
+ */
+export const correctionRequests = pgTable(
+  'correction_request',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`)
+      .$defaultFn(uuidv7),
+    patientId: uuid('patient_id')
+      .notNull()
+      .references(() => patients.id, { onDelete: 'restrict' }),
+    /** The hospital asked to make the correction: one the patient is registered at. */
+    hospitalId: uuid('hospital_id')
+      .notNull()
+      .references(() => hospitals.id, { onDelete: 'restrict' }),
+    requestedByAccountId: uuid('requested_by_account_id')
+      .notNull()
+      .references(() => patientAccounts.id, { onDelete: 'restrict' }),
+
+    field: text('field').notNull(),
+    /** What the record said when the patient asked, so staff can see what changed since. */
+    currentValue: text('current_value'),
+    requestedValue: text('requested_value').notNull(),
+    note: text('note'),
+
+    /** pending, applied or declined. */
+    status: text('status').notNull().default('pending'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+
+    resolvedByStaffId: uuid('resolved_by_staff_id'),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    resolutionNote: text('resolution_note'),
+  },
+  (table) => [
+    foreignKey({
+      name: 'correction_request_resolved_by_same_hospital_fk',
+      columns: [table.resolvedByStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    index('correction_request_hospital_idx').on(table.hospitalId, table.status),
+    index('correction_request_patient_idx').on(table.patientId, table.createdAt),
+  ],
+);
+
+export type CorrectionRequest = typeof correctionRequests.$inferSelect;
+
+/**
+ * A patient asking for their data to be erased (SP5, Decision N1).
+ *
+ * Health24's data-protection officer decides it: clinical records are kept as
+ * law requires, while the portal account, the emergency card, contact details
+ * and consents in force are ended. What was erased and what was kept, and why,
+ * are recorded here and shown to the patient.
+ */
+export const erasureRequests = pgTable(
+  'erasure_request',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`)
+      .$defaultFn(uuidv7),
+    patientId: uuid('patient_id')
+      .notNull()
+      .references(() => patients.id, { onDelete: 'restrict' }),
+    requestedByAccountId: uuid('requested_by_account_id')
+      .notNull()
+      .references(() => patientAccounts.id, { onDelete: 'restrict' }),
+    /** The patient's own words, if they gave any. */
+    reason: text('reason'),
+
+    /** pending or decided. */
+    status: text('status').notNull().default('pending'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+
+    decidedByStaffId: uuid('decided_by_staff_id').references(() => staffUsers.id),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    /** erased, partly_erased or refused. */
+    outcome: text('outcome'),
+    /** What law requires be kept, and for how long. Shown to the patient. */
+    retentionNote: text('retention_note'),
+    /** What was actually erased. */
+    erasedSummary: text('erased_summary'),
+  },
+  (table) => [
+    index('erasure_request_status_idx').on(table.status, table.createdAt),
+    index('erasure_request_patient_idx').on(table.patientId, table.createdAt),
+  ],
+);
+
+export type ErasureRequest = typeof erasureRequests.$inferSelect;
+
+/**
  * A possible duplicate awaiting human review.
  *
  * Anything the matcher is not certain about lands here rather than being

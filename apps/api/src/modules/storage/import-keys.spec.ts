@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
   assertStorageKey,
+  exportFileKey,
   documentFileKey,
   importFileKey,
   importPageKey,
@@ -61,5 +62,32 @@ describe('import storage keys', () => {
     expect(() => assertStorageKey(quarantineKeyFor(fileKey))).not.toThrow();
     expect(() => quarantineKeyFor(pageKey)).toThrow(/Only an uploaded file/);
     expect(() => assertStorageKey(`quarantine/${pageKey}`)).toThrow();
+  });
+});
+
+describe("an export’s key", () => {
+  const parts = () => ({ patientId: randomUUID(), exportId: randomUUID() });
+
+  it('belongs to the patient, not to a hospital, and names only identifiers', () => {
+    const { patientId, exportId } = parts();
+
+    expect(exportFileKey({ patientId, exportId, format: 'pdf' })).toBe(
+      `patients/${patientId}/exports/${exportId}/record.pdf`,
+    );
+    expect(storageKeyKind(exportFileKey({ patientId, exportId, format: 'pdf' }))).toBe('export_file');
+    expect(storageKeyKind(exportFileKey({ patientId, exportId, format: 'fhir' }))).toBe('export_file');
+  });
+
+  it('is never quarantined: nothing is uploaded to it', () => {
+    expect(() => quarantineKeyFor(exportFileKey({ ...parts(), format: 'pdf' }))).toThrow(
+      /uploaded file/,
+    );
+  });
+
+  it('refuses a key that is not built from identifiers alone', () => {
+    const { patientId, exportId } = parts();
+
+    expect(() => assertStorageKey(`patients/${patientId}/exports/${exportId}/lakshmi.pdf`)).toThrow();
+    expect(() => assertStorageKey(`patients/whoever/exports/${exportId}/record.pdf`)).toThrow();
   });
 });
