@@ -24,4 +24,15 @@ describe('SMS provider configuration', () => {
   it('accepts no provider it does not know', () => {
     expect(() => validateEnv({ ...base, SMS_PROVIDER: 'carrier-pigeon' })).toThrow(/SMS_PROVIDER/);
   });
+
+  it('refuses to start production with codes written to a file', () => {
+    expect(() =>
+      validateEnv({ ...base, NODE_ENV: 'production', SMS_LOG_FILE: '/tmp/sms.jsonl' }),
+    ).toThrow(/SMS_LOG_FILE/);
+
+    expect(
+      validateEnv({ ...base, NODE_ENV: 'development', SMS_LOG_FILE: '/tmp/sms.jsonl' })
+        .SMS_LOG_FILE,
+    ).toBe('/tmp/sms.jsonl');
+  });
 });

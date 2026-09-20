@@ -66,6 +66,12 @@ const envSchema = z
      * before the pilot.
      */
     SMS_PROVIDER: z.enum(['log']).optional(),
+    /**
+     * Where the `log` provider also writes each message, one JSON object per
+     * line. The portal's browser tests read the sign-in code from it, having
+     * no other way to be the patient's phone (sp5-plan.md, T23).
+     */
+    SMS_LOG_FILE: z.string().optional(),
     NOTIFICATION_QUEUE_NAME: z.string().optional(),
   })
   .superRefine((env, ctx) => {
@@ -112,6 +118,15 @@ const envSchema = z
         code: z.ZodIssueCode.custom,
         path: ['SMS_PROVIDER'],
         message: 'Refusing to start in production without a real SMS provider',
+      });
+    }
+
+    // Worse still on disk, where it outlives the log and nothing rotates it.
+    if (env.NODE_ENV === 'production' && env.SMS_LOG_FILE) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SMS_LOG_FILE'],
+        message: 'Refusing to start in production with sign-in codes written to a file',
       });
     }
   });

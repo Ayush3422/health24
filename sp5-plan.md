@@ -246,8 +246,22 @@ Guardian links are created by records staff with the relationship and the docume
 ### Phase 9 — Verification
 
 - [x] **T22** Unit and integration: OTP limits and expiry, token audiences, every new route, row-level security for patients and guardians
-- [ ] **T23** Portal end-to-end tests with Playwright, and axe accessibility checks (DF9)
+- [x] **T23** Portal end-to-end tests with Playwright, and axe accessibility checks (DF9)
 - [x] **T24** The acceptance scenario below, and a browser check on a phone-sized screen
+
+**How the browser tests run.** `pnpm test:e2e` builds the API, lays the fixture
+down in a database of its own (`health24_e2e`), starts the API, the worker and
+the portal on ports 3100 and 5175, and drives Chromium at 360 pixels wide. The
+sign-in code is read from the text messages the development sender writes to a
+file — there is no other way to be the phone in the patient's hand. Sixteen
+tests cover signing in, her record, sharing, the access history, the emergency
+card and its public page, the copy of her record, and a correction request;
+axe checks every screen against WCAG 2.2 AA, and a target check holds the
+portal to its 44-pixel promise.
+
+They found one real defect: the trend chart called itself an image, which hides
+its focusable readings from a screen reader while leaving them in the tab
+order. It is a group now, and each reading an image of its own.
 
 ---
 

@@ -12,6 +12,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
+    "db:e2e-fixture": "tsx src/db/e2e-fixture.ts",
     "db:bootstrap": "tsx src/db/bootstrap-local.ts",
     "smoke:auth": "node scripts/smoke-auth.mjs",
     "smoke:tenancy": "node scripts/smoke-tenancy.mjs",

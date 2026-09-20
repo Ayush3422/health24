@@ -137,10 +137,15 @@ export function TrendChart({ trend }: { trend: ResultTrend }): JSX.Element {
       </ul>
 
       <div className="trend__plot" onPointerLeave={() => setActive(null)}>
+        {/*
+          A group, not an image: each reading below is focusable and named, and
+          a role of `img` would hide them from a screen reader while leaving
+          them in the tab order — which the portal's browser tests caught.
+        */}
         <svg
           ref={svg}
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-          role="img"
+          role="group"
           aria-label={t('trend.chartLabel', { test: analyte.label })}
           onPointerMove={nearest}
           onPointerDown={nearest}
@@ -207,6 +212,7 @@ export function TrendChart({ trend }: { trend: ResultTrend }): JSX.Element {
             return (
               <g
                 key={point.observationId}
+                role="img"
                 tabIndex={0}
                 aria-label={t('trend.pointLabel', {
                   value: withUnit(point.value),

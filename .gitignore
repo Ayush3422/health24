@@ -24,3 +24,8 @@ Thumbs.db
 /tmp/
 # Development TOTP secrets for the smoke scripts. Never real credentials.
 .smoke-secrets.json
+
+# Playwright: the portal's browser tests write their report, traces and the
+# text messages they read the sign-in code from.
+test-results/
+playwright-report/
