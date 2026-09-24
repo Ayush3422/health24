@@ -74,6 +74,11 @@ export function AppShell(): JSX.Element {
               Wards
             </NavLink>
           ) : null}
+          {canSeeEncounters ? (
+            <NavLink to="/devices" className={navClass}>
+              Devices
+            </NavLink>
+          ) : null}
           {canSeePatients ? (
             <NavLink to="/patients" end className={navClass}>
               Patients

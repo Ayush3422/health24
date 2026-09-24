@@ -84,6 +84,18 @@ export class CorrectionsController {
     return this.corrections.markEnteredInError(actor, 'procedures', id, body.reason, meta);
   }
 
+  @Post('implants/:id/entered-in-error')
+  @HttpCode(200)
+  @RequirePermission('clinical:write', 'clinical:transcribe')
+  async implantInError(
+    @CurrentActor() actor: Actor,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(markEnteredInErrorSchema)) body: MarkEnteredInErrorInput,
+    @CurrentMeta() meta: RequestMeta,
+  ): Promise<EnteredInError> {
+    return this.corrections.markEnteredInError(actor, 'implants', id, body.reason, meta);
+  }
+
   /** Every version of the entry, from any one of its ids. */
   @Get('clinical-history/:kind/:id')
   @RequirePermission('clinical:read')

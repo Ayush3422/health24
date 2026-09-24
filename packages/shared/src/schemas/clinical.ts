@@ -680,6 +680,17 @@ const procedureContentSchema = z.object({
   performerClinicianId: uuidSchema.optional(),
   outcome: optionalText(500),
   notes: optionalText(2000),
+
+  /**
+   * The operative record (sp6-plan.md, Decision Q1). Empty on a therapy
+   * session; filled in for an operation, where what was assessed beforehand,
+   * what was done, and how the patient did afterwards are the record a
+   * discharge summary and a medico-legal request are built from.
+   */
+  preOpAssessment: optionalText(4000),
+  anaesthesia: optionalText(500),
+  operativeNote: optionalText(8000),
+  postOpCourse: optionalText(4000),
 });
 
 export const recordProcedureSchema = procedureContentSchema.extend({
@@ -704,6 +715,10 @@ export const procedureSummarySchema = z.object({
   performer: staffRefSchema,
   outcome: z.string().nullable(),
   notes: z.string().nullable(),
+  preOpAssessment: z.string().nullable(),
+  anaesthesia: z.string().nullable(),
+  operativeNote: z.string().nullable(),
+  postOpCourse: z.string().nullable(),
   recordedAt: z.string(),
   recordedBy: staffRefSchema,
   entry: entryRefSchema,
@@ -754,6 +769,7 @@ export const CORRECTABLE_KINDS = [
   'allergies',
   'notes',
   'procedures',
+  'implants',
 ] as const;
 export type CorrectableKind = (typeof CORRECTABLE_KINDS)[number];
 

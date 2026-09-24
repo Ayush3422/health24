@@ -205,8 +205,21 @@ which is Phase 6; nothing here knows what a bed costs.
 
 ### Phase 4 — Surgery
 
-- [ ] **T10** The operative record: assessment, note, post-operative course (Q1)
-- [ ] **T11** Implants and devices, traceable by serial or lot
+- [x] **T10** The operative record: assessment, note, post-operative course (Q1)
+- [x] **T11** Implants and devices, traceable by serial or lot
+
+**The operative record is four more columns on the procedure**, not a table of
+its own: pre-operative assessment, anaesthesia, the operative note and the
+post-operative course. A therapy session leaves them empty; an operation fills
+them, and they are corrected by superseding like everything else.
+
+**A device hangs off the encounter, not the procedure row.** A procedure may be
+corrected into a new version, and what was implanted is a fact about the
+patient either way — so the device names the operation it came from as well as
+pointing at it, and survives any correction to it. Serial, lot and model are
+searchable across the hospital's own record, because a recall notice is
+answered by each hospital for its own patients, and the superseded versions
+stay in the history where a recall audit can still find the old number.
 
 ### Phase 5 — The discharge summary
 

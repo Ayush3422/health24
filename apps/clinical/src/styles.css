@@ -2058,3 +2058,25 @@ button.chip[aria-pressed='true'] {
   border-left-color: var(--danger);
   background: var(--danger-soft);
 }
+
+/* The operative record: folded away on a therapy, open on an operation. */
+.operative-record {
+  margin-top: 0.6rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.5rem;
+}
+
+.operative-record > summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+}
+
+.operative-record h4 {
+  margin: 0.6rem 0 0.2rem;
+  font-size: 0.85rem;
+}
+
+.operative-record .entry__note {
+  white-space: pre-wrap;
+}

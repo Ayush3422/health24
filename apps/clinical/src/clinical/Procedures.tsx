@@ -54,6 +54,38 @@ function ProcedureItem({
         {procedure.outcome ? ` · ${procedure.outcome}` : ''}
       </div>
       {procedure.notes ? <p className="small entry__note">{procedure.notes}</p> : null}
+
+      {procedure.preOpAssessment ||
+      procedure.operativeNote ||
+      procedure.postOpCourse ||
+      procedure.anaesthesia ? (
+        <details className="operative-record">
+          <summary>Operative record</summary>
+          {procedure.anaesthesia ? (
+            <p className="small">
+              <b>Anaesthesia:</b> {procedure.anaesthesia}
+            </p>
+          ) : null}
+          {procedure.preOpAssessment ? (
+            <>
+              <h4>Pre-operative assessment</h4>
+              <p className="small entry__note">{procedure.preOpAssessment}</p>
+            </>
+          ) : null}
+          {procedure.operativeNote ? (
+            <>
+              <h4>Operative note</h4>
+              <p className="small entry__note">{procedure.operativeNote}</p>
+            </>
+          ) : null}
+          {procedure.postOpCourse ? (
+            <>
+              <h4>Post-operative course</h4>
+              <p className="small entry__note">{procedure.postOpCourse}</p>
+            </>
+          ) : null}
+        </details>
+      ) : null}
       <div className="small muted">
         Recorded {formatDateTime(procedure.recordedAt)} ·{' '}
         <Provenance
@@ -117,6 +149,10 @@ export function ProcedureForm({
   const [performer, setPerformer] = useState(correcting?.performer.id ?? '');
   const [outcome, setOutcome] = useState(correcting?.outcome ?? '');
   const [notes, setNotes] = useState(correcting?.notes ?? '');
+  const [preOp, setPreOp] = useState(correcting?.preOpAssessment ?? '');
+  const [anaesthesia, setAnaesthesia] = useState(correcting?.anaesthesia ?? '');
+  const [operativeNote, setOperativeNote] = useState(correcting?.operativeNote ?? '');
+  const [postOp, setPostOp] = useState(correcting?.postOpCourse ?? '');
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -136,6 +172,10 @@ export function ProcedureForm({
       performerClinicianId: performer || undefined,
       outcome: optionalText(outcome),
       notes: optionalText(notes),
+      preOpAssessment: optionalText(preOp),
+      anaesthesia: optionalText(anaesthesia),
+      operativeNote: optionalText(operativeNote),
+      postOpCourse: optionalText(postOp),
     };
 
     try {
@@ -155,6 +195,10 @@ export function ProcedureForm({
       setName('');
       setOutcome('');
       setNotes('');
+      setPreOp('');
+      setAnaesthesia('');
+      setOperativeNote('');
+      setPostOp('');
       setPerformedAt(toLocalInput(new Date()));
       setPerformedAtTouched(false);
       setSaved(true);
@@ -254,6 +298,51 @@ export function ProcedureForm({
           onChange={(event) => setNotes(event.target.value)}
         />
       </div>
+
+      <details className="operative-record" open={Boolean(preOp || operativeNote || postOp)}>
+        <summary>Operative record</summary>
+        <p className="small muted">
+          For an operation: what was assessed beforehand, what was done, and how the patient did
+          afterwards. A therapy session needs none of it.
+        </p>
+
+        <div className="field">
+          <label htmlFor={`procedure-preop-${formId}`}>Pre-operative assessment</label>
+          <textarea
+            id={`procedure-preop-${formId}`}
+            rows={3}
+            value={preOp}
+            onChange={(event) => setPreOp(event.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor={`procedure-anaesthesia-${formId}`}>Anaesthesia</label>
+          <input
+            id={`procedure-anaesthesia-${formId}`}
+            value={anaesthesia}
+            onChange={(event) => setAnaesthesia(event.target.value)}
+            placeholder="e.g. Spinal, with sedation"
+          />
+        </div>
+        <div className="field">
+          <label htmlFor={`procedure-note-${formId}`}>Operative note</label>
+          <textarea
+            id={`procedure-note-${formId}`}
+            rows={6}
+            value={operativeNote}
+            onChange={(event) => setOperativeNote(event.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor={`procedure-postop-${formId}`}>Post-operative course</label>
+          <textarea
+            id={`procedure-postop-${formId}`}
+            rows={3}
+            value={postOp}
+            onChange={(event) => setPostOp(event.target.value)}
+          />
+        </div>
+      </details>
 
       {correcting ? (
         <div className="field">

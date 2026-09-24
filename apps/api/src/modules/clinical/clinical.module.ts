@@ -12,6 +12,8 @@ import { ConsentService } from './consent.service';
 import { CorrectionsController } from './corrections.controller';
 import { CorrectionsService } from './corrections.service';
 import { DiagnosesController } from './diagnoses.controller';
+import { ImplantsController } from './implants.controller';
+import { ImplantsService } from './implants.service';
 import { DiagnosesService } from './diagnoses.service';
 import { EncountersService } from './encounters.service';
 import { NotesController } from './notes.controller';
@@ -38,6 +40,7 @@ import { VitalsService } from './vitals.service';
     EncountersController,
     AllergiesController,
     DiagnosesController,
+    ImplantsController,
     PrescriptionsController,
     CliniciansController,
     VitalsController,
@@ -54,6 +57,7 @@ import { VitalsService } from './vitals.service';
     EncountersService,
     AllergiesService,
     DiagnosesService,
+    ImplantsService,
     PrescriptionsService,
     CliniciansService,
     VitalsService,

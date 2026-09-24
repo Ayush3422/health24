@@ -38,6 +38,7 @@ const TABLES = {
   allergies: 'allergy_intolerance',
   notes: 'clinical_note',
   procedures: 'procedure',
+  implants: 'implant_device',
   vitals: 'observation',
 } as const;
 
@@ -49,6 +50,8 @@ const CATEGORIES: Record<ChangeableKind, ClinicalDataCategory> = {
   allergies: 'allergies',
   notes: 'notes',
   procedures: 'procedures',
+  // A device is part of the operation it was implanted during.
+  implants: 'procedures',
   vitals: 'observations',
 };
 
@@ -64,6 +67,8 @@ const LABELS: Record<CorrectableKind, SQL> = {
   allergies: sql`r."substance" || ' · ' || r."criticality"::text || ' · ' || r."clinical_status"::text`,
   notes: sql`coalesce(r."title", r."template")`,
   procedures: sql`r."name" || ' · ' || to_char(r."performed_at" AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD HH24:MI')`,
+  implants: sql`r."name" || coalesce(' · ' || r."serial_or_lot", '')
+    || ' · ' || to_char(r."implanted_at" AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD')`,
 };
 
 /**

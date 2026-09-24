@@ -312,6 +312,20 @@ const ROUTES: RouteExpectation[] = [
     path: '/api/v1/procedures/:id/entered-in-error',
     allow: ['clinician', 'records'],
   },
+  // Implants and devices (SP6 Phase 4). Recording one is recording the
+  // operation; searching by serial is reading clinical records, which is what
+  // a recall notice needs.
+  { method: 'post', path: '/api/v1/implants', allow: ['clinician', 'records'] },
+  { method: 'post', path: '/api/v1/implants/:id/correct', allow: ['clinician', 'records'] },
+  {
+    method: 'post',
+    path: '/api/v1/implants/:id/entered-in-error',
+    allow: ['clinician', 'records'],
+  },
+  { method: 'get', path: '/api/v1/implants', allow: ['clinician', 'records'] },
+  { method: 'get', path: '/api/v1/encounters/:id/implants', allow: ['clinician', 'records'] },
+  { method: 'get', path: '/api/v1/patients/:patientId/implants', allow: ['clinician', 'records'] },
+
   { method: 'post', path: '/api/v1/diagnoses/:id/correct', allow: ['clinician', 'records'] },
   {
     method: 'post',

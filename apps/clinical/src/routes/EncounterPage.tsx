@@ -14,6 +14,7 @@ import {
   useEncounterProcedures,
   useEncounterVitals,
 } from '../api/documentation';
+import { useEncounterImplants } from '../api/implants';
 import { useEncounterOrders } from '../api/orders';
 import { useAuth } from '../auth/AuthProvider';
 import { AdmissionPanel } from '../clinical/Admission';
@@ -21,6 +22,7 @@ import { AllergyBanner } from '../clinical/AllergyBanner';
 import { DiagnosisEntry, DiagnosisList } from '../clinical/Diagnoses';
 import { formatDateTime, humanise } from '../clinical/format';
 import { MedicationList, PrescriptionForm } from '../clinical/Medications';
+import { ImplantForm, ImplantList } from '../clinical/Implants';
 import { NoteForm, NoteList } from '../clinical/Notes';
 import { OrderForm, OrderList } from '../clinical/Orders';
 import { ProcedureForm, ProcedureList } from '../clinical/Procedures';
@@ -45,6 +47,7 @@ export function EncounterPage(): JSX.Element {
   const notes = useEncounterNotes(id ?? '');
   const procedures = useEncounterProcedures(id ?? '');
   const orders = useEncounterOrders(id ?? '');
+  const implants = useEncounterImplants(id ?? '');
   const close = useCloseEncounter();
 
   const [cancelling, setCancelling] = useState(false);
@@ -276,6 +279,18 @@ export function EncounterPage(): JSX.Element {
             />
           )}
           {editable ? <ProcedureForm encounter={record} /> : null}
+        </section>
+
+        <section>
+          <h2>Implants and devices</h2>
+          {implants.isError ? (
+            <p className="alert alert--error">Could not load devices.</p>
+          ) : (
+            <ImplantList implants={implants.data ?? []} editable={editable} />
+          )}
+          {editable ? (
+            <ImplantForm encounter={record} procedures={procedures.data ?? []} />
+          ) : null}
         </section>
       </div>
     </div>

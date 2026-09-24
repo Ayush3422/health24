@@ -700,6 +700,71 @@ export const bedStays = pgTable(
 export type BedStayRow = typeof bedStays.$inferSelect;
 
 // ---------------------------------------------------------------------------
+// Implants and devices (SP6, Decision Q1)
+// ---------------------------------------------------------------------------
+
+/**
+ * What was put into a patient, and how to find it again.
+ *
+ * On the encounter rather than the procedure row: a procedure may be corrected
+ * into a new version, and the device is a fact about the patient either way.
+ * The procedure it belongs to is named on the row as well as pointed at, so
+ * the operation survives any correction to it.
+ *
+ * Kept, like every clinical entry, by superseding rather than editing — a
+ * recall a decade from now has to find what was recorded at the time.
+ */
+export const implantDevices = pgTable(
+  'implant_device',
+  {
+    id: primaryId(),
+    ...ownership(),
+    encounterId: uuid('encounter_id').notNull(),
+    procedureId: uuid('procedure_id'),
+    /** Denormalised, so the operation is named even after a correction. */
+    procedureName: text('procedure_name'),
+
+    name: text('name').notNull(),
+    manufacturer: text('manufacturer'),
+    model: text('model'),
+    /** The serial number, or the lot a batch came from. */
+    serialOrLot: text('serial_or_lot'),
+    implantedAt: timestamp('implanted_at', { withTimezone: true }).notNull(),
+    notes: text('notes'),
+
+    ...versioning(),
+  },
+  (table) => [
+    unique('implant_device_identity').on(table.id, table.patientId, table.hospitalId),
+    unique('implant_device_supersedes_once').on(table.supersedesId),
+    foreignKey({
+      name: 'implant_device_encounter_same_record_fk',
+      columns: [table.encounterId, table.patientId, table.hospitalId],
+      foreignColumns: [encounters.id, encounters.patientId, encounters.hospitalId],
+    }),
+    foreignKey({
+      name: 'implant_device_procedure_same_record_fk',
+      columns: [table.procedureId, table.patientId, table.hospitalId],
+      foreignColumns: [procedures.id, procedures.patientId, procedures.hospitalId],
+    }),
+    foreignKey({
+      name: 'implant_device_supersedes_same_record_fk',
+      columns: [table.supersedesId, table.patientId, table.hospitalId],
+      foreignColumns: [table.id, table.patientId, table.hospitalId],
+    }),
+    foreignKey({
+      name: 'implant_device_recorded_by_same_hospital_fk',
+      columns: [table.recordedByStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    index('implant_device_patient_idx').on(table.patientId, table.implantedAt),
+    index('implant_device_serial_idx').on(table.hospitalId, table.serialOrLot),
+  ],
+);
+
+export type ImplantDevice = typeof implantDevices.$inferSelect;
+
+// ---------------------------------------------------------------------------
 // Notes and procedures
 // ---------------------------------------------------------------------------
 
@@ -773,6 +838,16 @@ export const procedures = pgTable(
     performerStaffId: uuid('performer_staff_id').notNull(),
     outcome: text('outcome'),
     notes: text('notes'),
+
+    /**
+     * The operative record (SP6, Decision Q1). Empty on a therapy session;
+     * filled in for an operation, where these four are what a discharge
+     * summary and a medico-legal request are built from.
+     */
+    preOpAssessment: text('pre_op_assessment'),
+    anaesthesia: text('anaesthesia'),
+    operativeNote: text('operative_note'),
+    postOpCourse: text('post_op_course'),
 
     ...versioning(),
   },

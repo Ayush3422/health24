@@ -37,6 +37,10 @@ type ProcedureRow = {
   performer_name: string | null;
   outcome: string | null;
   notes: string | null;
+  pre_op_assessment: string | null;
+  anaesthesia: string | null;
+  operative_note: string | null;
+  post_op_course: string | null;
   recorded_at: string | Date;
   attributed_clinician_id: string;
   clinician_name: string | null;
@@ -49,7 +53,9 @@ type ProcedureRow = {
 const PROCEDURE_SELECT = sql`
   SELECT p."id", p."patient_id", p."encounter_id", p."hospital_id", d."name" AS hospital_name,
          p."system_of_medicine", p."name", p."performed_at", p."performer_staff_id",
-         pf."name" AS performer_name, p."outcome", p."notes", p."recorded_at",
+         pf."name" AS performer_name, p."outcome", p."notes",
+         p."pre_op_assessment", p."anaesthesia", p."operative_note", p."post_op_course",
+         p."recorded_at",
          p."attributed_clinician_id", cl."name" AS clinician_name, p."entry_source",
          p."recorded_by_staff_id", eb."name" AS entered_by_name, p."supersedes_id"
     FROM "procedure" p
@@ -278,6 +284,10 @@ export class ProceduresService {
         performerStaffId: input.performerClinicianId ?? args.attribution.clinicianId,
         outcome: blankToNull(input.outcome),
         notes: blankToNull(input.notes),
+        preOpAssessment: blankToNull(input.preOpAssessment),
+        anaesthesia: blankToNull(input.anaesthesia),
+        operativeNote: blankToNull(input.operativeNote),
+        postOpCourse: blankToNull(input.postOpCourse),
         recordedByStaffId: args.actor.staffUserId,
         attributedClinicianId: args.attribution.clinicianId,
         entrySource: args.attribution.entrySource,
@@ -314,6 +324,10 @@ export class ProceduresService {
       performer: { id: row.performer_staff_id, name: row.performer_name },
       outcome: row.outcome,
       notes: row.notes,
+      preOpAssessment: row.pre_op_assessment,
+      anaesthesia: row.anaesthesia,
+      operativeNote: row.operative_note,
+      postOpCourse: row.post_op_course,
       recordedAt: toIso(row.recorded_at),
       recordedBy: { id: row.attributed_clinician_id, name: row.clinician_name },
       entry: {

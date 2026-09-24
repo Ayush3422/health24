@@ -7,6 +7,7 @@ import { AppShell } from './routes/AppShell';
 import { BreakGlassReviewPage } from './routes/BreakGlassReviewPage';
 import { CodingReviewPage } from './routes/CodingReviewPage';
 import { CurationPage } from './routes/CurationPage';
+import { DeviceSearchPage } from './routes/DeviceSearchPage';
 import { EncounterPage } from './routes/EncounterPage';
 import { CorrectionRequestsPage } from './routes/CorrectionRequestsPage';
 import { ErasureRequestsPage } from './routes/ErasureRequestsPage';
@@ -69,6 +70,7 @@ export function App(): JSX.Element {
         <Route path="/encounters/:id" element={<EncounterPage />} />
         <Route path="/orders" element={<OrderWorklistPage />} />
         <Route path="/wards" element={<WardsPage />} />
+        <Route path="/devices" element={<DeviceSearchPage />} />
         <Route path="/merge-queue" element={<MergeQueuePage />} />
         <Route path="/correction-requests" element={<CorrectionRequestsPage />} />
         <Route path="/erasure-requests" element={<ErasureRequestsPage />} />
