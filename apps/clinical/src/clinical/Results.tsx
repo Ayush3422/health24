@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   LAB_PANELS,
   LAB_PANEL_KEYS,
@@ -15,6 +16,7 @@ import {
   useRecordResults,
   useResultTrend,
 } from '../api/records';
+import { ORDER_CATEGORY_LABELS, usePatientOrders } from '../api/orders';
 import { useAuth } from '../auth/AuthProvider';
 import { formatDate, formatDateTime, istToday, optionalText } from './format';
 import { SharingNote } from './Provenance';
@@ -55,7 +57,12 @@ function ResultsSection({
   canEnter: boolean;
   canRead: boolean;
 }): JSX.Element {
-  const [entering, setEntering] = useState(false);
+  // The order worklist links here with the order in the address, so the values
+  // are typed against what was asked for (SP6, T6).
+  const [params, setParams] = useSearchParams();
+  const fromWorklist = params.get('order') ?? '';
+
+  const [entering, setEntering] = useState(canEnter && fromWorklist !== '');
   const [justRecorded, setJustRecorded] = useState<ResultSet | null>(null);
   const [trendCode, setTrendCode] = useState<string | null>(null);
   const results = usePatientResults(patientId, canRead);
@@ -81,11 +88,16 @@ function ResultsSection({
       {entering ? (
         <EnterResultsForm
           patientId={patientId}
+          answering={fromWorklist}
           onDone={(set) => {
             setEntering(false);
             setJustRecorded(set);
+            if (fromWorklist) setParams({}, { replace: true });
           }}
-          onCancel={() => setEntering(false)}
+          onCancel={() => {
+            setEntering(false);
+            if (fromWorklist) setParams({}, { replace: true });
+          }}
         />
       ) : null}
 
@@ -291,14 +303,18 @@ const blankRows = (panel: LabPanelKey): Record<string, Row> =>
 
 function EnterResultsForm({
   patientId,
+  answering,
   onDone,
   onCancel,
 }: {
   patientId: string;
+  /** The order these values answer, when the worklist sent the typist here. */
+  answering: string;
   onDone: (set: ResultSet) => void;
   onCancel: () => void;
 }): JSX.Element {
   const record = useRecordResults();
+  const orders = usePatientOrders(patientId);
   const reports = usePatientDocuments(patientId, {
     types: ['lab_report'],
     from: '',
@@ -311,6 +327,7 @@ function EnterResultsForm({
   const [date, setDate] = useState(istToday());
   const [time, setTime] = useState('09:00');
   const [reportId, setReportId] = useState('');
+  const [orderId, setOrderId] = useState(answering);
   const [facility, setFacility] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -328,6 +345,7 @@ function EnterResultsForm({
         panel,
         collectedAt: `${date}T${time}:00+05:30`,
         documentId: reportId || undefined,
+        serviceRequestId: orderId || undefined,
         performingFacility: optionalText(facility),
         results: filled.map((analyte) => {
           const row = rows[analyte.code]!;
@@ -349,6 +367,13 @@ function EnterResultsForm({
 
   const reportOptions = (reports.data?.results ?? []).filter(
     (document) => document.availability !== 'abandoned' && document.availability !== 'quarantined',
+  );
+
+  // Orders still waiting for their result, and the one these values answer
+  // even if somebody else has since closed it.
+  const orderOptions = (orders.data?.orders ?? []).filter(
+    (order) =>
+      order.id === orderId || (order.category === 'laboratory' && order.status !== 'cancelled' && order.status !== 'resulted'),
   );
 
   return (
@@ -392,6 +417,24 @@ function EnterResultsForm({
           <label htmlFor="results-facility">Laboratory</label>
           <input id="results-facility" value={facility} onChange={(event) => setFacility(event.target.value)} />
         </div>
+        {orderOptions.length > 0 ? (
+          <div className="field field--wide">
+            <label htmlFor="results-order">Answering the order</label>
+            <select
+              id="results-order"
+              value={orderId}
+              onChange={(event) => setOrderId(event.target.value)}
+            >
+              <option value="">Not ordered here</option>
+              {orderOptions.map((order) => (
+                <option key={order.id} value={order.id}>
+                  {`${order.requestedDisplay} · ${ORDER_CATEGORY_LABELS[order.category]} · ordered ${formatDate(order.orderedAt)}`}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+
         <div className="field field--wide">
           <label htmlFor="results-report">Typed from the report</label>
           <select id="results-report" value={reportId} onChange={(event) => setReportId(event.target.value)}>

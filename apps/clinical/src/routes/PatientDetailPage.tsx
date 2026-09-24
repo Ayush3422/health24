@@ -15,20 +15,18 @@ import {
   ProblemList,
   StartEncounter,
 } from '../clinical/PatientClinicalRecord';
-import { PatientAllergies, PatientProcedures, PatientVitals } from '../clinical/PatientDocumentation';
+import {
+  PatientAllergies,
+  PatientProcedures,
+  PatientVitals,
+} from '../clinical/PatientDocumentation';
+import { PatientOrders } from '../clinical/Orders';
 import { PatientResults } from '../clinical/Results';
 import { PatientSharing } from '../clinical/Sharing';
 import { PatientSummaryCard, PatientTimeline } from '../clinical/Timeline';
 
 type TabKey =
-  | 'overview'
-  | 'doctors'
-  | 'reports'
-  | 'bills'
-  | 'medicines'
-  | 'visits'
-  | 'imports'
-  | 'consent';
+  'overview' | 'doctors' | 'reports' | 'bills' | 'medicines' | 'visits' | 'imports' | 'consent';
 
 const readsClinical = (role: StaffRole) => hasPermission(role, 'clinical:read');
 const handlesDocuments = (role: StaffRole) =>
@@ -42,8 +40,16 @@ const TABS: Array<{ key: TabKey; label: string; allowed: (role: StaffRole) => bo
   { key: 'bills', label: 'Bills', allowed: handlesDocuments },
   { key: 'medicines', label: 'Medicines', allowed: readsClinical },
   { key: 'visits', label: 'Visits & timeline', allowed: readsClinical },
-  { key: 'imports', label: 'Paper imports', allowed: (role) => hasPermission(role, 'documents:import') },
-  { key: 'consent', label: 'Consent & sharing', allowed: (role) => hasPermission(role, 'consent:read') },
+  {
+    key: 'imports',
+    label: 'Paper imports',
+    allowed: (role) => hasPermission(role, 'documents:import'),
+  },
+  {
+    key: 'consent',
+    label: 'Consent & sharing',
+    allowed: (role) => hasPermission(role, 'consent:read'),
+  },
 ];
 
 const tabPath = (patientId: string, key: TabKey) =>
@@ -90,22 +96,22 @@ export function PatientDetailPage(): JSX.Element {
 
       {/* One sticky block, so the allergy warning and the tabs never cover each other. */}
       <div className="patient-sticky">
-      {readsClinical(staff.role) ? <AllergyBanner patientId={record.id} /> : null}
+        {readsClinical(staff.role) ? <AllergyBanner patientId={record.id} /> : null}
 
-      <nav className="patient-tabs" aria-label="Patient record">
-        {tabs.map((candidate) => (
-          <NavLink
-            key={candidate.key}
-            end
-            to={tabPath(record.id, candidate.key)}
-            className={({ isActive }) =>
-              `patient-tabs__link${isActive ? ' patient-tabs__link--active' : ''}`
-            }
-          >
-            {candidate.label}
-          </NavLink>
-        ))}
-      </nav>
+        <nav className="patient-tabs" aria-label="Patient record">
+          {tabs.map((candidate) => (
+            <NavLink
+              key={candidate.key}
+              end
+              to={tabPath(record.id, candidate.key)}
+              className={({ isActive }) =>
+                `patient-tabs__link${isActive ? ' patient-tabs__link--active' : ''}`
+              }
+            >
+              {candidate.label}
+            </NavLink>
+          ))}
+        </nav>
       </div>
 
       <div className="patient-tab-panel">
@@ -138,6 +144,7 @@ function TabContent({
     case 'reports':
       return (
         <>
+          <PatientOrders patientId={patientId} />
           <PatientDocuments patientId={patientId} kind="reports" />
           <PatientResults patientId={patientId} />
         </>
@@ -147,7 +154,10 @@ function TabContent({
     case 'medicines':
       return (
         <div className="clinical-record">
-          <CurrentMedications patientId={patientId} canStop={hasPermission(role, 'clinical:write')} />
+          <CurrentMedications
+            patientId={patientId}
+            canStop={hasPermission(role, 'clinical:write')}
+          />
           <PatientTimeline
             patientId={patientId}
             categories={['medications']}
@@ -173,7 +183,8 @@ function TabContent({
 function Overview({ record, role }: { record: PatientSummary; role: StaffRole }): JSX.Element {
   const location = useLocation();
   const arrival = location.state as { linkedExisting?: boolean; queued?: number } | null;
-  const canWrite = hasPermission(role, 'clinical:write') || hasPermission(role, 'clinical:transcribe');
+  const canWrite =
+    hasPermission(role, 'clinical:write') || hasPermission(role, 'clinical:transcribe');
 
   return (
     <>

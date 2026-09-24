@@ -31,6 +31,7 @@ export function AppShell(): JSX.Element {
   const canSeeMergeQueue = hasPermission(staff.role, 'merge:read');
   const canSeePatients = hasPermission(staff.role, 'patient:search');
   const canSeeEncounters = hasPermission(staff.role, 'clinical:read');
+  const canSeeOrders = hasPermission(staff.role, 'orders:fulfil');
   const canRegister = hasPermission(staff.role, 'patient:create');
   const canSeeStaff = hasPermission(staff.role, 'staff:read');
   const canReadTerminology = hasPermission(staff.role, 'terminology:read');
@@ -59,6 +60,11 @@ export function AppShell(): JSX.Element {
           {canSeeEncounters ? (
             <NavLink to="/encounters" className={navClass}>
               Encounters
+            </NavLink>
+          ) : null}
+          {canSeeOrders ? (
+            <NavLink to="/orders" className={navClass}>
+              Orders
             </NavLink>
           ) : null}
           {canSeePatients ? (

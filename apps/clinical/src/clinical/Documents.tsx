@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   DOCUMENT_MIME_TYPES,
   DOCUMENT_TYPES,
@@ -23,6 +24,7 @@ import {
   usePatientDocuments,
   type DocumentFilters,
 } from '../api/records';
+import { ORDER_CATEGORY_LABELS, usePatientOrders } from '../api/orders';
 import { useAuth } from '../auth/AuthProvider';
 import { formatDate, istToday, optionalText } from './format';
 import {
@@ -101,7 +103,12 @@ function DocumentsSection({
     to: '',
     scope: canRead ? 'all' : 'own',
   });
-  const [uploading, setUploading] = useState(false);
+  // The order worklist sends people here with the order in the address, so an
+  // uploaded report answers what was asked for (SP6, T6).
+  const [params, setParams] = useSearchParams();
+  const fromWorklist = params.get('order') ?? '';
+
+  const [uploading, setUploading] = useState(canUpload && fromWorklist !== '');
   const [viewing, setViewing] = useState<DocumentSummary | null>(null);
 
   // "All types" means every type this tab shows.
@@ -132,6 +139,8 @@ function DocumentsSection({
       {uploading ? (
         <UploadDocumentForm
           patientId={patientId}
+          answering={fromWorklist}
+          onAnswered={() => setParams({}, { replace: true })}
           defaultType={kind === 'bills' ? 'bill_or_receipt' : 'lab_report'}
           canChooseClinician={canRead}
           onDone={() => setUploading(false)}
@@ -327,16 +336,22 @@ type Selected = { key: string; file: File; progress: number };
 
 function UploadDocumentForm({
   patientId,
+  answering,
+  onAnswered,
   defaultType,
   canChooseClinician,
   onDone,
 }: {
   patientId: string;
+  /** The order this report answers, when the worklist sent the uploader here. */
+  answering: string;
+  onAnswered: () => void;
   defaultType: DocumentType;
   canChooseClinician: boolean;
   onDone: () => void;
 }): JSX.Element {
   const create = useCreateDocument();
+  const orders = usePatientOrders(patientId);
   const invalidate = useInvalidateClinical();
   const chooser = useRef<HTMLInputElement>(null);
   const camera = useRef<HTMLInputElement>(null);
@@ -344,6 +359,7 @@ function UploadDocumentForm({
   const [files, setFiles] = useState<Selected[]>([]);
   const [dragging, setDragging] = useState(false);
   const [docType, setDocType] = useState<DocumentType>(defaultType);
+  const [orderId, setOrderId] = useState(answering);
   const [reportDate, setReportDate] = useState(istToday());
   const [title, setTitle] = useState('');
   const [facility, setFacility] = useState('');
@@ -407,6 +423,7 @@ function UploadDocumentForm({
       const created = await create.mutateAsync({
         patientId,
         docType,
+        serviceRequestId: orderId || undefined,
         reportDate,
         title: optionalText(title),
         performingFacility: optionalText(facility),
@@ -433,6 +450,7 @@ function UploadDocumentForm({
       setPhase('confirming');
       await completeDocument(created.document.id);
       await invalidate();
+      if (orderId) onAnswered();
       onDone();
     } catch (caught) {
       setError(errorText(caught, 'Could not upload the report'));
@@ -441,6 +459,14 @@ function UploadDocumentForm({
   };
 
   const busy = phase !== 'editing';
+
+  // Orders still waiting for a report, and the one this upload answers even if
+  // somebody has since closed it.
+  const orderOptions = (orders.data?.orders ?? []).filter(
+    (order) =>
+      order.id === orderId ||
+      (order.category !== 'laboratory' && order.status !== 'cancelled' && order.status !== 'resulted'),
+  );
 
   return (
     <div className="form inline-form-block">
@@ -537,6 +563,19 @@ function UploadDocumentForm({
             ))}
           </select>
         </div>
+        {orderOptions.length > 0 ? (
+          <div className="field field--wide">
+            <label htmlFor="upload-order">Answering the order</label>
+            <select id="upload-order" value={orderId} onChange={(event) => setOrderId(event.target.value)}>
+              <option value="">Not ordered here</option>
+              {orderOptions.map((order) => (
+                <option key={order.id} value={order.id}>
+                  {`${order.requestedDisplay} · ${ORDER_CATEGORY_LABELS[order.category]} · ordered ${formatDate(order.orderedAt)}`}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
         <div className="field">
           <label htmlFor="upload-date">Date on the report</label>
           <input id="upload-date" type="date" value={reportDate} max={istToday()} onChange={(event) => setReportDate(event.target.value)} />

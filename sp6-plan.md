@@ -169,8 +169,16 @@ outstanding.
 
 ### Phase 2 — Orders in the clinical app
 
-- [ ] **T5** Ordering from an encounter, and the order's own screen
-- [ ] **T6** The lab and radiology worklist, and recording a result against an order
+- [x] **T5** Ordering from an encounter, and the order's own screen
+- [x] **T6** The lab and radiology worklist, and recording a result against an order
+
+**Where orders show up.** An encounter has an Orders section that places them
+and moves them along; a patient's reports tab lists every order for that
+patient, waiting first; and `/orders` is the lab's and the radiology desk's
+worklist — urgent first, oldest next, with how long each has waited. The
+worklist links to where the answer is typed, carrying the order in the
+address, so typing values or uploading a report closes the order that asked
+for it.
 
 ### Phase 3 — Admission, ward and bed
 

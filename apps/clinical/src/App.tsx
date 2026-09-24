@@ -11,6 +11,7 @@ import { EncounterPage } from './routes/EncounterPage';
 import { CorrectionRequestsPage } from './routes/CorrectionRequestsPage';
 import { ErasureRequestsPage } from './routes/ErasureRequestsPage';
 import { MergeQueuePage } from './routes/MergeQueuePage';
+import { OrderWorklistPage } from './routes/OrderWorklistPage';
 import { ImportBatchPage } from './routes/ImportBatchPage';
 import { PatientDetailPage } from './routes/PatientDetailPage';
 import { PatientRegisterPage } from './routes/PatientRegisterPage';
@@ -65,6 +66,7 @@ export function App(): JSX.Element {
         <Route path="/patients/:id/imports/:batchId" element={<ImportBatchPage />} />
         <Route path="/encounters" element={<WorklistPage />} />
         <Route path="/encounters/:id" element={<EncounterPage />} />
+        <Route path="/orders" element={<OrderWorklistPage />} />
         <Route path="/merge-queue" element={<MergeQueuePage />} />
         <Route path="/correction-requests" element={<CorrectionRequestsPage />} />
         <Route path="/erasure-requests" element={<ErasureRequestsPage />} />

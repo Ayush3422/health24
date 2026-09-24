@@ -14,12 +14,14 @@ import {
   useEncounterProcedures,
   useEncounterVitals,
 } from '../api/documentation';
+import { useEncounterOrders } from '../api/orders';
 import { useAuth } from '../auth/AuthProvider';
 import { AllergyBanner } from '../clinical/AllergyBanner';
 import { DiagnosisEntry, DiagnosisList } from '../clinical/Diagnoses';
 import { formatDateTime, humanise } from '../clinical/format';
 import { MedicationList, PrescriptionForm } from '../clinical/Medications';
 import { NoteForm, NoteList } from '../clinical/Notes';
+import { OrderForm, OrderList } from '../clinical/Orders';
 import { ProcedureForm, ProcedureList } from '../clinical/Procedures';
 import { Provenance, SystemTag } from '../clinical/Provenance';
 import { LoincNotice, VitalsForm, VitalsList } from '../clinical/Vitals';
@@ -41,6 +43,7 @@ export function EncounterPage(): JSX.Element {
   const vitals = useEncounterVitals(id ?? '');
   const notes = useEncounterNotes(id ?? '');
   const procedures = useEncounterProcedures(id ?? '');
+  const orders = useEncounterOrders(id ?? '');
   const close = useCloseEncounter();
 
   const [cancelling, setCancelling] = useState(false);
@@ -64,6 +67,8 @@ export function EncounterPage(): JSX.Element {
     role && (hasPermission(role, 'clinical:write') || hasPermission(role, 'clinical:transcribe')),
   );
   const canStop = Boolean(role && hasPermission(role, 'clinical:write'));
+  const canOrder = Boolean(role && hasPermission(role, 'orders:place'));
+  const canFulfil = Boolean(role && hasPermission(role, 'orders:fulfil'));
   const own = record.hospital.isOwn;
   const editable = canWrite && own && record.status !== 'cancelled';
   const closable = canWrite && own && record.status === 'in_progress';
@@ -235,6 +240,25 @@ export function EncounterPage(): JSX.Element {
             <NoteList notes={notes.data ?? []} emptyText={notShared('notes')} editable={editable} />
           )}
           {editable ? <NoteForm encounter={record} /> : null}
+        </section>
+
+        <section>
+          <h2>Orders</h2>
+          {orders.isError ? (
+            <p className="alert alert--error">Could not load orders.</p>
+          ) : (
+            <OrderList
+              orders={orders.data ?? []}
+              emptyText={
+                own
+                  ? 'Nothing has been ordered on this encounter yet.'
+                  : 'Orders stay with the hospital that placed them.'
+              }
+              editable={editable && canOrder}
+              canFulfil={own && canFulfil}
+            />
+          )}
+          {editable && canOrder ? <OrderForm encounter={record} /> : null}
         </section>
 
         <section>
