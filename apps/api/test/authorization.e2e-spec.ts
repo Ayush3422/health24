@@ -326,6 +326,22 @@ const ROUTES: RouteExpectation[] = [
   { method: 'get', path: '/api/v1/encounters/:id/implants', allow: ['clinician', 'records'] },
   { method: 'get', path: '/api/v1/patients/:patientId/implants', allow: ['clinician', 'records'] },
 
+  // The discharge summary (SP6 Phase 5). A draft is work, which records staff
+  // do for a clinician; a signature is a clinical statement, which they do not.
+  { method: 'post', path: '/api/v1/discharge-summaries', allow: ['clinician', 'records'] },
+  { method: 'post', path: '/api/v1/discharge-summaries/:id', allow: ['clinician', 'records'] },
+  {
+    method: 'post',
+    path: '/api/v1/discharge-summaries/:id/sign',
+    allow: ['clinician'],
+    body: { confirmed: true },
+  },
+  {
+    method: 'get',
+    path: '/api/v1/encounters/:id/discharge-summary',
+    allow: ['clinician', 'records'],
+  },
+
   { method: 'post', path: '/api/v1/diagnoses/:id/correct', allow: ['clinician', 'records'] },
   {
     method: 'post',

@@ -18,6 +18,7 @@ import { useEncounterImplants } from '../api/implants';
 import { useEncounterOrders } from '../api/orders';
 import { useAuth } from '../auth/AuthProvider';
 import { AdmissionPanel } from '../clinical/Admission';
+import { DischargeSummaryPanel } from '../clinical/DischargeSummary';
 import { AllergyBanner } from '../clinical/AllergyBanner';
 import { DiagnosisEntry, DiagnosisList } from '../clinical/Diagnoses';
 import { formatDateTime, humanise } from '../clinical/format';
@@ -179,6 +180,8 @@ export function EncounterPage(): JSX.Element {
 
       <AdmissionPanel encounterId={record.id} encounterClass={record.class} own={own} />
 
+      <DischargeSummaryPanel encounterId={record.id} encounterClass={record.class} own={own} />
+
       {own ? null : (
         <p className="alert alert--warning">
           Recorded at {record.hospital.name} and shared with your hospital under the patient&apos;s
@@ -288,9 +291,7 @@ export function EncounterPage(): JSX.Element {
           ) : (
             <ImplantList implants={implants.data ?? []} editable={editable} />
           )}
-          {editable ? (
-            <ImplantForm encounter={record} procedures={procedures.data ?? []} />
-          ) : null}
+          {editable ? <ImplantForm encounter={record} procedures={procedures.data ?? []} /> : null}
         </section>
       </div>
     </div>

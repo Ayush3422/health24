@@ -223,8 +223,27 @@ stay in the history where a recall audit can still find the old number.
 
 ### Phase 5 — The discharge summary
 
-- [ ] **T12** Composition from the encounter's own data, and the editor (DF6)
-- [ ] **T13** Sign-off: the versioned note, the rendered document, and the portal (DF7)
+- [x] **T12** Composition from the encounter's own data, and the editor (DF6)
+- [x] **T13** Sign-off: the versioned note, the rendered document, and the portal (DF7)
+
+**Composition copies; it never writes.** Each section is filled from what was
+recorded — the stay and its bed-days, the diagnoses with their codes, the
+operation and the devices, the results, the medicines — and the three only a
+clinician can answer, how the patient was at discharge, the advice and the
+follow-up, are left empty. The one place composition offers prose is the
+course in hospital, and those are the surgeon's own words from the
+post-operative course.
+
+**A draft is not a record.** It is edited freely until it is signed; composing
+again pulls in anything recorded since and leaves edited sections alone. The
+signature is what makes it a record, and it writes two: a versioned clinical
+note, which is what the hospital keeps and corrects, and a PDF, which is what
+the patient reads in the portal and the next hospital opens. After that the
+summary row never changes again — a trigger says so, not a convention.
+
+**The PDF is marked clean without a scan.** The server rendered it from the
+record a moment earlier and it never left the process; the scanner exists for
+files people upload.
 
 ### Phase 6 — Charges
 

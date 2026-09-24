@@ -576,6 +576,21 @@ export const NOTE_TEMPLATES = {
       { key: 'plan', label: 'Plan' },
     ],
   },
+  discharge_summary: {
+    label: 'Discharge summary',
+    sections: [
+      { key: 'admission', label: 'Admission and stay' },
+      { key: 'diagnoses', label: 'Diagnoses' },
+      { key: 'procedures', label: 'Procedures and devices' },
+      { key: 'investigations', label: 'Investigations' },
+      { key: 'treatment', label: 'Treatment in hospital' },
+      { key: 'course', label: 'Course in hospital' },
+      { key: 'condition', label: 'Condition at discharge' },
+      { key: 'medicines', label: 'Medicines to continue' },
+      { key: 'advice', label: 'Advice' },
+      { key: 'follow_up', label: 'Follow-up' },
+    ],
+  },
   follow_up: {
     label: 'Follow-up',
     sections: [

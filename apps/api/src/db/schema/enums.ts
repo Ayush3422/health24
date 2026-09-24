@@ -36,6 +36,7 @@ import {
   SERVICE_REQUEST_PRIORITIES,
   SERVICE_REQUEST_STATUSES,
   BED_STATUSES,
+  DISCHARGE_STATUSES,
   WARD_KINDS,
   WARD_STATUSES,
   VERSION_STATUSES,
@@ -192,3 +193,5 @@ export const serviceRequestPriorityEnum = pgEnum(
 export const wardKindEnum = pgEnum('ward_kind', tuple(WARD_KINDS));
 export const wardStatusEnum = pgEnum('ward_status', tuple(WARD_STATUSES));
 export const bedStatusEnum = pgEnum('bed_status', tuple(BED_STATUSES));
+
+export const dischargeStatusEnum = pgEnum('discharge_status', tuple(DISCHARGE_STATUSES));

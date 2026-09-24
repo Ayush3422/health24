@@ -43,6 +43,7 @@ import {
   observationCategoryEnum,
   observationSourceEnum,
   bedStatusEnum,
+  dischargeStatusEnum,
   resultInterpretationEnum,
   serviceRequestCategoryEnum,
   serviceRequestPriorityEnum,
@@ -763,6 +764,72 @@ export const implantDevices = pgTable(
 );
 
 export type ImplantDevice = typeof implantDevices.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// The discharge summary (SP6, DF6 and DF7)
+// ---------------------------------------------------------------------------
+
+/**
+ * A summary of an admission, composed from the encounter's own data and signed
+ * by a clinician.
+ *
+ * A draft is not a clinical record: it is a piece of work in progress, and it
+ * is edited freely until it is signed. Signing is what makes it a record, and
+ * it writes two things that are — a versioned clinical note, and the PDF the
+ * patient reads. After that this row never changes again.
+ *
+ * `composed_from` keeps what the record said at composition, so a summary can
+ * always be compared with the record it was drawn from.
+ */
+export const dischargeSummaries = pgTable(
+  'discharge_summary',
+  {
+    id: primaryId(),
+    ...ownership(),
+    encounterId: uuid('encounter_id').notNull(),
+
+    status: dischargeStatusEnum('status').notNull().default('draft'),
+    /** The sections as they will be signed: `{ key, label, text, composed }`. */
+    sections: jsonb('sections')
+      .$type<Array<{ key: string; label: string; text: string; composed: boolean }>>()
+      .notNull(),
+    /** What the record held when it was last composed. */
+    composedFrom: jsonb('composed_from').notNull(),
+    composedAt: timestamp('composed_at', { withTimezone: true }).notNull().defaultNow(),
+    composedByStaffId: uuid('composed_by_staff_id').notNull(),
+
+    signedAt: timestamp('signed_at', { withTimezone: true }),
+    signedByStaffId: uuid('signed_by_staff_id'),
+    /** Written by the signature: the record, and the copy that is read. */
+    clinicalNoteId: uuid('clinical_note_id'),
+    documentReferenceId: uuid('document_reference_id'),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // One summary per admission. A correction after signing is a correction to
+    // the note the signature wrote, which versions itself.
+    unique('discharge_summary_once_per_encounter').on(table.encounterId),
+    foreignKey({
+      name: 'discharge_summary_encounter_same_record_fk',
+      columns: [table.encounterId, table.patientId, table.hospitalId],
+      foreignColumns: [encounters.id, encounters.patientId, encounters.hospitalId],
+    }),
+    foreignKey({
+      name: 'discharge_summary_composed_by_same_hospital_fk',
+      columns: [table.composedByStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    foreignKey({
+      name: 'discharge_summary_signed_by_same_hospital_fk',
+      columns: [table.signedByStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    index('discharge_summary_patient_idx').on(table.patientId, table.composedAt),
+  ],
+);
+
+export type DischargeSummaryRow = typeof dischargeSummaries.$inferSelect;
 
 // ---------------------------------------------------------------------------
 // Notes and procedures
