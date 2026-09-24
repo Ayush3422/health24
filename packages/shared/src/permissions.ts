@@ -94,6 +94,12 @@ export const PERMISSIONS = [
   /** Move an order along as the work is done: sample collected, study in progress. */
   'orders:fulfil',
 
+  // Wards, beds and admission (SP6, Decision P1)
+  /** Set up the hospital's wards and beds, and take a bed out of service. */
+  'wards:manage',
+  /** Admit a patient to a bed, move them, and discharge them. */
+  'admission:manage',
+
   // The patient's rights under the DPDP Act (SP5)
   /** Review erasure requests and record what was erased and what law requires kept (Decision N1). */
   'privacy:review',
@@ -142,6 +148,8 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     // Reviewing emergency access is oversight, not clinical reading: the queue
     // shows the MRN, the reason and the clinician, never the record itself.
     'consent:review',
+    // Wards and beds are the hospital's own furniture, not a clinical record.
+    'wards:manage',
   ],
 
   /**
@@ -170,6 +178,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'portal:activate',
     'orders:place',
     'orders:fulfil',
+    'admission:manage',
   ],
 
   front_desk: [
@@ -193,6 +202,8 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'portal:link_guardian',
     // Takes the sample and marks the study under way; never decides what to order.
     'orders:fulfil',
+    // The desk admits, moves and discharges: it is who holds the bed board.
+    'admission:manage',
   ],
 
   /**

@@ -35,6 +35,9 @@ import {
   SERVICE_REQUEST_CATEGORIES,
   SERVICE_REQUEST_PRIORITIES,
   SERVICE_REQUEST_STATUSES,
+  BED_STATUSES,
+  WARD_KINDS,
+  WARD_STATUSES,
   VERSION_STATUSES,
   MAP_ELEMENT_STATUSES,
   MAP_EQUIVALENCES,
@@ -183,3 +186,9 @@ export const serviceRequestPriorityEnum = pgEnum(
   'service_request_priority',
   tuple(SERVICE_REQUEST_PRIORITIES),
 );
+
+// Wards and beds (SP6)
+
+export const wardKindEnum = pgEnum('ward_kind', tuple(WARD_KINDS));
+export const wardStatusEnum = pgEnum('ward_status', tuple(WARD_STATUSES));
+export const bedStatusEnum = pgEnum('bed_status', tuple(BED_STATUSES));

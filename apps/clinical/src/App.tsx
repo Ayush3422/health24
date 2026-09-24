@@ -18,6 +18,7 @@ import { PatientRegisterPage } from './routes/PatientRegisterPage';
 import { PatientSearchPage } from './routes/PatientSearchPage';
 import { StaffPage } from './routes/StaffPage';
 import { TerminologyPage } from './routes/TerminologyPage';
+import { WardsPage } from './routes/WardsPage';
 import { WorklistPage } from './routes/WorklistPage';
 
 /**
@@ -67,6 +68,7 @@ export function App(): JSX.Element {
         <Route path="/encounters" element={<WorklistPage />} />
         <Route path="/encounters/:id" element={<EncounterPage />} />
         <Route path="/orders" element={<OrderWorklistPage />} />
+        <Route path="/wards" element={<WardsPage />} />
         <Route path="/merge-queue" element={<MergeQueuePage />} />
         <Route path="/correction-requests" element={<CorrectionRequestsPage />} />
         <Route path="/erasure-requests" element={<ErasureRequestsPage />} />

@@ -355,6 +355,58 @@ const ROUTES: RouteExpectation[] = [
   { method: 'get', path: '/api/v1/orders', allow: ['clinician', 'frontDesk', 'records'] },
   { method: 'get', path: '/api/v1/encounters/:id/orders', allow: ['clinician', 'records'] },
   { method: 'get', path: '/api/v1/patients/:patientId/orders', allow: ['clinician', 'records'] },
+
+  // Wards, beds and admission (SP6 Phase 3). The furniture is the hospital
+  // administrator's; admitting, moving and discharging belong to the desk and
+  // the clinicians, who are the people holding the bed board.
+  // Every hospital administrator holds the permission; tenancy, not the
+  // permission matrix, keeps each of them to their own hospital's furniture.
+  {
+    method: 'post',
+    path: '/api/v1/wards',
+    allow: ['admin', 'otherHospitalAdmin'],
+    body: { name: 'Probe ward', kind: 'general' },
+  },
+  {
+    method: 'post',
+    path: '/api/v1/wards/:id',
+    allow: ['admin', 'otherHospitalAdmin'],
+    body: { name: 'Probe ward' },
+  },
+  {
+    method: 'post',
+    path: '/api/v1/wards/:id/beds',
+    allow: ['admin', 'otherHospitalAdmin'],
+    body: { labels: ['P1'] },
+  },
+  {
+    method: 'post',
+    path: '/api/v1/beds/:id/status',
+    allow: ['admin', 'otherHospitalAdmin'],
+    body: { status: 'available' },
+  },
+  {
+    method: 'get',
+    path: '/api/v1/wards',
+    allow: ['admin', 'clinician', 'frontDesk', 'otherHospitalAdmin'],
+  },
+  { method: 'post', path: '/api/v1/admissions', allow: ['clinician', 'frontDesk'] },
+  {
+    method: 'post',
+    path: '/api/v1/admissions/:encounterId/transfer',
+    allow: ['clinician', 'frontDesk'],
+  },
+  {
+    method: 'post',
+    path: '/api/v1/admissions/:encounterId/discharge',
+    allow: ['clinician', 'frontDesk'],
+  },
+  { method: 'get', path: '/api/v1/admissions', allow: ['clinician', 'frontDesk', 'records'] },
+  {
+    method: 'get',
+    path: '/api/v1/admissions/:encounterId',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
   // Consent, emergency access, timeline and coding review (Phase 8). Consent is
   // recorded where the patient stands; emergency access is a clinician's; its
   // review is the hospital admin's; coding review is clinical judgement.

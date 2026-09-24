@@ -12,5 +12,6 @@ export * from './schemas/results.js';
 export * from './schemas/imports.js';
 export * from './schemas/portal.js';
 export * from './schemas/orders.js';
+export * from './schemas/wards.js';
 export * from './terminology/fold.js';
 export * from './permissions.js';

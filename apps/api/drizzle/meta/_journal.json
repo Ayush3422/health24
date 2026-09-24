@@ -365,6 +365,20 @@
       "when": 1789884676501,
       "tag": "0051_sp6_order_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1790235925132,
+      "tag": "0052_sp6_wards_and_beds",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1790235928194,
+      "tag": "0053_sp6_ward_rules",
+      "breakpoints": true
     }
   ]
 }

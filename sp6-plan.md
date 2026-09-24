@@ -182,9 +182,26 @@ for it.
 
 ### Phase 3 — Admission, ward and bed
 
-- [ ] **T7** Ward and bed master data, with the administrator's screens (P1)
-- [ ] **T8** Admission, transfer and discharge; the bed history and a ward view
-- [ ] **T9** Bed-day charges captured from the stay (feeds Phase 6)
+- [x] **T7** Ward and bed master data, with the administrator's screens (P1)
+- [x] **T8** Admission, transfer and discharge; the bed history and a ward view
+- [~] **T9** Bed-day charges captured from the stay (feeds Phase 6)
+
+**Who admits whom.** The decision to admit is clinical and was already a
+record: an inpatient encounter, opened by the clinician who made it. Giving
+the patient a bed is the other half, and the desk — who holds the board — does
+that. The database has said since SP3 that only records staff open an
+encounter in a clinician's name, and this keeps that rule rather than widening
+it for the desk.
+
+**Occupancy is not a column.** A bed says whether it is usable — available, or
+out of service — and whether somebody is in it is read from the open stay. One
+open stay per encounter and one per bed are partial unique indexes, so two
+patients cannot be recorded in one bed however the application is called.
+
+**T9 is half done.** A stay knows its bed-days — a started day counts as a
+day, in India Standard Time, as every hospital bills it — and an admission
+adds them up. Turning them into money needs the catalogue and its prices,
+which is Phase 6; nothing here knows what a bed costs.
 
 ### Phase 4 — Surgery
 

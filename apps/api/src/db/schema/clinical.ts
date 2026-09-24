@@ -42,12 +42,15 @@ import {
   medicationRouteEnum,
   observationCategoryEnum,
   observationSourceEnum,
+  bedStatusEnum,
   resultInterpretationEnum,
   serviceRequestCategoryEnum,
   serviceRequestPriorityEnum,
   serviceRequestStatusEnum,
   systemOfMedicineEnum,
   versionStatusEnum,
+  wardKindEnum,
+  wardStatusEnum,
 } from './enums';
 
 /**
@@ -585,6 +588,116 @@ export const serviceRequests = pgTable(
 );
 
 export type ServiceRequest = typeof serviceRequests.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// Wards, beds and stays (SP6, Decision P1)
+// ---------------------------------------------------------------------------
+
+/** A ward is the hospital's own furniture: master data, not a clinical record. */
+export const wards = pgTable(
+  'ward',
+  {
+    id: primaryId(),
+    hospitalId: uuid('hospital_id')
+      .notNull()
+      .references(() => hospitals.id, { onDelete: 'restrict' }),
+    name: text('name').notNull(),
+    kind: wardKindEnum('kind').notNull(),
+    status: wardStatusEnum('status').notNull().default('active'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('ward_identity').on(table.id, table.hospitalId),
+    unique('ward_name_per_hospital').on(table.hospitalId, table.name),
+  ],
+);
+
+export type Ward = typeof wards.$inferSelect;
+
+/**
+ * A bed.
+ *
+ * `status` says whether it may be used at all — available, or out of service.
+ * Whether somebody is in it is not stored: an open `bed_stay` is the answer,
+ * so the board and the record cannot disagree about who is where.
+ */
+export const beds = pgTable(
+  'bed',
+  {
+    id: primaryId(),
+    hospitalId: uuid('hospital_id')
+      .notNull()
+      .references(() => hospitals.id, { onDelete: 'restrict' }),
+    wardId: uuid('ward_id').notNull(),
+    label: text('label').notNull(),
+    status: bedStatusEnum('status').notNull().default('available'),
+    blockedReason: text('blocked_reason'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('bed_identity').on(table.id, table.hospitalId),
+    unique('bed_label_per_ward').on(table.wardId, table.label),
+    foreignKey({
+      name: 'bed_ward_same_hospital_fk',
+      columns: [table.wardId, table.hospitalId],
+      foreignColumns: [wards.id, wards.hospitalId],
+    }),
+  ],
+);
+
+export type Bed = typeof beds.$inferSelect;
+
+/**
+ * One stay in one bed.
+ *
+ * A transfer ends this stay and starts the next, so an admission's whole
+ * history is these rows in order. The database allows one open stay per
+ * encounter and one per bed, which is what stops two patients being recorded
+ * in the same bed.
+ */
+export const bedStays = pgTable(
+  'bed_stay',
+  {
+    id: primaryId(),
+    hospitalId: uuid('hospital_id')
+      .notNull()
+      .references(() => hospitals.id, { onDelete: 'restrict' }),
+    encounterId: uuid('encounter_id').notNull(),
+    patientId: uuid('patient_id')
+      .notNull()
+      .references(() => patients.id, { onDelete: 'restrict' }),
+    bedId: uuid('bed_id').notNull(),
+
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    endedAt: timestamp('ended_at', { withTimezone: true }),
+    /** Why the patient was moved out of this bed, or how the stay ended. */
+    movedReason: text('moved_reason'),
+
+    startedByStaffId: uuid('started_by_staff_id').notNull(),
+    endedByStaffId: uuid('ended_by_staff_id'),
+  },
+  (table) => [
+    foreignKey({
+      name: 'bed_stay_bed_same_hospital_fk',
+      columns: [table.bedId, table.hospitalId],
+      foreignColumns: [beds.id, beds.hospitalId],
+    }),
+    foreignKey({
+      name: 'bed_stay_encounter_same_record_fk',
+      columns: [table.encounterId, table.patientId, table.hospitalId],
+      foreignColumns: [encounters.id, encounters.patientId, encounters.hospitalId],
+    }),
+    foreignKey({
+      name: 'bed_stay_started_by_same_hospital_fk',
+      columns: [table.startedByStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    index('bed_stay_encounter_idx').on(table.encounterId, table.startedAt),
+    index('bed_stay_bed_idx').on(table.bedId, table.startedAt),
+  ],
+);
+
+export type BedStayRow = typeof bedStays.$inferSelect;
 
 // ---------------------------------------------------------------------------
 // Notes and procedures

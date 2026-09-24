@@ -1988,3 +1988,73 @@ button.chip[aria-pressed='true'] {
   height: auto;
   border: 1px solid var(--line);
 }
+
+/* Orders and beds (SP6) --------------------------------------------------- */
+
+.tag--danger {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+/* An order's own steps, read at a glance in a worklist. */
+.status--ordered,
+.status--collected {
+  background: var(--warning-soft);
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+.status--resulted {
+  background: var(--ground);
+  color: var(--ink-muted);
+}
+
+.status--blocked {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.entry__actions {
+  margin-top: 0.5rem;
+}
+
+/*
+ * The bed board: a bed is a tile, because that is how the ward is read — at a
+ * glance, from across the room. Colour says free, occupied or out of service,
+ * and the words beside it say the same thing for anyone who cannot see it.
+ */
+.bed-board {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 0.6rem;
+}
+
+.bed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+.bed--free {
+  border-left-color: var(--line);
+}
+
+.bed--occupied {
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.bed--blocked {
+  border-left-color: var(--danger);
+  background: var(--danger-soft);
+}

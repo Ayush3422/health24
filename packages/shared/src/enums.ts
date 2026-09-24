@@ -423,6 +423,28 @@ export type ServiceRequestStatus = (typeof SERVICE_REQUEST_STATUSES)[number];
 export const SERVICE_REQUEST_PRIORITIES = ['routine', 'urgent'] as const;
 export type ServiceRequestPriority = (typeof SERVICE_REQUEST_PRIORITIES)[number];
 
+// ---------------------------------------------------------------------------
+// Wards and beds (SP6, Decision P1)
+// ---------------------------------------------------------------------------
+
+/** What a ward is for. Day care is a ward too: a bed is occupied either way. */
+export const WARD_KINDS = ['general', 'icu', 'private', 'day_care'] as const;
+export type WardKind = (typeof WARD_KINDS)[number];
+
+/** A closed ward keeps its history; no new patient is admitted to it. */
+export const WARD_STATUSES = ['active', 'closed'] as const;
+export type WardStatus = (typeof WARD_STATUSES)[number];
+
+/**
+ * What a bed is, as master data: usable, or out of service.
+ *
+ * Occupancy is deliberately not a status. Whether someone is in the bed is
+ * decided by whether a stay is open on it, so there is one answer to the
+ * question rather than two that can disagree.
+ */
+export const BED_STATUSES = ['available', 'blocked'] as const;
+export type BedStatus = (typeof BED_STATUSES)[number];
+
 /** Whom a portal account acts for: the patient themself, or a child as guardian (SP5, Decision M1). */
 export const PORTAL_RELATIONSHIPS = ['self', 'guardian'] as const;
 export type PortalRelationship = (typeof PORTAL_RELATIONSHIPS)[number];

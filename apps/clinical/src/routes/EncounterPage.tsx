@@ -16,6 +16,7 @@ import {
 } from '../api/documentation';
 import { useEncounterOrders } from '../api/orders';
 import { useAuth } from '../auth/AuthProvider';
+import { AdmissionPanel } from '../clinical/Admission';
 import { AllergyBanner } from '../clinical/AllergyBanner';
 import { DiagnosisEntry, DiagnosisList } from '../clinical/Diagnoses';
 import { formatDateTime, humanise } from '../clinical/format';
@@ -172,6 +173,8 @@ export function EncounterPage(): JSX.Element {
       {error ? <p className="alert alert--error">{error}</p> : null}
 
       <AllergyBanner patientId={record.patientId} />
+
+      <AdmissionPanel encounterId={record.id} encounterClass={record.class} own={own} />
 
       {own ? null : (
         <p className="alert alert--warning">
