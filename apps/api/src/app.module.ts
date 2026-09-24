@@ -15,6 +15,7 @@ import { PrivacyModule } from './modules/privacy/privacy.module';
 import { ExportsModule } from './modules/exports/exports.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { ImportsModule } from './modules/imports/imports.module';
+import { OrdersModule } from './modules/orders/orders.module';
 import { PortalModule } from './modules/portal/portal.module';
 import { ScanningModule } from './modules/scanning/scanning.module';
 import { StorageModule } from './modules/storage/storage.module';
@@ -46,6 +47,7 @@ import { HealthController } from './health.controller';
     DocumentsModule,
     ImportsModule,
     // The patient portal (SP5).
+    OrdersModule,
     PortalModule,
     ExportsModule,
     CorrectionsModule,

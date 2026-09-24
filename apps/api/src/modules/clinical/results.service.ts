@@ -32,6 +32,7 @@ import {
   type RequestMeta,
 } from '../../common/actor';
 import { AuditService } from '../audit/audit.service';
+import { OrdersService } from '../orders/orders.service';
 import {
   coveringConsentId,
   requireLinkedPatient,
@@ -124,6 +125,10 @@ export class ResultsService {
       if (input.documentId)
         await this.requireReport(tx, hospitalId, input.patientId, input.documentId);
 
+      // The order these values answer, if they were ordered here (SP6, DF2).
+      if (input.serviceRequestId)
+        await OrdersService.requireOpenOrder(tx, input.serviceRequestId, input.patientId);
+
       await tx.insert(observations).values(
         input.results.map((result) => {
           const analyte = analytes.find((candidate) => candidate.code === result.code)!;
@@ -153,6 +158,7 @@ export class ResultsService {
             }),
             panelCode: input.panel,
             documentId: input.documentId ?? null,
+            serviceRequestId: input.serviceRequestId ?? null,
             performingFacility: input.performingFacility ?? null,
             groupId,
             effectiveAt: new Date(input.collectedAt),
@@ -162,6 +168,10 @@ export class ResultsService {
           };
         }),
       );
+
+      // A result closes its order, in the same transaction that recorded it:
+      // if the values are rolled back, so is the closure.
+      if (input.serviceRequestId) await OrdersService.markResulted(tx, input.serviceRequestId);
 
       return this.query(tx, sql`WHERE o."group_id" = ${groupId}::uuid`);
     });

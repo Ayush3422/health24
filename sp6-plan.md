@@ -1,6 +1,6 @@
 # SP6 — Operations: Implementation Plan
 
-**Status:** Draft for review. Decisions O–S are open; nothing is built until they are answered. No SP6 code has been written.
+**Status:** Approved for building. Decisions O–S answered 2026-09-20: **O1, P1, Q1, R1, S1**. No SP6 code had been written before that date.
 **Scope:** Orders for tests and imaging, with results that find their way back to the order; admission, ward and bed, transfer and discharge; the surgery record; a discharge summary composed from the encounter's own data and signed by a clinician; a service catalogue, charge capture, itemised invoices, payments, part-payments and refunds; and the reports a hospital and the ministry ask for — including the statutory Ayush morbidity return, generated from coded diagnoses.
 **Design reference:** `planning.md` §6, §11, §14 · `features.md` SP6 and Cross-cutting · `sp3-plan.md` (encounters, immutability, guard triggers) · `sp4-plan.md` (documents, structured results) · `sp5-plan.md` (the portal, and what a patient may see)
 
@@ -8,7 +8,7 @@
 
 ## 0. Decisions for you
 
-Five decisions. Each has a recommendation; the alternatives are kept so the choice is on the record.
+**Answered 2026-09-20: O1, P1, Q1, R1, S1** — an order of its own that results point back to; an inpatient encounter with a bed history beside it; one operative record with implants; charges, invoices and an append-only ledger with no gateway; and reports computed over the operational database. The options considered are kept below for the record.
 
 ### Decision O — What an order is
 
@@ -152,10 +152,20 @@ Permissions: ordering is a clinician's; collecting and resulting belong to the l
 
 ### Phase 1 — Orders
 
-- [ ] **T1** `service_request` with row-level security, the status guard and audit (O1, DF1)
-- [ ] **T2** Order entry and cancellation, with permissions
-- [ ] **T3** Results linked to their order; an order closes when its results are in (DF2)
-- [ ] **T4** Worklists: what is outstanding, by category and age
+- [x] **T1** `service_request` with row-level security, the status guard and audit (O1, DF1)
+- [x] **T2** Order entry and cancellation, with permissions
+- [x] **T3** Results linked to their order; an order closes when its results are in (DF2)
+- [x] **T4** Worklists: what is outstanding, by category and age
+
+**What an order turned out to be.** No version columns: asking for a test
+asserts nothing about the patient, so there is nothing to correct — a wrong
+order is cancelled with a reason and a new one placed. Instead of one
+`status_changed_at` it carries a timestamp and a person per step, each set
+once, which the guard trigger can enforce and which makes a turnaround-time
+report arithmetic rather than archaeology. A typed result closes its order in
+the same transaction that records it; an uploaded report closes it when the
+scan comes back clean, so an upload that never arrives leaves the order
+outstanding.
 
 ### Phase 2 — Orders in the clinical app
 

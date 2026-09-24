@@ -71,6 +71,20 @@ export class DocumentScanHandler implements ScanJobHandler {
              WHERE "id" = ${documentId}::uuid
           `);
 
+          // A report answers its order once it can actually be read: an upload
+          // that never arrives, or a file that turns out to be infected,
+          // leaves the order outstanding (SP6, DF2).
+          if (next === 'available') {
+            await tx.execute(sql`
+              UPDATE "service_request" r
+                 SET "status" = 'resulted', "resulted_at" = now()
+                FROM "document_reference" d
+               WHERE d."id" = ${documentId}::uuid
+                 AND r."id" = d."service_request_id"
+                 AND r."status" <> 'resulted'
+            `);
+          }
+
           if (next === 'quarantined') {
             this.logger.warn(
               `Quarantined document ${documentId}: ${result.signature ?? 'infected file'}`,

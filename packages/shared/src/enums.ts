@@ -392,6 +392,37 @@ export type ObservationSource = (typeof OBSERVATION_SOURCES)[number];
 export const RESULT_INTERPRETATIONS = ['normal', 'low', 'high', 'abnormal'] as const;
 export type ResultInterpretation = (typeof RESULT_INTERPRETATIONS)[number];
 
+// ---------------------------------------------------------------------------
+// Orders (SP6)
+// ---------------------------------------------------------------------------
+
+/** What was asked for. A procedure order is a request, not the procedure record. */
+export const SERVICE_REQUEST_CATEGORIES = ['laboratory', 'imaging', 'procedure'] as const;
+export type ServiceRequestCategory = (typeof SERVICE_REQUEST_CATEGORIES)[number];
+
+/**
+ * An order moves forward only (sp6-plan.md, Decision O1):
+ *
+ *   ordered → collected → in_progress → resulted
+ *
+ * with `collected` skipped by an order that takes no sample, and `cancelled`
+ * reachable until a result is in. A wrong order is cancelled with a reason and
+ * a new one placed; orders are never superseded, because nothing clinical was
+ * asserted by asking.
+ */
+export const SERVICE_REQUEST_STATUSES = [
+  'ordered',
+  'collected',
+  'in_progress',
+  'resulted',
+  'cancelled',
+] as const;
+export type ServiceRequestStatus = (typeof SERVICE_REQUEST_STATUSES)[number];
+
+/** Urgency as the clinician stated it. Not a queue position; a worklist sorts on it. */
+export const SERVICE_REQUEST_PRIORITIES = ['routine', 'urgent'] as const;
+export type ServiceRequestPriority = (typeof SERVICE_REQUEST_PRIORITIES)[number];
+
 /** Whom a portal account acts for: the patient themself, or a child as guardian (SP5, Decision M1). */
 export const PORTAL_RELATIONSHIPS = ['self', 'guardian'] as const;
 export type PortalRelationship = (typeof PORTAL_RELATIONSHIPS)[number];

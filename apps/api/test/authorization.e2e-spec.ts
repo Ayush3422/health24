@@ -340,6 +340,21 @@ const ROUTES: RouteExpectation[] = [
     allow: ['clinician', 'records'],
   },
   { method: 'get', path: '/api/v1/clinical-history/:kind/:id', allow: ['clinician', 'records'] },
+
+  // Orders (SP6 Phase 1). Ordering is a clinical decision — a clinician's, or
+  // transcribed by records staff in a clinician's name. Moving an order along
+  // is the work itself, which the desk and the lab also do; reading one is
+  // reading the record.
+  { method: 'post', path: '/api/v1/orders', allow: ['clinician', 'records'] },
+  {
+    method: 'post',
+    path: '/api/v1/orders/:id/advance',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
+  { method: 'post', path: '/api/v1/orders/:id/cancel', allow: ['clinician', 'records'] },
+  { method: 'get', path: '/api/v1/orders', allow: ['clinician', 'frontDesk', 'records'] },
+  { method: 'get', path: '/api/v1/encounters/:id/orders', allow: ['clinician', 'records'] },
+  { method: 'get', path: '/api/v1/patients/:patientId/orders', allow: ['clinician', 'records'] },
   // Consent, emergency access, timeline and coding review (Phase 8). Consent is
   // recorded where the patient stands; emergency access is a clinician's; its
   // review is the hospital admin's; coding review is clinical judgement.

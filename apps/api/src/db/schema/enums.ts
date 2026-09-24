@@ -32,6 +32,9 @@ import {
   OBSERVATION_CATEGORIES,
   OBSERVATION_SOURCES,
   RESULT_INTERPRETATIONS,
+  SERVICE_REQUEST_CATEGORIES,
+  SERVICE_REQUEST_PRIORITIES,
+  SERVICE_REQUEST_STATUSES,
   VERSION_STATUSES,
   MAP_ELEMENT_STATUSES,
   MAP_EQUIVALENCES,
@@ -164,4 +167,19 @@ export const observationSourceEnum = pgEnum('observation_source', tuple(OBSERVAT
 export const resultInterpretationEnum = pgEnum(
   'result_interpretation',
   tuple(RESULT_INTERPRETATIONS),
+);
+
+// Orders (SP6)
+
+export const serviceRequestCategoryEnum = pgEnum(
+  'service_request_category',
+  tuple(SERVICE_REQUEST_CATEGORIES),
+);
+export const serviceRequestStatusEnum = pgEnum(
+  'service_request_status',
+  tuple(SERVICE_REQUEST_STATUSES),
+);
+export const serviceRequestPriorityEnum = pgEnum(
+  'service_request_priority',
+  tuple(SERVICE_REQUEST_PRIORITIES),
 );

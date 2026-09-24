@@ -405,6 +405,8 @@ export const recordResultsSchema = z
     encounterId: uuidSchema.optional(),
     /** The report the values were typed from. */
     documentId: uuidSchema.optional(),
+    /** The order these values answer, when they were ordered here (SP6, DF2). */
+    serviceRequestId: uuidSchema.optional(),
     panel: z.enum(LAB_PANEL_KEYS),
     /** When the specimen was collected. */
     collectedAt: z.string().datetime({ offset: true }),

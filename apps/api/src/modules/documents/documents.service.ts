@@ -39,6 +39,7 @@ import {
 } from '../clinical/clinical-access';
 import { staffName, type ReaderContext } from '../clinical/staff-names';
 import { ScanQueue } from '../scanning/scan-queue';
+import { OrdersService } from '../orders/orders.service';
 import { documentFileKey } from '../storage/keys';
 import { StorageService } from '../storage/storage.service';
 
@@ -147,12 +148,17 @@ export class DocumentsService {
       if (input.encounterId)
         await this.requireEncounter(tx, hospitalId, patientId, input.encounterId);
 
+      // The order this report answers, if it was ordered here (SP6, DF2).
+      if (input.serviceRequestId)
+        await OrdersService.requireOpenOrder(tx, input.serviceRequestId, patientId);
+
       try {
         await tx.insert(documentReferences).values({
           id: documentId,
           patientId,
           hospitalId,
           encounterId: input.encounterId ?? null,
+          serviceRequestId: input.serviceRequestId ?? null,
           docType: input.docType,
           title: input.title ?? null,
           reportDate: input.reportDate,

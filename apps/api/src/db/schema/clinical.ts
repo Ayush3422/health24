@@ -43,6 +43,9 @@ import {
   observationCategoryEnum,
   observationSourceEnum,
   resultInterpretationEnum,
+  serviceRequestCategoryEnum,
+  serviceRequestPriorityEnum,
+  serviceRequestStatusEnum,
   systemOfMedicineEnum,
   versionStatusEnum,
 } from './enums';
@@ -449,6 +452,8 @@ export const observations = pgTable(
     // range and flag beside the computed comparison; and the value in the
     // analyte's canonical unit, so a trend spans laboratories.
     documentId: uuid('document_id'),
+    /** The order this result answers, when it was ordered here (SP6, DF2). */
+    serviceRequestId: uuid('service_request_id'),
     panelCode: text('panel_code'),
     referenceLow: numeric('reference_low', { precision: 12, scale: 4 }),
     referenceHigh: numeric('reference_high', { precision: 12, scale: 4 }),
@@ -497,6 +502,89 @@ export const observations = pgTable(
 );
 
 export type Observation = typeof observations.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// Orders (SP6, Decision O1)
+// ---------------------------------------------------------------------------
+
+/**
+ * What somebody asked for, before there was a result.
+ *
+ * Modelled on FHIR ServiceRequest and owned by the hospital that placed it.
+ * Results point back at it — `observation.service_request_id` and
+ * `document_reference.service_request_id` — so a lab can be asked what is
+ * outstanding and an order can be asked what came back.
+ *
+ * Unlike the rest of this file it carries no version columns: asking for a
+ * test asserts nothing about the patient, so there is nothing to correct. A
+ * wrong order is cancelled with a reason and a new one placed, and the status
+ * trigger allows only the moves the work itself allows.
+ */
+export const serviceRequests = pgTable(
+  'service_request',
+  {
+    id: primaryId(),
+    ...ownership(),
+    encounterId: uuid('encounter_id').notNull(),
+
+    category: serviceRequestCategoryEnum('category').notNull(),
+    /** What the clinician would say. Coded where the terminology has it. */
+    requestedDisplay: text('requested_display').notNull(),
+    requestedCodeSystem: text('requested_code_system'),
+    requestedCode: text('requested_code'),
+    priority: serviceRequestPriorityEnum('priority').notNull().default('routine'),
+    /** Why it was asked for, for whoever performs it. */
+    clinicalNote: text('clinical_note'),
+
+    /** Whose clinical decision the order is, and who typed it (Decision C). */
+    orderedByStaffId: uuid('ordered_by_staff_id').notNull(),
+    recordedByStaffId: uuid('recorded_by_staff_id').notNull(),
+    entrySource: entrySourceEnum('entry_source').notNull().default('direct'),
+    orderedAt: timestamp('ordered_at', { withTimezone: true }).notNull().defaultNow(),
+
+    status: serviceRequestStatusEnum('status').notNull().default('ordered'),
+    /** The lab's own reference for the sample or study. */
+    reference: text('reference'),
+
+    /**
+     * When each step happened, and who did it. A timestamp per step rather
+     * than one `status_changed_at`, because every one of these is set once and
+     * never again — which is what the guard trigger can enforce — and because
+     * a turnaround-time report is then arithmetic rather than archaeology.
+     */
+    collectedAt: timestamp('collected_at', { withTimezone: true }),
+    collectedByStaffId: uuid('collected_by_staff_id'),
+    inProgressAt: timestamp('in_progress_at', { withTimezone: true }),
+    inProgressByStaffId: uuid('in_progress_by_staff_id'),
+    resultedAt: timestamp('resulted_at', { withTimezone: true }),
+    cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+    cancelledByStaffId: uuid('cancelled_by_staff_id'),
+    /** Required when an order is cancelled, and only then. */
+    cancelledReason: text('cancelled_reason'),
+  },
+  (table) => [
+    unique('service_request_identity').on(table.id, table.patientId, table.hospitalId),
+    foreignKey({
+      name: 'service_request_encounter_same_record_fk',
+      columns: [table.encounterId, table.patientId, table.hospitalId],
+      foreignColumns: [encounters.id, encounters.patientId, encounters.hospitalId],
+    }),
+    foreignKey({
+      name: 'service_request_ordered_by_same_hospital_fk',
+      columns: [table.orderedByStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    foreignKey({
+      name: 'service_request_recorded_by_same_hospital_fk',
+      columns: [table.recordedByStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    index('service_request_patient_idx').on(table.patientId, table.orderedAt),
+    index('service_request_worklist_idx').on(table.hospitalId, table.status, table.orderedAt),
+  ],
+);
+
+export type ServiceRequest = typeof serviceRequests.$inferSelect;
 
 // ---------------------------------------------------------------------------
 // Notes and procedures

@@ -91,6 +91,8 @@ export const documentReferences = pgTable(
     encounterId: uuid('encounter_id'),
     /** The legacy folder it was classified from. */
     importBatchId: uuid('import_batch_id'),
+    /** The order this report answers, when it was ordered here (SP6, DF2). */
+    serviceRequestId: uuid('service_request_id'),
 
     docType: documentTypeEnum('doc_type').notNull(),
     title: text('title'),

@@ -52,6 +52,8 @@ export const createDocumentSchema = z
   .object({
     patientId: uuidSchema,
     encounterId: uuidSchema.optional(),
+    /** The order this report answers, when it was ordered here (SP6, DF2). */
+    serviceRequestId: uuidSchema.optional(),
     ...documentDetails,
     /** In order. Only type and size: a file's name is never stored, as it often carries a patient's. */
     files: z

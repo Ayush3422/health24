@@ -88,6 +88,12 @@ export const PERMISSIONS = [
    */
   'portal:link_guardian',
 
+  // Orders (SP6)
+  /** Order a test, an image or a procedure, and cancel one (Decision O1). */
+  'orders:place',
+  /** Move an order along as the work is done: sample collected, study in progress. */
+  'orders:fulfil',
+
   // The patient's rights under the DPDP Act (SP5)
   /** Review erasure requests and record what was erased and what law requires kept (Decision N1). */
   'privacy:review',
@@ -162,6 +168,8 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     // A single-doctor clinic has no records staff to import its old files.
     'documents:import',
     'portal:activate',
+    'orders:place',
+    'orders:fulfil',
   ],
 
   front_desk: [
@@ -183,6 +191,8 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     // The desk sees the patient in person, which is what activation rests on.
     'portal:activate',
     'portal:link_guardian',
+    // Takes the sample and marks the study under way; never decides what to order.
+    'orders:fulfil',
   ],
 
   /**
@@ -211,6 +221,9 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'documents:import',
     'portal:activate',
     'portal:link_guardian',
+    // Transcribes an order from the doctor's file, in that doctor's name.
+    'orders:place',
+    'orders:fulfil',
   ],
 
   /**
