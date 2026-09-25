@@ -479,6 +479,28 @@ export type ChargeSource = (typeof CHARGE_SOURCES)[number];
 export const CHARGE_STATUSES = ['captured', 'voided', 'invoiced'] as const;
 export type ChargeStatus = (typeof CHARGE_STATUSES)[number];
 
+// ---------------------------------------------------------------------------
+// Invoices and the money ledger (SP6, Decision R1, DF4)
+// ---------------------------------------------------------------------------
+
+/**
+ * An entry in the money ledger.
+ *
+ * `payment` is money in, `refund` is money back to the patient, and a
+ * `credit_note` is the hospital saying it will not be paid for something after
+ * all — the way an invoice is corrected, since an invoice is never edited.
+ */
+export const LEDGER_KINDS = ['payment', 'refund', 'credit_note'] as const;
+export type LedgerKind = (typeof LEDGER_KINDS)[number];
+
+/** How money changed hands. `scheme` is a government or insurer payment. */
+export const PAYMENT_METHODS = ['cash', 'upi', 'card', 'bank_transfer', 'scheme'] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+/** Who is being claimed from. Captured only; nothing here adjudicates a claim. */
+export const INSURANCE_SCHEMES = ['pmjay', 'state_scheme', 'private', 'employer'] as const;
+export type InsuranceScheme = (typeof INSURANCE_SCHEMES)[number];
+
 /** Whom a portal account acts for: the patient themself, or a child as guardian (SP5, Decision M1). */
 export const PORTAL_RELATIONSHIPS = ['self', 'guardian'] as const;
 export type PortalRelationship = (typeof PORTAL_RELATIONSHIPS)[number];

@@ -268,9 +268,33 @@ partial unique index enforces too.
 
 ### Phase 7 — Invoices and money
 
-- [ ] **T16** Itemised invoices with gapless numbering per financial year (DF4)
-- [ ] **T17** Payments, part-payments, refunds and credit notes as ledger entries
-- [ ] **T18** Outstanding dues, insurance and scheme capture, and the receipt in the portal (DF5, DF8)
+- [x] **T16** Itemised invoices with gapless numbering per financial year (DF4)
+- [x] **T17** Payments, part-payments, refunds and credit notes as ledger entries
+- [x] **T18** Outstanding dues, insurance and scheme capture, and the receipt in the portal (DF5, DF8)
+
+**The number has no gaps, and that cost a sequence.** A Postgres sequence does
+not roll back, so a failed transaction would leave a hole — and a hole in an
+invoice series is the first thing a tax officer asks about. Instead a row per
+hospital and financial year is locked and incremented inside the same
+transaction that writes the invoice, so the number and the invoice happen
+together or not at all.
+
+**There is no paid flag anywhere.** What is outstanding is arithmetic over the
+ledger, worked out when somebody asks — so a status can never drift from what
+was actually paid. The plan's sketch had a `status` column on the invoice;
+this does without one, and says `unpaid`, `part paid`, `settled` or `overpaid`
+from the ledger itself. For the same reason an invoice is never cancelled: a
+mistake is a credit note, which is what an accountant expects anyway.
+
+**The total is the database's arithmetic**, checked at commit against the sum
+of the lines, and the ledger is append-only: no updates, no deletes, a refund
+for money taken wrongly and a credit note for an amount written off.
+
+**The PDF goes to the patient** as a document of type bill_or_receipt, which
+is what the portal already shows them (DF8) — rendered by the server, marked
+clean without a scan, as the discharge summary is. It prints `Rs` rather than
+`₹`: the standard PDF fonts cannot encode the rupee sign, and shipping a font
+to draw one character is not worth it.
 
 ### Phase 8 — Reporting
 

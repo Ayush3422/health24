@@ -9,6 +9,7 @@ import { CataloguePage } from './routes/CataloguePage';
 import { CodingReviewPage } from './routes/CodingReviewPage';
 import { CurationPage } from './routes/CurationPage';
 import { DeviceSearchPage } from './routes/DeviceSearchPage';
+import { DuesPage } from './routes/DuesPage';
 import { EncounterPage } from './routes/EncounterPage';
 import { CorrectionRequestsPage } from './routes/CorrectionRequestsPage';
 import { ErasureRequestsPage } from './routes/ErasureRequestsPage';
@@ -73,6 +74,7 @@ export function App(): JSX.Element {
         <Route path="/wards" element={<WardsPage />} />
         <Route path="/devices" element={<DeviceSearchPage />} />
         <Route path="/catalogue" element={<CataloguePage />} />
+        <Route path="/bills" element={<DuesPage />} />
         <Route path="/merge-queue" element={<MergeQueuePage />} />
         <Route path="/correction-requests" element={<CorrectionRequestsPage />} />
         <Route path="/erasure-requests" element={<ErasureRequestsPage />} />

@@ -2,6 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { z } from 'zod';
 import type {
   Catalogue,
+  Invoice,
+  InvoiceList,
+  issueInvoiceSchema,
+  recordInsuranceSchema,
+  recordPaymentSchema,
   CatalogueCategory,
   CatalogueItem,
   catalogueItemInputSchema,
@@ -88,5 +93,46 @@ export function useCaptureCharge() {
 export function useVoidCharge() {
   return useBillingWrite<{ id: string; body: z.input<typeof voidChargeSchema> }, Charge>(
     ({ id, body }) => api<Charge>(`/charges/${id}/void`, { method: 'POST', body }),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Invoices (SP6 Phase 7)
+// ---------------------------------------------------------------------------
+
+export function useInvoices(scope: 'outstanding' | 'all' = 'outstanding', patientId?: string) {
+  return useQuery({
+    queryKey: [...BILLING, 'invoices', scope, patientId ?? null],
+    queryFn: () => {
+      const query = new URLSearchParams({ scope });
+      if (patientId) query.set('patientId', patientId);
+      return api<InvoiceList>(`/invoices?${query.toString()}`);
+    },
+  });
+}
+
+export function useInvoice(invoiceId: string | null) {
+  return useQuery({
+    queryKey: [...BILLING, 'invoice', invoiceId],
+    queryFn: () => api<Invoice>(`/invoices/${invoiceId!}`),
+    enabled: invoiceId !== null,
+  });
+}
+
+export function useIssueInvoice() {
+  return useBillingWrite<z.input<typeof issueInvoiceSchema>, Invoice>((body) =>
+    api<Invoice>('/invoices', { method: 'POST', body }),
+  );
+}
+
+export function useRecordEntry() {
+  return useBillingWrite<{ id: string; body: z.input<typeof recordPaymentSchema> }, Invoice>(
+    ({ id, body }) => api<Invoice>(`/invoices/${id}/entries`, { method: 'POST', body }),
+  );
+}
+
+export function useRecordInsurance() {
+  return useBillingWrite<{ id: string; body: z.input<typeof recordInsuranceSchema> }, Invoice>(
+    ({ id, body }) => api<Invoice>(`/invoices/${id}/insurance`, { method: 'POST', body }),
   );
 }

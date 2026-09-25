@@ -2089,3 +2089,38 @@ button.chip[aria-pressed='true'] {
 .entry--muted strong {
   text-decoration: line-through;
 }
+
+/* An invoice, read as a bill is read: the items, then the money against them. */
+.invoice {
+  margin-top: 0.6rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.invoice h4 {
+  margin: 0.8rem 0 0.3rem;
+  font-size: 0.85rem;
+}
+
+.status--unpaid {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.status--part_paid {
+  background: var(--warning-soft);
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+.status--settled {
+  background: var(--ground);
+  color: var(--ink-muted);
+}
+
+.status--overpaid {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}

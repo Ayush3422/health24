@@ -106,6 +106,11 @@ export const PERMISSIONS = [
   /** Put a charge on a patient's encounter, and void one before it is billed. */
   'charges:capture',
 
+  /** Issue an invoice, take money against it, and write a credit note (DF4). */
+  'invoices:issue',
+  /** Read what the hospital is owed, across its patients. */
+  'invoices:read',
+
   // The patient's rights under the DPDP Act (SP5)
   /** Review erasure requests and record what was erased and what law requires kept (Decision N1). */
   'privacy:review',
@@ -159,6 +164,8 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     // What the hospital charges for, and what it costs, is the administrator's.
     'catalogue:manage',
     'charges:capture',
+    'invoices:issue',
+    'invoices:read',
   ],
 
   /**
@@ -213,8 +220,10 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'orders:fulfil',
     // The desk admits, moves and discharges: it is who holds the bed board.
     'admission:manage',
-    // And it is where a bill is put together, item by item.
+    // And it is where a bill is put together, item by item, and paid.
     'charges:capture',
+    'invoices:issue',
+    'invoices:read',
   ],
 
   /**

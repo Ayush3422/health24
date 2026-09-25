@@ -381,6 +381,33 @@ const ROUTES: RouteExpectation[] = [
     allow: ['admin', 'frontDesk', 'otherHospitalAdmin'],
   },
 
+  // Invoices and the money ledger (SP6 Phase 7). Issuing and taking money is
+  // the desk's; reading what the hospital is owed is the desk's and the
+  // administrator's. Nothing here is a clinician's business.
+  {
+    method: 'post',
+    path: '/api/v1/invoices',
+    allow: ['admin', 'frontDesk', 'otherHospitalAdmin'],
+  },
+  {
+    method: 'post',
+    path: '/api/v1/invoices/:id/entries',
+    allow: ['admin', 'frontDesk', 'otherHospitalAdmin'],
+    body: { kind: 'payment', method: 'cash', amountPaise: 100 },
+  },
+  {
+    method: 'post',
+    path: '/api/v1/invoices/:id/insurance',
+    allow: ['admin', 'frontDesk', 'otherHospitalAdmin'],
+    body: { scheme: 'pmjay' },
+  },
+  { method: 'get', path: '/api/v1/invoices', allow: ['admin', 'frontDesk', 'otherHospitalAdmin'] },
+  {
+    method: 'get',
+    path: '/api/v1/invoices/:id',
+    allow: ['admin', 'frontDesk', 'otherHospitalAdmin'],
+  },
+
   { method: 'post', path: '/api/v1/diagnoses/:id/correct', allow: ['clinician', 'records'] },
   {
     method: 'post',

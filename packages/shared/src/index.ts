@@ -16,5 +16,6 @@ export * from './schemas/wards.js';
 export * from './schemas/implants.js';
 export * from './schemas/discharge.js';
 export * from './schemas/billing.js';
+export * from './schemas/invoices.js';
 export * from './terminology/fold.js';
 export * from './permissions.js';

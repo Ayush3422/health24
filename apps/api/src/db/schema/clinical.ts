@@ -48,6 +48,9 @@ import {
   chargeSourceEnum,
   chargeStatusEnum,
   dischargeStatusEnum,
+  insuranceSchemeEnum,
+  ledgerKindEnum,
+  paymentMethodEnum,
   resultInterpretationEnum,
   serviceRequestCategoryEnum,
   serviceRequestPriorityEnum,
@@ -950,6 +953,188 @@ export const charges = pgTable(
 );
 
 export type ChargeRow = typeof charges.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// Invoices and the money ledger (SP6, Decision R1, DF4)
+// ---------------------------------------------------------------------------
+
+/**
+ * The next invoice number, per hospital and financial year.
+ *
+ * A Postgres sequence would be wrong here: it does not roll back, so a failed
+ * transaction would leave a hole in the numbering, and a gap in an invoice
+ * series is exactly what a tax officer asks about. This is a row that is
+ * locked and incremented inside the same transaction that writes the invoice,
+ * so either both happen or neither does.
+ */
+export const invoiceNumberSeries = pgTable(
+  'invoice_number_series',
+  {
+    hospitalId: uuid('hospital_id')
+      .notNull()
+      .references(() => hospitals.id, { onDelete: 'restrict' }),
+    /** As India counts it: 2026-27 runs from 1 April to 31 March. */
+    financialYear: text('financial_year').notNull(),
+    nextNumber: integer('next_number').notNull().default(1),
+  },
+  (table) => [primaryKey({ columns: [table.hospitalId, table.financialYear] })],
+);
+
+/**
+ * An invoice, which is never edited.
+ *
+ * There is no paid flag and no status column. What is outstanding is
+ * arithmetic over the ledger below, computed when somebody asks — so a stored
+ * status can never drift from what was actually paid.
+ */
+export const invoices = pgTable(
+  'invoice',
+  {
+    id: primaryId(),
+    ...ownership(),
+    encounterId: uuid('encounter_id').notNull(),
+
+    number: text('number').notNull(),
+    financialYear: text('financial_year').notNull(),
+    totalPaise: bigint('total_paise', { mode: 'number' }).notNull(),
+    note: text('note'),
+
+    issuedAt: timestamp('issued_at', { withTimezone: true }).notNull().defaultNow(),
+    issuedByStaffId: uuid('issued_by_staff_id').notNull(),
+    /** The PDF of it in the patient's own reports (DF8). */
+    documentReferenceId: uuid('document_reference_id'),
+  },
+  (table) => [
+    unique('invoice_identity').on(table.id, table.patientId, table.hospitalId),
+    // What the lines, the ledger and the insurance rows point at.
+    unique('invoice_hospital_identity').on(table.id, table.hospitalId),
+    unique('invoice_number_once').on(table.hospitalId, table.number),
+    foreignKey({
+      name: 'invoice_encounter_same_record_fk',
+      columns: [table.encounterId, table.patientId, table.hospitalId],
+      foreignColumns: [encounters.id, encounters.patientId, encounters.hospitalId],
+    }),
+    foreignKey({
+      name: 'invoice_issued_by_same_hospital_fk',
+      columns: [table.issuedByStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    index('invoice_patient_idx').on(table.patientId, table.issuedAt),
+    index('invoice_hospital_idx').on(table.hospitalId, table.issuedAt),
+  ],
+);
+
+export type InvoiceRow = typeof invoices.$inferSelect;
+
+/** One line of an invoice: a charge as it stood when the invoice was issued. */
+export const invoiceLines = pgTable(
+  'invoice_line',
+  {
+    id: primaryId(),
+    hospitalId: uuid('hospital_id')
+      .notNull()
+      .references(() => hospitals.id, { onDelete: 'restrict' }),
+    invoiceId: uuid('invoice_id').notNull(),
+    chargeId: uuid('charge_id').notNull(),
+
+    code: text('code').notNull(),
+    description: text('description').notNull(),
+    quantity: integer('quantity').notNull(),
+    unitPricePaise: bigint('unit_price_paise', { mode: 'number' }).notNull(),
+    amountPaise: bigint('amount_paise', { mode: 'number' }).notNull(),
+  },
+  (table) => [
+    unique('invoice_line_charge_once').on(table.chargeId),
+    foreignKey({
+      name: 'invoice_line_invoice_same_hospital_fk',
+      columns: [table.invoiceId, table.hospitalId],
+      foreignColumns: [invoices.id, invoices.hospitalId],
+    }),
+    index('invoice_line_invoice_idx').on(table.invoiceId),
+  ],
+);
+
+export type InvoiceLineRow = typeof invoiceLines.$inferSelect;
+
+/**
+ * The money ledger: added to, never changed.
+ *
+ * A mistake is another entry — a refund for money taken wrongly, a credit note
+ * for an invoice that should not have been raised. Nothing here is ever
+ * updated or deleted, which is what makes the trail worth having (DF4).
+ */
+export const ledgerEntries = pgTable(
+  'payment_entry',
+  {
+    id: primaryId(),
+    hospitalId: uuid('hospital_id')
+      .notNull()
+      .references(() => hospitals.id, { onDelete: 'restrict' }),
+    invoiceId: uuid('invoice_id').notNull(),
+
+    kind: ledgerKindEnum('kind').notNull(),
+    /** How the money moved. Empty on a credit note, which moves none. */
+    method: paymentMethodEnum('method'),
+    amountPaise: bigint('amount_paise', { mode: 'number' }).notNull(),
+    reference: text('reference'),
+    note: text('note'),
+
+    takenByStaffId: uuid('taken_by_staff_id').notNull(),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      name: 'payment_entry_invoice_same_hospital_fk',
+      columns: [table.invoiceId, table.hospitalId],
+      foreignColumns: [invoices.id, invoices.hospitalId],
+    }),
+    foreignKey({
+      name: 'payment_entry_taken_by_same_hospital_fk',
+      columns: [table.takenByStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    index('payment_entry_invoice_idx').on(table.invoiceId, table.at),
+  ],
+);
+
+export type LedgerEntryRow = typeof ledgerEntries.$inferSelect;
+
+/**
+ * What is being claimed from a scheme or an insurer, and what they approved.
+ *
+ * Captured, never adjudicated: this system does not decide what PM-JAY pays.
+ * Added to rather than edited, because an approval often arrives days after
+ * the claim, and both are worth keeping. Money actually received arrives as a
+ * ledger entry with the `scheme` method.
+ */
+export const invoiceInsurance = pgTable(
+  'invoice_insurance',
+  {
+    id: primaryId(),
+    hospitalId: uuid('hospital_id')
+      .notNull()
+      .references(() => hospitals.id, { onDelete: 'restrict' }),
+    invoiceId: uuid('invoice_id').notNull(),
+
+    scheme: insuranceSchemeEnum('scheme').notNull(),
+    insurer: text('insurer'),
+    policyOrCard: text('policy_or_card'),
+    approvedPaise: bigint('approved_paise', { mode: 'number' }),
+
+    recordedByStaffId: uuid('recorded_by_staff_id').notNull(),
+    recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      name: 'invoice_insurance_invoice_same_hospital_fk',
+      columns: [table.invoiceId, table.hospitalId],
+      foreignColumns: [invoices.id, invoices.hospitalId],
+    }),
+    index('invoice_insurance_invoice_idx').on(table.invoiceId, table.recordedAt),
+  ],
+);
+
+export type InvoiceInsuranceRow = typeof invoiceInsurance.$inferSelect;
 
 // ---------------------------------------------------------------------------
 // Notes and procedures

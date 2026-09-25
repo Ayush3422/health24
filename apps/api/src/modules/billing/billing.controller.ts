@@ -1,6 +1,10 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import {
   captureChargeSchema,
+  invoicesQuerySchema,
+  issueInvoiceSchema,
+  recordInsuranceSchema,
+  recordPaymentSchema,
   catalogueItemInputSchema,
   catalogueQuerySchema,
   repriceItemSchema,
@@ -13,6 +17,12 @@ import {
   type CatalogueQuery,
   type Charge,
   type EncounterCharges,
+  type Invoice,
+  type InvoiceList,
+  type InvoicesQuery,
+  type IssueInvoiceInput,
+  type RecordInsuranceInput,
+  type RecordPaymentInput,
   type RepriceItemInput,
   type RetireItemInput,
   type VoidChargeInput,
@@ -22,6 +32,7 @@ import { zodBody } from '../../common/zod-validation.pipe';
 import type { Actor, RequestMeta } from '../../common/actor';
 import { CatalogueService } from './catalogue.service';
 import { ChargesService } from './charges.service';
+import { InvoicesService } from './invoices.service';
 
 /**
  * The catalogue (sp6-plan.md, Phase 6). What the hospital charges for, and
@@ -110,5 +121,70 @@ export class ChargesController {
     @CurrentMeta() meta: RequestMeta,
   ): Promise<EncounterCharges> {
     return this.charges.forEncounter(actor, id, meta);
+  }
+}
+
+/**
+ * Invoices and the money against them (sp6-plan.md, Phase 7).
+ *
+ * Issuing and taking money is the desk's work; the administrator may do both
+ * and read what the hospital is owed. Nothing here edits anything: an invoice
+ * is issued once, and the ledger is only ever added to.
+ */
+@Controller()
+export class InvoicesController {
+  constructor(private readonly invoices: InvoicesService) {}
+
+  @Post('invoices')
+  @RequirePermission('invoices:issue')
+  async issue(
+    @CurrentActor() actor: Actor,
+    @Body(zodBody(issueInvoiceSchema)) body: IssueInvoiceInput,
+    @CurrentMeta() meta: RequestMeta,
+  ): Promise<Invoice> {
+    return this.invoices.issue(actor, body, meta);
+  }
+
+  @Post('invoices/:id/entries')
+  @RequirePermission('invoices:issue')
+  async record(
+    @CurrentActor() actor: Actor,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(recordPaymentSchema)) body: RecordPaymentInput,
+    @CurrentMeta() meta: RequestMeta,
+  ): Promise<Invoice> {
+    return this.invoices.record(actor, id, body, meta);
+  }
+
+  @Post('invoices/:id/insurance')
+  @RequirePermission('invoices:issue')
+  async insurance(
+    @CurrentActor() actor: Actor,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(recordInsuranceSchema)) body: RecordInsuranceInput,
+    @CurrentMeta() meta: RequestMeta,
+  ): Promise<Invoice> {
+    return this.invoices.recordInsurance(actor, id, body, meta);
+  }
+
+  /** What the hospital is still owed, oldest first. */
+  @Get('invoices')
+  @RequirePermission('invoices:read')
+  async list(
+    @CurrentActor() actor: Actor,
+    @Query(zodBody(invoicesQuerySchema)) query: InvoicesQuery,
+    @CurrentMeta() meta: RequestMeta,
+  ): Promise<InvoiceList> {
+    return this.invoices.list(actor, query, meta);
+  }
+
+  @Get('invoices/:id')
+  @RequirePermission('invoices:read')
+  async one(
+    @CurrentActor() actor: Actor,
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentMeta() meta: RequestMeta,
+  ): Promise<Invoice> {
+    return this.invoices.findById(actor, id, meta);
   }
 }

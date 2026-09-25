@@ -421,6 +421,27 @@
       "when": 1790320023934,
       "tag": "0059_sp6_charge_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1790323358582,
+      "tag": "0060_sp6_invoices",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1790323371247,
+      "tag": "0061_sp6_invoice_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1790323627408,
+      "tag": "0062_sp6_invoice_total_check_fix",
+      "breakpoints": true
     }
   ]
 }

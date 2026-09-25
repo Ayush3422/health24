@@ -39,6 +39,9 @@ import {
   CATALOGUE_CATEGORIES,
   CHARGE_SOURCES,
   CHARGE_STATUSES,
+  INSURANCE_SCHEMES,
+  LEDGER_KINDS,
+  PAYMENT_METHODS,
   DISCHARGE_STATUSES,
   WARD_KINDS,
   WARD_STATUSES,
@@ -204,3 +207,9 @@ export const dischargeStatusEnum = pgEnum('discharge_status', tuple(DISCHARGE_ST
 export const catalogueCategoryEnum = pgEnum('catalogue_category', tuple(CATALOGUE_CATEGORIES));
 export const chargeSourceEnum = pgEnum('charge_source', tuple(CHARGE_SOURCES));
 export const chargeStatusEnum = pgEnum('charge_status', tuple(CHARGE_STATUSES));
+
+// Invoices and the money ledger (SP6)
+
+export const ledgerKindEnum = pgEnum('ledger_kind', tuple(LEDGER_KINDS));
+export const paymentMethodEnum = pgEnum('payment_method', tuple(PAYMENT_METHODS));
+export const insuranceSchemeEnum = pgEnum('insurance_scheme', tuple(INSURANCE_SCHEMES));
