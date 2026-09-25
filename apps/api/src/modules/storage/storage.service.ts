@@ -117,6 +117,16 @@ export class StorageService implements OnModuleDestroy {
   async presignDownload(input: {
     key: string;
     disposition: 'inline' | 'attachment';
+    /**
+     * The type the record says this file is, pinned onto the response.
+     *
+     * Storage answers a download itself, so this API's headers — including
+     * `X-Content-Type-Options` — are not on that response. Pinning the type to
+     * what was recorded at upload means a browser cannot be talked into
+     * treating a file as something other than the PDF or image it was accepted
+     * as (sp7-plan.md, T12).
+     */
+    contentType?: string;
     expiresInSeconds?: number;
   }): Promise<PresignedDownload> {
     assertStorageKey(input.key);
@@ -128,6 +138,7 @@ export class StorageService implements OnModuleDestroy {
         Bucket: this.bucket,
         Key: input.key,
         ResponseContentDisposition: input.disposition,
+        ...(input.contentType ? { ResponseContentType: input.contentType } : {}),
         // Not kept by the browser or anything between it and storage.
         ResponseCacheControl: 'private, no-store',
       }),

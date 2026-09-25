@@ -405,7 +405,11 @@ export class DocumentsService {
 
     this.requireAvailable(row);
 
-    const signed = await this.storage.presignDownload({ key: file.storageKey, disposition });
+    const signed = await this.storage.presignDownload({
+      key: file.storageKey,
+      disposition,
+      contentType: file.mimeType,
+    });
 
     await this.audit.recordForActor(actor, {
       resourceType: 'document_file',
@@ -506,7 +510,11 @@ export class DocumentsService {
 
     this.requireAvailable(row);
 
-    const signed = await this.storage.presignDownload({ key: file.storageKey, disposition });
+    const signed = await this.storage.presignDownload({
+      key: file.storageKey,
+      disposition,
+      contentType: file.mimeType,
+    });
 
     await this.audit.recordForPatient(patient, {
       resourceType: 'document_file',

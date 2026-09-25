@@ -20,3 +20,4 @@ export * from './schemas/invoices.js';
 export * from './schemas/reports.js';
 export * from './terminology/fold.js';
 export * from './permissions.js';
+export * from './security-headers.js';

@@ -48,12 +48,15 @@ export async function createTestApp(): Promise<TestContext> {
   // Imported after the environment is repointed, so the database provider
   // factory reads the test URL.
   const { AppModule } = await import('../src/app.module');
-  const { PROBE_ROUTES } = await import('../src/health/health.module');
+  const { configureApp } = await import('../src/app-setup');
 
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
 
-  const app = moduleRef.createNestApplication<NestExpressApplication>();
-  app.setGlobalPrefix('api/v1', { exclude: PROBE_ROUTES });
+  // Body parsing is done by `configureApp`, with the limits production uses:
+  // a test application that parses differently proves nothing about the one
+  // that is deployed (sp7-plan.md, T12).
+  const app = moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false });
+  configureApp(app);
   await app.init();
 
   return {

@@ -178,10 +178,43 @@ where the worker gets a port to scrape.
 
 ### Phase 3 — Hardening the edge
 
-- [ ] **T10** Security headers on both apps and the API: HSTS, a content security policy written for each app, frame options, content-type options, referrer policy
-- [ ] **T11** Rate limits — a global one, a stricter one on authentication and on the patient's one-time codes, per IP and per account — with the limits tested
-- [ ] **T12** Request and upload size limits, and a review of the upload and scanning path against a hostile file
-- [ ] **T13** A CORS and cookie posture review, written down, including what changes when refresh tokens move to cookies
+- [x] **T10** Security headers on both apps and the API: HSTS, a content security policy written for each app, frame options, content-type options, referrer policy
+- [x] **T11** Rate limits — a global one, a stricter one on authentication and on the patient's one-time codes, per IP and per account — with the limits tested
+- [x] **T12** Request and upload size limits, and a review of the upload and scanning path against a hostile file
+- [x] **T13** A CORS and cookie posture review, written down, including what changes when refresh tokens move to cookies
+
+**The application was configured in two places, and only one was tested.** The
+headers, the body limits and the CORS rules lived in `main.ts`, which no test
+suite runs — every suite built its own application without them. They now live
+in `configureApp`, called by `main.ts` and by the test harness, so what the
+suites drive is what is deployed. That was the finding of the phase: not a
+missing header, but a missing guarantee that any of them were there.
+
+**One definition of the policy, used three times.** The API's own headers,
+both apps' dev servers and the static server in front of the built apps all
+read `packages/shared/src/security-headers.ts`. Development relaxes exactly two
+directives — the ones Vite needs — and nothing else, so a framing or referrer
+mistake shows up on a laptop rather than in production.
+
+**A content security policy that breaks a screen breaks it silently**, which
+is why the clinical browser suite now asserts the headers arrive and then
+drives a screen under them, watching for a refusal in the console.
+
+**The limits that were already right were left alone.** Sign-in allows sixty
+attempts a minute per address, and the plan's "stricter on authentication"
+would have been wrong: a hospital is behind one NAT and a shift changes
+together, so a tight per-address limit locks out a ward rather than an
+attacker. What protects an account is the exponential lockout, which already
+exists. The tests now assert the limits that are actually there, and that they
+are counted per route.
+
+**One thing the upload review changed.** Object storage answers downloads
+itself, so this API's `nosniff` is not on that response — a presigned URL now
+pins `ResponseContentType` to the type the record holds, so a stored file
+cannot be served as anything else. What the review does not claim is also
+written down: a signature scanner does not stop a targeted document exploit,
+and the answer to that is that nothing renders these files on the app's own
+origin.
 
 ### Phase 4 — Containers and infrastructure
 

@@ -1,5 +1,6 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig, type ProxyOptions } from 'vite';
+import { securityHeaders } from '@health24/shared';
 
 // When the API is down, answer 502 as a reverse proxy in front of it would, so
 // the app sees an outage exactly as it will in a deployment.
@@ -16,6 +17,17 @@ const toApi: ProxyOptions = {
   },
 };
 
+
+/*
+ * The headers a browser is told to enforce (sp7-plan.md, T10).
+ *
+ * Set here as well as by the static server in front of the built app, so that
+ * a policy which would break a screen breaks it on a laptop and in the browser
+ * tests, rather than in production where somebody would be tempted to switch
+ * it off.
+ */
+const headers = securityHeaders('clinical', { development: true });
+
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -27,5 +39,7 @@ export default defineConfig({
       // Probed while offline to learn when the API is back.
       '/health': toApi,
     },
+    headers,
   },
+  preview: { headers: securityHeaders('clinical') },
 });
