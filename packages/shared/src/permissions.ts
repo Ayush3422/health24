@@ -100,6 +100,12 @@ export const PERMISSIONS = [
   /** Admit a patient to a bed, move them, and discharge them. */
   'admission:manage',
 
+  // Charges and billing (SP6, Decision R1)
+  /** Set up what the hospital charges for, and what it costs. */
+  'catalogue:manage',
+  /** Put a charge on a patient's encounter, and void one before it is billed. */
+  'charges:capture',
+
   // The patient's rights under the DPDP Act (SP5)
   /** Review erasure requests and record what was erased and what law requires kept (Decision N1). */
   'privacy:review',
@@ -150,6 +156,9 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'consent:review',
     // Wards and beds are the hospital's own furniture, not a clinical record.
     'wards:manage',
+    // What the hospital charges for, and what it costs, is the administrator's.
+    'catalogue:manage',
+    'charges:capture',
   ],
 
   /**
@@ -204,6 +213,8 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'orders:fulfil',
     // The desk admits, moves and discharges: it is who holds the bed board.
     'admission:manage',
+    // And it is where a bill is put together, item by item.
+    'charges:capture',
   ],
 
   /**

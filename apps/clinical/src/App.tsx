@@ -5,6 +5,7 @@ import { LoginPage } from './auth/LoginPage';
 import { OfflineSignInNotice } from './offline/OfflineNotice';
 import { AppShell } from './routes/AppShell';
 import { BreakGlassReviewPage } from './routes/BreakGlassReviewPage';
+import { CataloguePage } from './routes/CataloguePage';
 import { CodingReviewPage } from './routes/CodingReviewPage';
 import { CurationPage } from './routes/CurationPage';
 import { DeviceSearchPage } from './routes/DeviceSearchPage';
@@ -71,6 +72,7 @@ export function App(): JSX.Element {
         <Route path="/orders" element={<OrderWorklistPage />} />
         <Route path="/wards" element={<WardsPage />} />
         <Route path="/devices" element={<DeviceSearchPage />} />
+        <Route path="/catalogue" element={<CataloguePage />} />
         <Route path="/merge-queue" element={<MergeQueuePage />} />
         <Route path="/correction-requests" element={<CorrectionRequestsPage />} />
         <Route path="/erasure-requests" element={<ErasureRequestsPage />} />

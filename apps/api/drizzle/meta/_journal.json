@@ -407,6 +407,20 @@
       "when": 1790239550697,
       "tag": "0057_sp6_discharge_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1790320020767,
+      "tag": "0058_sp6_catalogue_and_charges",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1790320023934,
+      "tag": "0059_sp6_charge_rules",
+      "breakpoints": true
     }
   ]
 }

@@ -18,6 +18,7 @@ import { useEncounterImplants } from '../api/implants';
 import { useEncounterOrders } from '../api/orders';
 import { useAuth } from '../auth/AuthProvider';
 import { AdmissionPanel } from '../clinical/Admission';
+import { ChargesPanel } from '../clinical/Charges';
 import { DischargeSummaryPanel } from '../clinical/DischargeSummary';
 import { AllergyBanner } from '../clinical/AllergyBanner';
 import { DiagnosisEntry, DiagnosisList } from '../clinical/Diagnoses';
@@ -179,6 +180,8 @@ export function EncounterPage(): JSX.Element {
       <AllergyBanner patientId={record.patientId} />
 
       <AdmissionPanel encounterId={record.id} encounterClass={record.class} own={own} />
+
+      <ChargesPanel encounterId={record.id} own={own} />
 
       <DischargeSummaryPanel encounterId={record.id} encounterClass={record.class} own={own} />
 

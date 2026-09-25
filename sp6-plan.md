@@ -247,8 +247,24 @@ files people upload.
 
 ### Phase 6 — Charges
 
-- [ ] **T14** The service catalogue and its prices, with effective dates (R1)
-- [ ] **T15** Charge capture from orders, procedures, bed-days and by hand
+- [x] **T14** The service catalogue and its prices, with effective dates (R1)
+- [x] **T15** Charge capture from orders, procedures, bed-days and by hand
+
+**A price is never overwritten.** Repricing closes the row in force on the day
+before the new price starts and opens another for the same code, so an invoice
+raised last month still reads against the price that stood then. One price in
+force per code at a time, which a partial unique index enforces.
+
+**Nothing is charged automatically.** The record knows a test was ordered, an
+operation performed, a bed occupied for three days; only the hospital knows
+what those cost here. So the encounter shows what is chargeable and not yet
+charged, and the desk chooses the catalogue item — at which point the price is
+copied onto the charge, never looked up again.
+
+**The arithmetic is the database's.** `amount = quantity × unit price` is a
+check constraint, not a line of application code; a charge is voided rather
+than edited; and one order, procedure or stay can be charged once, which a
+partial unique index enforces too.
 
 ### Phase 7 — Invoices and money
 

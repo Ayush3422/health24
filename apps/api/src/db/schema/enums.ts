@@ -36,6 +36,9 @@ import {
   SERVICE_REQUEST_PRIORITIES,
   SERVICE_REQUEST_STATUSES,
   BED_STATUSES,
+  CATALOGUE_CATEGORIES,
+  CHARGE_SOURCES,
+  CHARGE_STATUSES,
   DISCHARGE_STATUSES,
   WARD_KINDS,
   WARD_STATUSES,
@@ -195,3 +198,9 @@ export const wardStatusEnum = pgEnum('ward_status', tuple(WARD_STATUSES));
 export const bedStatusEnum = pgEnum('bed_status', tuple(BED_STATUSES));
 
 export const dischargeStatusEnum = pgEnum('discharge_status', tuple(DISCHARGE_STATUSES));
+
+// Charges (SP6)
+
+export const catalogueCategoryEnum = pgEnum('catalogue_category', tuple(CATALOGUE_CATEGORIES));
+export const chargeSourceEnum = pgEnum('charge_source', tuple(CHARGE_SOURCES));
+export const chargeStatusEnum = pgEnum('charge_status', tuple(CHARGE_STATUSES));

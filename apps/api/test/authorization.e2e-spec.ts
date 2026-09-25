@@ -342,6 +342,45 @@ const ROUTES: RouteExpectation[] = [
     allow: ['clinician', 'records'],
   },
 
+  // The catalogue and charges (SP6 Phase 6). Prices are the hospital
+  // administrator's; putting a bill together is the desk's. A clinician has no
+  // business in either, and neither has a records clerk.
+  {
+    method: 'post',
+    path: '/api/v1/catalogue',
+    allow: ['admin', 'otherHospitalAdmin'],
+    body: { code: 'PROBE', name: 'Probe item', category: 'other', pricePaise: 100 },
+  },
+  {
+    method: 'post',
+    path: '/api/v1/catalogue/:id/reprice',
+    allow: ['admin', 'otherHospitalAdmin'],
+    body: { pricePaise: 200 },
+  },
+  {
+    method: 'post',
+    path: '/api/v1/catalogue/:id/retire',
+    allow: ['admin', 'otherHospitalAdmin'],
+    body: {},
+  },
+  {
+    method: 'get',
+    path: '/api/v1/catalogue',
+    allow: ['admin', 'frontDesk', 'otherHospitalAdmin'],
+  },
+  { method: 'post', path: '/api/v1/charges', allow: ['admin', 'frontDesk', 'otherHospitalAdmin'] },
+  {
+    method: 'post',
+    path: '/api/v1/charges/:id/void',
+    allow: ['admin', 'frontDesk', 'otherHospitalAdmin'],
+    body: { reason: 'Probe' },
+  },
+  {
+    method: 'get',
+    path: '/api/v1/encounters/:id/charges',
+    allow: ['admin', 'frontDesk', 'otherHospitalAdmin'],
+  },
+
   { method: 'post', path: '/api/v1/diagnoses/:id/correct', allow: ['clinician', 'records'] },
   {
     method: 'post',

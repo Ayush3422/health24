@@ -2080,3 +2080,12 @@ button.chip[aria-pressed='true'] {
 .operative-record .entry__note {
   white-space: pre-wrap;
 }
+
+/* A voided charge stays on the bill, faded: it happened, and it counts for nothing. */
+.entry--muted {
+  opacity: 0.65;
+}
+
+.entry--muted strong {
+  text-decoration: line-through;
+}

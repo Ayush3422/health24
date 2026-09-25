@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   boolean,
   date,
   doublePrecision,
@@ -43,6 +44,9 @@ import {
   observationCategoryEnum,
   observationSourceEnum,
   bedStatusEnum,
+  catalogueCategoryEnum,
+  chargeSourceEnum,
+  chargeStatusEnum,
   dischargeStatusEnum,
   resultInterpretationEnum,
   serviceRequestCategoryEnum,
@@ -830,6 +834,122 @@ export const dischargeSummaries = pgTable(
 );
 
 export type DischargeSummaryRow = typeof dischargeSummaries.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// The service catalogue and its charges (SP6, Decision R1)
+// ---------------------------------------------------------------------------
+
+/**
+ * What a hospital charges for, and what it costs.
+ *
+ * A price is never overwritten. Changing one closes the row in force and opens
+ * a new one for the same code, so an invoice raised last month can still be
+ * read against the price that stood then. `active_to` is exclusive of nothing:
+ * it is the last day the price applies.
+ *
+ * Money is integer paise (DF3). Nothing in this file is a floating-point
+ * number, and nothing ever will be.
+ */
+export const catalogueItems = pgTable(
+  'service_catalogue_item',
+  {
+    id: primaryId(),
+    hospitalId: uuid('hospital_id')
+      .notNull()
+      .references(() => hospitals.id, { onDelete: 'restrict' }),
+
+    /** The hospital's own code, as its price list is written. */
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    category: catalogueCategoryEnum('category').notNull(),
+    /** What one of it is: a visit, a test, a day, a dressing. */
+    unit: text('unit').notNull().default('each'),
+    pricePaise: bigint('price_paise', { mode: 'number' }).notNull(),
+
+    activeFrom: date('active_from').notNull(),
+    /** The last day this price applies. Null while it is the one in force. */
+    activeTo: date('active_to'),
+
+    createdByStaffId: uuid('created_by_staff_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('service_catalogue_item_identity').on(table.id, table.hospitalId),
+    unique('service_catalogue_item_price_period').on(table.hospitalId, table.code, table.activeFrom),
+    foreignKey({
+      name: 'service_catalogue_item_created_by_same_hospital_fk',
+      columns: [table.createdByStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    index('service_catalogue_item_code_idx').on(table.hospitalId, table.code),
+  ],
+);
+
+export type CatalogueItemRow = typeof catalogueItems.$inferSelect;
+
+/**
+ * One line of what a patient owes.
+ *
+ * The unit price is copied at capture, not looked up later: what somebody was
+ * charged is a fact about that day, and a price change next month must not
+ * rewrite it. The amount is checked against quantity × unit price by the
+ * database, so the two can never drift apart.
+ *
+ * A charge may be voided while nobody has been billed for it. Once it is on an
+ * invoice it belongs to the invoice, and the money trail is append-only from
+ * there (DF4).
+ */
+export const charges = pgTable(
+  'charge',
+  {
+    id: primaryId(),
+    ...ownership(),
+    encounterId: uuid('encounter_id').notNull(),
+    itemId: uuid('item_id').notNull(),
+
+    quantity: integer('quantity').notNull().default(1),
+    unitPricePaise: bigint('unit_price_paise', { mode: 'number' }).notNull(),
+    amountPaise: bigint('amount_paise', { mode: 'number' }).notNull(),
+
+    source: chargeSourceEnum('source').notNull().default('manual'),
+    /** The order, procedure or bed stay it is for, when it is for one. */
+    sourceId: uuid('source_id'),
+    note: text('note'),
+
+    status: chargeStatusEnum('status').notNull().default('captured'),
+    capturedByStaffId: uuid('captured_by_staff_id').notNull(),
+    capturedAt: timestamp('captured_at', { withTimezone: true }).notNull().defaultNow(),
+
+    voidedAt: timestamp('voided_at', { withTimezone: true }),
+    voidedByStaffId: uuid('voided_by_staff_id'),
+    voidedReason: text('voided_reason'),
+
+    /** Set when the charge is put on an invoice (Phase 7). */
+    invoiceId: uuid('invoice_id'),
+  },
+  (table) => [
+    unique('charge_identity').on(table.id, table.patientId, table.hospitalId),
+    foreignKey({
+      name: 'charge_encounter_same_record_fk',
+      columns: [table.encounterId, table.patientId, table.hospitalId],
+      foreignColumns: [encounters.id, encounters.patientId, encounters.hospitalId],
+    }),
+    foreignKey({
+      name: 'charge_item_same_hospital_fk',
+      columns: [table.itemId, table.hospitalId],
+      foreignColumns: [catalogueItems.id, catalogueItems.hospitalId],
+    }),
+    foreignKey({
+      name: 'charge_captured_by_same_hospital_fk',
+      columns: [table.capturedByStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    index('charge_encounter_idx').on(table.encounterId, table.capturedAt),
+    index('charge_invoice_idx').on(table.invoiceId),
+  ],
+);
+
+export type ChargeRow = typeof charges.$inferSelect;
 
 // ---------------------------------------------------------------------------
 // Notes and procedures

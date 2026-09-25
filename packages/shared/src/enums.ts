@@ -445,6 +445,40 @@ export type WardStatus = (typeof WARD_STATUSES)[number];
 export const BED_STATUSES = ['available', 'blocked'] as const;
 export type BedStatus = (typeof BED_STATUSES)[number];
 
+// ---------------------------------------------------------------------------
+// Charges (SP6, Decision R1)
+// ---------------------------------------------------------------------------
+
+/** What a hospital sells, grouped the way a price list is written. */
+export const CATALOGUE_CATEGORIES = [
+  'consultation',
+  'laboratory',
+  'imaging',
+  'procedure',
+  'bed',
+  'pharmacy',
+  'consumable',
+  'other',
+] as const;
+export type CatalogueCategory = (typeof CATALOGUE_CATEGORIES)[number];
+
+/**
+ * Where a charge came from.
+ *
+ * An order, a procedure or a night in a bed is something the record already
+ * holds; `manual` is everything else somebody adds at the desk.
+ */
+export const CHARGE_SOURCES = ['order', 'procedure', 'bed_day', 'manual'] as const;
+export type ChargeSource = (typeof CHARGE_SOURCES)[number];
+
+/**
+ * A charge is captured, then either voided before anybody is billed for it or
+ * put on an invoice. Once it is on an invoice it is the invoice's, and the
+ * money trail is append-only from there (DF4).
+ */
+export const CHARGE_STATUSES = ['captured', 'voided', 'invoiced'] as const;
+export type ChargeStatus = (typeof CHARGE_STATUSES)[number];
+
 /** Whom a portal account acts for: the patient themself, or a child as guardian (SP5, Decision M1). */
 export const PORTAL_RELATIONSHIPS = ['self', 'guardian'] as const;
 export type PortalRelationship = (typeof PORTAL_RELATIONSHIPS)[number];
