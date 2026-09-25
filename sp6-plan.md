@@ -332,9 +332,39 @@ person can put right.
 
 ### Phase 9 — Verification
 
-- [ ] **T23** Unit and integration: status transitions, bed history, money arithmetic, row-level security for every new table
-- [ ] **T24** The acceptance scenario below
-- [ ] **T25** Browser tests for the new clinical screens, and the portal's receipt and summary
+- [x] **T23** Unit and integration: status transitions, bed history, money arithmetic, row-level security for every new table
+- [x] **T24** The acceptance scenario below
+- [x] **T25** Browser tests for the new clinical screens, and the portal's receipt and summary
+
+**The sweep found something the comments claimed.** Most of T23 was already
+done phase by phase — every SP6 suite proves its own status transitions, its
+own row-level security and its own immutability. What was missing was a check
+that no table escapes: a sweep over the whole schema asserting row-level
+security is enabled and forced everywhere, with a written list of the
+deliberate exceptions. It failed on the invoice number series, which migration
+0061 described as moving "only forward" while leaving the application able to
+move it backwards or delete it. Migration 0065 makes the comment true.
+
+**The acceptance scenario runs as eight numbered steps**, each one of the
+plan's, against the real stack: the order placed and resulted, the bed given
+and moved and freed, the stent by its serial number, the summary signed and on
+her phone, the invoice paid in parts with a duplicate written off, and the
+dues, revenue and morbidity figures agreeing with the ledger they were counted
+from. Time is not simulated — "two days later" is the shape of the story, not
+the clock.
+
+**The browser tests now cover both apps in one run.** The clinical app's SP6
+screens are driven on a desktop beside the portal on its phone, against one
+stack started once: the lab worklist moving an order along, the ward board,
+the price list, the bills screen to the paisa, the reports and the morbidity
+return generated and submitted — and, on her phone, the receipt and the
+discharge summary that all of it produced. Staff sign in through the screen,
+second factor and all, against fixture accounts on a throwaway database.
+
+**What the SP6 record looks like on those screens is created through the API**
+rather than written into the database, because invoices number themselves and
+PDFs are rendered by the API. Rows inserted behind its back would test screens
+against a state the system cannot actually reach.
 
 ---
 

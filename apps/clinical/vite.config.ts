@@ -3,8 +3,9 @@ import { defineConfig, type ProxyOptions } from 'vite';
 
 // When the API is down, answer 502 as a reverse proxy in front of it would, so
 // the app sees an outage exactly as it will in a deployment.
+// The browser tests start their own API on another port (sp6-plan.md, T25).
 const toApi: ProxyOptions = {
-  target: 'http://localhost:3000',
+  target: process.env.API_ORIGIN ?? 'http://localhost:3000',
   changeOrigin: true,
   configure: (proxy) => {
     proxy.on('error', (_error, _request, response) => {

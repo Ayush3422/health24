@@ -299,6 +299,29 @@ describe('invoices and the money ledger', () => {
       await close();
     }
 
+    // The counter behind the numbering only counts forward, and is never
+    // removed: either would hand a second invoice a number already issued.
+    const counter = appRoleDb();
+
+    try {
+      await expect(
+        counter.client.begin(async (tx) => {
+          await tx`SELECT set_config('app.current_hospital_id', ${hospitalId}, true)`;
+          await tx`UPDATE invoice_number_series SET next_number = 1
+                    WHERE hospital_id = ${hospitalId}`;
+        }),
+      ).rejects.toThrow(/permission denied|only counts forward/);
+
+      await expect(
+        counter.client.begin(async (tx) => {
+          await tx`SELECT set_config('app.current_hospital_id', ${hospitalId}, true)`;
+          await tx`DELETE FROM invoice_number_series WHERE hospital_id = ${hospitalId}`;
+        }),
+      ).rejects.toThrow(/permission denied|never deleted/);
+    } finally {
+      await counter.close();
+    }
+
     // And an invoice whose lines do not come to its total is refused, in the
     // owner's own connection, where row-level security is not even in the way.
     await expect(

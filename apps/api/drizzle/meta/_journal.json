@@ -456,6 +456,13 @@
       "when": 1790324892595,
       "tag": "0064_sp6_reporting_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1790328641036,
+      "tag": "0065_sp6_invoice_counter_guard",
+      "breakpoints": true
     }
   ]
 }

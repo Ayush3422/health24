@@ -1,8 +1,11 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import argon2 from 'argon2';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
+import * as OTPAuth from 'otpauth';
+import { encryptSecret } from '../common/crypto';
 import { loadEnv } from '../config/load-env';
 
 loadEnv();
@@ -27,8 +30,33 @@ loadEnv();
 
 const DATABASE = process.env.E2E_DATABASE ?? 'health24_e2e';
 
-/** Nobody signs in as this staff member; the record needs their name on it. */
+/**
+ * The clinical app's browser tests sign in as these people, so unlike SP5's
+ * fixture they carry a real second factor. It is a fixture account on a
+ * throwaway database and nothing else.
+ */
 const STAFF_PASSWORD = 'e2e-fixture-password-not-real';
+
+/**
+ * Where the accounts are written for the browser tests to read: emails,
+ * the password and the enrolled secrets, so a test can sign in as a person
+ * instead of being handed a token.
+ */
+const STAFF_FILE =
+  process.env.E2E_STAFF_FILE ??
+  path.resolve(__dirname, '..', '..', '..', 'portal', 'test-results', 'e2e-staff.json');
+
+type FixtureStaff = {
+  key: string;
+  name: string;
+  email: string;
+  password: string;
+  role: string;
+  hospital: string;
+  totpSecret: string;
+};
+
+const accounts: FixtureStaff[] = [];
 
 const PHONE = '+919820055001';
 
@@ -123,37 +151,95 @@ async function seed(admin: postgres.Sql): Promise<void> {
       return row!.id;
     };
 
+    const totpKey = process.env.TOTP_ENCRYPTION_KEY;
+    if (!totpKey) throw new Error('TOTP_ENCRYPTION_KEY is not set — the fixture enrols staff');
+
     const staff = async (
+      key: string,
       hospitalId: string,
+      hospitalName: string,
       name: string,
       email: string,
-      role: 'clinician' | 'front_desk',
+      role: 'clinician' | 'front_desk' | 'hospital_admin',
       systemOfMedicine: 'ayurveda' | null = null,
     ) => {
+      const secret = new OTPAuth.Secret({ size: 20 }).base32;
+
       const [row] = await tx<Array<{ id: string }>>`
-        INSERT INTO staff_user (hospital_id, name, email, role, system_of_medicine, status, password_hash)
-        VALUES (${hospitalId}, ${name}, ${email}, ${role}, ${systemOfMedicine}, 'active', ${passwordHash})
+        INSERT INTO staff_user (hospital_id, name, email, role, system_of_medicine, status,
+                                password_hash, totp_secret_encrypted, totp_enrolled_at)
+        VALUES (${hospitalId}, ${name}, ${email}, ${role}, ${systemOfMedicine}, 'active',
+                ${passwordHash}, ${encryptSecret(secret, totpKey)}, now())
         RETURNING id
       `;
+
+      accounts.push({
+        key,
+        name,
+        email,
+        password: STAFF_PASSWORD,
+        role,
+        hospital: hospitalName,
+        totpSecret: secret,
+      });
+
       return row!.id;
     };
 
     const sanjeevani = await hospital('Sanjeevani Ayurvedic Hospital', 'SAE', 'ayush');
     const cityGeneral = await hospital('City General Hospital', 'CGE', 'allopathic');
 
+    const SANJEEVANI = 'Sanjeevani Ayurvedic Hospital';
+    const CITY_GENERAL = 'City General Hospital';
+
     const vaidya = await staff(
+      'vaidya',
       sanjeevani,
+      SANJEEVANI,
       'Meera Joshi',
       'meera.joshi@sae.example.in',
       'clinician',
       'ayurveda',
     );
-    const desk = await staff(sanjeevani, 'Anita Pawar', 'anita.pawar@sae.example.in', 'front_desk');
+    const desk = await staff(
+      'desk',
+      sanjeevani,
+      SANJEEVANI,
+      'Anita Pawar',
+      'anita.pawar@sae.example.in',
+      'front_desk',
+    );
+    await staff(
+      'ayushAdmin',
+      sanjeevani,
+      SANJEEVANI,
+      'Rekha Deshmukh',
+      'rekha.deshmukh@sae.example.in',
+      'hospital_admin',
+    );
     const gastroenterologist = await staff(
+      'physician',
       cityGeneral,
+      CITY_GENERAL,
       'Arun Nair',
       'arun.nair@cge.example.in',
       'clinician',
+    );
+    await staff(
+      'cityDesk',
+      cityGeneral,
+      CITY_GENERAL,
+      'Farida Shaikh',
+      'farida.shaikh@cge.example.in',
+      'front_desk',
+    );
+    await staff(
+      'cityAdmin',
+      cityGeneral,
+      CITY_GENERAL,
+      'Sunil Rao',
+      'sunil.rao@cge.example.in',
+      'hospital_admin',
     );
 
     const patient = async (
@@ -347,7 +433,12 @@ async function main(): Promise<void> {
     await admin.end({ timeout: 5 });
   }
 
-  console.log(`Seeded ${DATABASE}: Lakshmi Iyer and Ganesh Iyer on ${PHONE}`);
+  mkdirSync(path.dirname(STAFF_FILE), { recursive: true });
+  writeFileSync(STAFF_FILE, JSON.stringify(accounts, null, 2), 'utf8');
+
+  console.log(
+    `Seeded ${DATABASE}: Lakshmi Iyer and Ganesh Iyer on ${PHONE}, ${accounts.length} staff in ${STAFF_FILE}`,
+  );
 }
 
 main().catch((error: unknown) => {

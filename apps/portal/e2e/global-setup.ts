@@ -1,8 +1,9 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { mkdirSync, rmSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
+import { seedSp6 } from './seed-sp6';
 
 /**
  * Everything the browser tests need, in the order it has to happen.
@@ -22,6 +23,8 @@ const OUT = path.resolve(HERE, '..', 'test-results');
 
 export const API_PORT = 3100;
 export const PORTAL_PORT = 5175;
+/** The clinical app, whose SP6 screens are tested beside the portal (T25). */
+export const CLINICAL_PORT = 5176;
 
 const RUN = `e2e-${process.pid}`;
 
@@ -92,15 +95,26 @@ async function waitFor(url: string, label: string): Promise<void> {
   }
 }
 
-/** Ends a process and the shell it was started through. */
-function stop(child: ChildProcess): void {
+/**
+ * Ends a process and the shell it was started through, and waits for it.
+ *
+ * Waiting matters on Windows, where the tree is killed by another process
+ * entirely: without it the next run starts while these still hold the ports,
+ * and quietly tests the previous run's servers.
+ */
+async function stop(child: ChildProcess): Promise<void> {
   if (child.pid === undefined || child.exitCode !== null) return;
 
+  const ended = new Promise<void>((resolve) => child.once('exit', () => resolve()));
+
   if (process.platform === 'win32') {
-    spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+    const killer = spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+    await new Promise<void>((resolve) => killer.once('exit', () => resolve()));
   } else {
     child.kill('SIGTERM');
   }
+
+  await Promise.race([ended, new Promise((resolve) => setTimeout(resolve, 5_000))]);
 }
 
 export default async function globalSetup(): Promise<() => Promise<void>> {
@@ -114,6 +128,8 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   // this one, and inherit what is set here.
   process.env.SMS_LOG_FILE = smsFile;
   process.env.E2E_DATABASE_ADMIN_URL = databaseUrl('DATABASE_ADMIN_URL');
+  process.env.E2E_STAFF_FILE = path.join(OUT, 'e2e-staff.json');
+  process.env.E2E_SP6_FILE = path.join(OUT, 'sp6.json');
 
   // The API is run from its build, not from its sources: Nest's dependency
   // injection reads the type metadata TypeScript emits, and the quick
@@ -128,7 +144,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     DATABASE_ADMIN_URL: process.env.E2E_DATABASE_ADMIN_URL,
     SMS_PROVIDER: 'log',
     SMS_LOG_FILE: smsFile,
-    CORS_ORIGINS: `http://localhost:${PORTAL_PORT}`,
+    CORS_ORIGINS: `http://localhost:${PORTAL_PORT},http://localhost:${CLINICAL_PORT}`,
     LOG_LEVEL: 'warn',
     NOTIFICATION_QUEUE_NAME: `patient-notifications-${RUN}`,
     EXPORT_QUEUE_NAME: `patient-exports-${RUN}`,
@@ -142,18 +158,30 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     'the portal',
     { API_ORIGIN: `http://localhost:${API_PORT}` },
   );
+  const clinical = start(
+    `pnpm --filter @health24/clinical exec vite --port ${CLINICAL_PORT} --strictPort`,
+    'the clinical app',
+    { API_ORIGIN: `http://localhost:${API_PORT}` },
+  );
+
+  const servers = [api, worker, portal, clinical];
 
   try {
     await waitFor(`http://localhost:${API_PORT}/health`, 'The API');
     await waitFor(`http://localhost:${PORTAL_PORT}/`, 'The portal');
+    await waitFor(`http://localhost:${CLINICAL_PORT}/`, 'The clinical app');
+
+    // What SP6 left on the screens, created through the API by the staff who
+    // would have created it (T25). The tests read the figures back.
+    const seeded = await seedSp6(`http://localhost:${API_PORT}`);
+    writeFileSync(process.env.E2E_SP6_FILE, JSON.stringify(seeded, null, 2), 'utf8');
   } catch (error: unknown) {
-    [api, worker, portal].forEach(stop);
+    await Promise.all(servers.map(stop));
     throw error;
   }
 
   return async () => {
     stopping = true;
-    [api, worker, portal].forEach(stop);
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await Promise.all(servers.map(stop));
   };
 }

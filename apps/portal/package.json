@@ -30,6 +30,7 @@
     "@types/react-dom": "^18.3.2",
     "@vitejs/plugin-react": "^4.3.4",
     "dotenv": "^17.4.2",
+    "otpauth": "^9.5.2",
     "postgres": "^3.4.9",
     "typescript": "^5.7.2",
     "vite": "^6.0.3",

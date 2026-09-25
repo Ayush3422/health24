@@ -124,13 +124,15 @@ jobs:
         run: pnpm --filter @health24/portal exec playwright install --with-deps chromium
 
       - name: Create the document storage bucket
-        # The portal's browser tests ask for a copy of the record, which the
-        # worker writes to storage. The API suites make their own bucket.
+        # The browser tests ask for a copy of the record and render invoice and
+        # discharge PDFs, all of which are written to storage. The API suites
+        # make their own bucket.
         run: pnpm --filter @health24/api storage:bootstrap
 
-      - name: Portal browser tests
-        # Builds the API, seeds health24_e2e, and drives the real portal,
-        # API and worker in Chromium at 360 pixels (sp5-plan.md, T23).
+      - name: Browser tests
+        # Builds the API, seeds health24_e2e, and drives the real stack in
+        # Chromium: the portal at 360 pixels (sp5-plan.md, T23) and the
+        # clinical app's SP6 screens on a desktop (sp6-plan.md, T25).
         run: pnpm test:e2e
 
       - name: Keep the browser test report on failure
