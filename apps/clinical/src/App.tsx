@@ -19,6 +19,8 @@ import { ImportBatchPage } from './routes/ImportBatchPage';
 import { PatientDetailPage } from './routes/PatientDetailPage';
 import { PatientRegisterPage } from './routes/PatientRegisterPage';
 import { PatientSearchPage } from './routes/PatientSearchPage';
+import { ReportsPage } from './routes/ReportsPage';
+import { StatutoryReturnsPage } from './routes/StatutoryReturnsPage';
 import { StaffPage } from './routes/StaffPage';
 import { TerminologyPage } from './routes/TerminologyPage';
 import { WardsPage } from './routes/WardsPage';
@@ -38,6 +40,7 @@ function homeFor(role: StaffRole): string {
   if (hasPermission(role, 'terminology:curate')) return '/terminology/review';
   if (hasPermission(role, 'privacy:review')) return '/erasure-requests';
   if (hasPermission(role, 'staff:read')) return '/staff';
+  if (hasPermission(role, 'reports:read')) return '/reports';
   if (hasPermission(role, 'terminology:read')) return '/terminology';
   return '/patients';
 }
@@ -75,6 +78,8 @@ export function App(): JSX.Element {
         <Route path="/devices" element={<DeviceSearchPage />} />
         <Route path="/catalogue" element={<CataloguePage />} />
         <Route path="/bills" element={<DuesPage />} />
+        <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/statutory-returns" element={<StatutoryReturnsPage />} />
         <Route path="/merge-queue" element={<MergeQueuePage />} />
         <Route path="/correction-requests" element={<CorrectionRequestsPage />} />
         <Route path="/erasure-requests" element={<ErasureRequestsPage />} />

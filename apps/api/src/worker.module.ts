@@ -13,6 +13,8 @@ import { GuardianHandoverTimer } from './modules/notifications/guardian-handover
 import { NotificationSweepTimer } from './modules/notifications/notification-sweep.timer';
 import { NotificationWorker } from './modules/notifications/notification.worker';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { DailySummaryTimer } from './modules/reports/daily-summary.timer';
+import { ReportsModule } from './modules/reports/reports.module';
 import { SCAN_JOB_HANDLER } from './modules/scanning/scan-queue';
 import { ScanningModule } from './modules/scanning/scanning.module';
 import { ScanWorker } from './modules/scanning/scan.worker';
@@ -34,6 +36,7 @@ import { StorageModule } from './modules/storage/storage.module';
     ImportsModule,
     NotificationsModule,
     ExportsModule,
+    ReportsModule,
   ],
   providers: [
     ScanWorker,
@@ -44,6 +47,8 @@ import { StorageModule } from './modules/storage/storage.module';
     NotificationSweepTimer,
     GuardianHandoverTimer,
     ExportWorker,
+    // Counts yesterday for every hospital, so a year's report is cheap.
+    DailySummaryTimer,
   ],
 })
 export class WorkerModule {}

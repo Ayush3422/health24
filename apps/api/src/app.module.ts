@@ -19,6 +19,7 @@ import { BillingModule } from './modules/billing/billing.module';
 import { DischargeModule } from './modules/discharge/discharge.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PortalModule } from './modules/portal/portal.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import { WardsModule } from './modules/wards/wards.module';
 import { ScanningModule } from './modules/scanning/scanning.module';
 import { StorageModule } from './modules/storage/storage.module';
@@ -55,6 +56,7 @@ import { HealthController } from './health.controller';
     BillingModule,
     PortalModule,
     WardsModule,
+    ReportsModule,
     ExportsModule,
     CorrectionsModule,
     PrivacyModule,

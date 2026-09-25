@@ -39,6 +39,7 @@ export function AppShell(): JSX.Element {
     hasPermission(staff.role, 'wards:manage') || hasPermission(staff.role, 'admission:manage');
   const canRegister = hasPermission(staff.role, 'patient:create');
   const canSeeStaff = hasPermission(staff.role, 'staff:read');
+  const canSeeReports = hasPermission(staff.role, 'reports:read');
   const canReadTerminology = hasPermission(staff.role, 'terminology:read');
   const canCurate = hasPermission(staff.role, 'terminology:curate');
   const canReviewCoding = hasPermission(staff.role, 'clinical:write');
@@ -90,6 +91,16 @@ export function AppShell(): JSX.Element {
           {canSeeCatalogue ? (
             <NavLink to="/catalogue" className={navClass}>
               Price list
+            </NavLink>
+          ) : null}
+          {canSeeReports ? (
+            <NavLink to="/reports" className={navClass}>
+              Reports
+            </NavLink>
+          ) : null}
+          {canSeeReports ? (
+            <NavLink to="/statutory-returns" className={navClass}>
+              Returns
             </NavLink>
           ) : null}
           {canSeePatients ? (

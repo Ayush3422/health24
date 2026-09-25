@@ -51,6 +51,7 @@ import {
   insuranceSchemeEnum,
   ledgerKindEnum,
   paymentMethodEnum,
+  statutoryReturnKindEnum,
   resultInterpretationEnum,
   serviceRequestCategoryEnum,
   serviceRequestPriorityEnum,
@@ -1135,6 +1136,89 @@ export const invoiceInsurance = pgTable(
 );
 
 export type InvoiceInsuranceRow = typeof invoiceInsurance.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// Reporting (SP6, Decision S1)
+// ---------------------------------------------------------------------------
+
+/**
+ * A number about a day that is over.
+ *
+ * Counted once and kept, because a day that has ended does not change: a
+ * year's report then adds up 365 rows instead of rescanning a year of
+ * encounters. Today is never in here — it is counted afresh every time it is
+ * asked for, because it is not over.
+ */
+export const dailySummaries = pgTable(
+  'daily_summary',
+  {
+    hospitalId: uuid('hospital_id')
+      .notNull()
+      .references(() => hospitals.id, { onDelete: 'restrict' }),
+    /** The day in India Standard Time, which is the day a hospital works in. */
+    istDate: date('ist_date').notNull(),
+    /** What was counted: `encounters`, `invoiced_paise`, `received_paise`. */
+    metric: text('metric').notNull(),
+    /** What it was counted by: an encounter class, a payment method, `all`. */
+    dimension: text('dimension').notNull().default('all'),
+    value: bigint('value', { mode: 'number' }).notNull(),
+    countedAt: timestamp('counted_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.hospitalId, table.istDate, table.metric, table.dimension] }),
+    index('daily_summary_metric_idx').on(table.hospitalId, table.metric, table.istDate),
+  ],
+);
+
+export type DailySummaryRow = typeof dailySummaries.$inferSelect;
+
+/**
+ * A return the hospital owes somebody outside it (DF10).
+ *
+ * The Ayush morbidity return is generated from coded diagnoses, reviewed, and
+ * submitted — and what was submitted is kept exactly as it was, because the
+ * record it was counted from will have gained corrections by the time anybody
+ * asks about the numbers a year later.
+ */
+export const statutoryReturns = pgTable(
+  'statutory_return',
+  {
+    id: primaryId(),
+    hospitalId: uuid('hospital_id')
+      .notNull()
+      .references(() => hospitals.id, { onDelete: 'restrict' }),
+
+    kind: statutoryReturnKindEnum('kind').notNull(),
+    periodFrom: date('period_from').notNull(),
+    periodTo: date('period_to').notNull(),
+
+    /** The rows as generated. Never recomputed; this is what was sent. */
+    contents: jsonb('contents').notNull(),
+    generatedAt: timestamp('generated_at', { withTimezone: true }).notNull().defaultNow(),
+    generatedByStaffId: uuid('generated_by_staff_id').notNull(),
+
+    submittedAt: timestamp('submitted_at', { withTimezone: true }),
+    submittedByStaffId: uuid('submitted_by_staff_id'),
+    /** The acknowledgement the ministry gave back, where there is one. */
+    reference: text('reference'),
+  },
+  (table) => [
+    unique('statutory_return_identity').on(table.id, table.hospitalId),
+    foreignKey({
+      name: 'statutory_return_generated_by_same_hospital_fk',
+      columns: [table.generatedByStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    foreignKey({
+      name: 'statutory_return_submitted_by_same_hospital_fk',
+      columns: [table.submittedByStaffId, table.hospitalId],
+      foreignColumns: [staffUsers.id, staffUsers.hospitalId],
+    }),
+    index('statutory_return_period_idx').on(table.hospitalId, table.kind, table.periodFrom),
+  ],
+);
+
+export type StatutoryReturnRow = typeof statutoryReturns.$inferSelect;
 
 // ---------------------------------------------------------------------------
 // Notes and procedures

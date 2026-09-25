@@ -408,6 +408,34 @@ const ROUTES: RouteExpectation[] = [
     allow: ['admin', 'frontDesk', 'otherHospitalAdmin'],
   },
 
+  // Reporting (SP6 Phase 8). A hospital's own numbers are its administrator's;
+  // a clinician reads records, not revenue, and the desk takes money without
+  // seeing what the hospital earned.
+  { method: 'get', path: '/api/v1/reports/footfall', allow: ['admin', 'otherHospitalAdmin'] },
+  { method: 'get', path: '/api/v1/reports/diagnoses', allow: ['admin', 'otherHospitalAdmin'] },
+  { method: 'get', path: '/api/v1/reports/prescriptions', allow: ['admin', 'otherHospitalAdmin'] },
+  { method: 'get', path: '/api/v1/reports/revenue', allow: ['admin', 'otherHospitalAdmin'] },
+  { method: 'get', path: '/api/v1/reports/data-quality', allow: ['admin', 'otherHospitalAdmin'] },
+  {
+    method: 'post',
+    path: '/api/v1/statutory-returns',
+    allow: ['admin', 'otherHospitalAdmin'],
+    body: { from: '2026-04-01', to: '2026-04-30' },
+  },
+  {
+    method: 'post',
+    path: '/api/v1/statutory-returns/:id/submit',
+    allow: ['admin', 'otherHospitalAdmin'],
+    body: {},
+  },
+  { method: 'get', path: '/api/v1/statutory-returns', allow: ['admin', 'otherHospitalAdmin'] },
+  { method: 'get', path: '/api/v1/statutory-returns/:id', allow: ['admin', 'otherHospitalAdmin'] },
+  {
+    method: 'get',
+    path: '/api/v1/statutory-returns/:id/csv',
+    allow: ['admin', 'otherHospitalAdmin'],
+  },
+
   { method: 'post', path: '/api/v1/diagnoses/:id/correct', allow: ['clinician', 'records'] },
   {
     method: 'post',
@@ -845,7 +873,7 @@ describe('authorization', () => {
     }
 
     expect(failures).toEqual([]);
-  });
+  }, 120_000);
 
   it('permits exactly the roles that should reach each route', async () => {
     const failures: string[] = [];
@@ -875,7 +903,7 @@ describe('authorization', () => {
     }
 
     expect(failures).toEqual([]);
-  });
+  }, 180_000);
 
   it('refuses every staff token on every patient portal route', async () => {
     const failures: string[] = [];
@@ -894,7 +922,7 @@ describe('authorization', () => {
     }
 
     expect(failures).toEqual([]);
-  });
+  }, 120_000);
 
   it('refuses a revoked session immediately', async () => {
     const secondary = await seedHospital({ name: 'Revocation Test', mrnPrefix: 'RVT' });

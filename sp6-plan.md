@@ -298,10 +298,37 @@ to draw one character is not worth it.
 
 ### Phase 8 — Reporting
 
-- [ ] **T19** Footfall, prescription patterns and revenue, by period and department (S1)
-- [ ] **T20** Diagnosis distribution from coded data, and the nightly daily-summary job
-- [ ] **T21** The Ayush morbidity return: generated, reviewed, submitted and kept (DF10)
-- [ ] **T22** The data-quality report: unmapped diagnoses, unresulted orders, incomplete records
+- [x] **T19** Footfall, prescription patterns and revenue, by period and department (S1)
+- [x] **T20** Diagnosis distribution from coded data, and the nightly daily-summary job
+- [x] **T21** The Ayush morbidity return: generated, reviewed, submitted and kept (DF10)
+- [x] **T22** The data-quality report: unmapped diagnoses, unresulted orders, incomplete records
+
+**There is no reporting store.** Every figure is counted from the operational
+tables, under the hospital's own row-level security — so a report can never
+show one hospital another's numbers, and can never quietly disagree with the
+record it was counted from. The cost of that decision is paid in the daily
+summary rather than in a second copy of the data.
+
+**The daily summary is an optimisation, not a source.** A finished day is
+counted once and kept; today is counted afresh every time, because it is not
+over. Nothing depends on the nightly job having run: a report that meets an
+uncounted day counts it there and then and keeps the result, so the numbers
+are identical either way — the job only means a year's report is 365 cheap
+rows rather than a year of encounters rescanned. It runs hourly rather than at
+midnight, so a worker that was down at midnight does not leave a hole.
+
+**The return is kept as it was sent, not recomputed.** The morbidity figures
+are written into the return when it is generated, and the row is immutable
+afterwards except for the three columns that record the submission. A
+diagnosis corrected next month does not reach back and change a return already
+filed — which is the whole point of filing one. The guard trigger gained a
+`'col:*'` marker for the two summary columns that are genuinely free to move.
+
+**The data-quality report is not a scolding.** Six checks — unmapped
+diagnoses, orders nobody has resulted, encounters still open, charges never
+invoiced, old unpaid invoices, discharge summaries never signed — each with a
+sentence saying what to do about it, because every one of them is something a
+person can put right.
 
 ### Phase 9 — Verification
 

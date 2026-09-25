@@ -442,6 +442,20 @@
       "when": 1790323627408,
       "tag": "0062_sp6_invoice_total_check_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1790324889202,
+      "tag": "0063_sp6_reporting",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1790324892595,
+      "tag": "0064_sp6_reporting_rules",
+      "breakpoints": true
     }
   ]
 }

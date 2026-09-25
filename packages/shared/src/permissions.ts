@@ -111,6 +111,12 @@ export const PERMISSIONS = [
   /** Read what the hospital is owed, across its patients. */
   'invoices:read',
 
+  // Reporting (SP6, Decision S1)
+  /** Read the hospital's own numbers: footfall, diagnoses, revenue, data quality. */
+  'reports:read',
+  /** Generate a statutory return, and record that it was submitted (DF10). */
+  'reports:submit',
+
   // The patient's rights under the DPDP Act (SP5)
   /** Review erasure requests and record what was erased and what law requires kept (Decision N1). */
   'privacy:review',
@@ -166,6 +172,9 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'charges:capture',
     'invoices:issue',
     'invoices:read',
+    // The hospital's own numbers, and the returns it owes the ministry.
+    'reports:read',
+    'reports:submit',
   ],
 
   /**

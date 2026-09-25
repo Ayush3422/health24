@@ -41,6 +41,7 @@ import {
   CHARGE_STATUSES,
   INSURANCE_SCHEMES,
   LEDGER_KINDS,
+  STATUTORY_RETURN_KINDS,
   PAYMENT_METHODS,
   DISCHARGE_STATUSES,
   WARD_KINDS,
@@ -213,3 +214,10 @@ export const chargeStatusEnum = pgEnum('charge_status', tuple(CHARGE_STATUSES));
 export const ledgerKindEnum = pgEnum('ledger_kind', tuple(LEDGER_KINDS));
 export const paymentMethodEnum = pgEnum('payment_method', tuple(PAYMENT_METHODS));
 export const insuranceSchemeEnum = pgEnum('insurance_scheme', tuple(INSURANCE_SCHEMES));
+
+// Reporting (SP6)
+
+export const statutoryReturnKindEnum = pgEnum(
+  'statutory_return_kind',
+  tuple(STATUTORY_RETURN_KINDS),
+);
