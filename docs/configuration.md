@@ -35,6 +35,10 @@ repository; deployed values come from a secret store — see
 | `TOTP_ENCRYPTION_KEY_PREVIOUS` | Optional | 32 bytes, base64url | — | The key this one replaced. Secrets are written with the current key and read with either. Withdrawn once `pnpm --filter @health24/api keys:rewrap` has rewritten every row. Must differ from the current one. |
 | `CORS_ORIGINS` | **Required in production** | comma-separated origins | — | Which origins may call the API. Without it in production the API would answer whoever asked. |
 | `LOG_LEVEL` | Optional | `fatal`…`trace` | `info` | How much the process says. |
+| `LOG_FORMAT` | Optional | `json` \| `pretty` | `pretty` outside production | How lines are written. Production writes JSON whatever this says; set `json` locally to see exactly what a deployed process would write. |
+| `BUILD_SHA` | Optional | git sha | `unknown` | What `/version` reports as the running commit. Set by the image build. |
+| `BUILD_TIME` | Optional | ISO instant | `unknown` | What `/version` reports as the build time. Set by the image build. |
+| `LOG_FILE` | Optional | path | — | Writes the log to a file instead of standard output, as JSON, for a host with no collector — and for the test that proves no patient reaches a log line. |
 | `ALLOW_DEMO_TERMINOLOGY` | Optional | `true` \| `false` | unset | Whether synthetic `DEMO-` codes may be recorded on a patient. **`true` is refused in production**: a demo code on a real record is a falsified diagnosis. |
 | `STORAGE_BUCKET` | Optional | bucket name | `health24-documents` | Where uploaded documents and rendered PDFs live. |
 | `STORAGE_REGION` | Optional | AWS region | `ap-south-1` | **Anything but `ap-south-1` is refused in production**: data residency is a legal requirement. |

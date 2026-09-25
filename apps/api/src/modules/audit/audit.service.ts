@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { AccessAction, ActorType } from '@health24/shared';
 import { DatabaseService } from '../../db/database.service';
+import { MetricsService } from '../../health/metrics.service';
 import { accessLog } from '../../db/schema';
 import type { Actor, PatientActor, RequestMeta } from '../../common/actor';
 import { maskPhone } from '../../common/phone';
@@ -45,7 +46,12 @@ export interface AuditEntry {
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
 
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly metrics: MetricsService,
+  ) {
+    metrics.describe('audit_write_failures_total', 'Audit rows that could not be written.');
+  }
 
   async record(entry: AuditEntry): Promise<void> {
     try {
@@ -74,6 +80,11 @@ export class AuditService {
         });
       });
     } catch (error) {
+      // Counted as well as logged: a burst of these is the one failure that
+      // leaves the record readable and the trail of who read it missing, and
+      // nobody finds that by reading log lines one at a time (T9).
+      this.metrics.count('audit_write_failures_total', { action: entry.action });
+
       this.logger.error(
         `AUDIT WRITE FAILED action=${entry.action} resource=${entry.resourceType} ` +
           `actor=${entry.actorId ?? 'anonymous'} — investigate immediately`,

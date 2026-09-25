@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from './config/env';
+import { AppLoggerModule } from './common/logging/logger.module';
+import { MetricsModule } from './health/metrics.module';
 import { DatabaseModule } from './db/database.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { DocumentCleanupTimer } from './modules/documents/document-cleanup.timer';
@@ -28,6 +30,10 @@ import { StorageModule } from './modules/storage/storage.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+    // The worker logs the way the API does: JSON, scrubbed (DF4), and counts
+    // the same things (T9).
+    AppLoggerModule,
+    MetricsModule,
     DatabaseModule,
     AuditModule,
     StorageModule,

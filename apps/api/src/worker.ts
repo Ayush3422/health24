@@ -1,5 +1,4 @@
 import 'reflect-metadata';
-import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { loadEnv } from './config/load-env';
 
@@ -12,17 +11,19 @@ loadEnv();
 async function bootstrap(): Promise<void> {
   const { WorkerModule } = await import('./worker.module');
 
-  const app = await NestFactory.createApplicationContext(WorkerModule);
+  const app = await NestFactory.createApplicationContext(WorkerModule, { bufferLogs: true });
+  const { Logger: PinoLogger } = await import('nestjs-pino');
+  const logger = app.get(PinoLogger);
+
+  app.useLogger(logger);
   app.enableShutdownHooks();
 
-  Logger.log('Health24 worker started', 'Bootstrap');
+  logger.log('Health24 worker started', 'Bootstrap');
 }
 
 bootstrap().catch((error: unknown) => {
-  Logger.error(
-    'Worker failed to start',
-    error instanceof Error ? error.stack : String(error),
-    'Bootstrap',
-  );
+  // No scrubbing logger exists yet at this point, and a startup failure names
+  // configuration rather than a patient.
+  console.error('Worker failed to start', error instanceof Error ? error.stack : String(error));
   process.exit(1);
 });

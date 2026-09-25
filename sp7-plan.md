@@ -128,11 +128,53 @@ builds behind a proxy, and anything a browser can read is not a secret.
 
 ### Phase 2 — Observability
 
-- [ ] **T5** Structured JSON logging with a request id, and the scrubber between the application and every sink (DF4)
-- [ ] **T6** A test that proves a name, an MRN, a phone number and clinical text cannot reach a log line
-- [ ] **T7** Error reporting behind an interface, off unless configured, with the same scrubbing and no PHI in a stack trace
-- [ ] **T8** `/health`, `/ready` and `/version`, with readiness checking the database, Redis, storage and the migration version (DF6)
-- [ ] **T9** The few metrics worth having at this size: request rate and latency by route class, queue depth and job failures, and the audit-write failure counter
+- [x] **T5** Structured JSON logging with a request id, and the scrubber between the application and every sink (DF4)
+- [x] **T6** A test that proves a name, an MRN, a phone number and clinical text cannot reach a log line
+- [x] **T7** Error reporting behind an interface, off unless configured, with the same scrubbing and no PHI in a stack trace
+- [x] **T8** `/health`, `/ready` and `/version`, with readiness checking the database, Redis, storage and the migration version (DF6)
+- [x] **T9** The few metrics worth having at this size: request rate and latency by route class, queue depth and job failures, and the audit-write failure counter
+
+**The scrubber is in the way, not in the instructions.** It sits in pino's
+`logMethod` hook, so every line is scrubbed on the way out whatever the caller
+wrote — by key and by shape, because the leak that actually happens is a value
+interpolated into a message, not a field somebody named `name`. A rule that
+each caller has to remember is broken the first busy afternoon after somebody
+new joins.
+
+**The proof is a real log, not a mock.** `test/logging.e2e-spec.ts` registers a
+patient, searches for her by name, looks her up by phone, fails a validation
+with her details in the body, and records an encounter with a chief complaint —
+then reads every line the application wrote and asserts her name, phone, MRN,
+date of birth and complaint are in none of them, while her id, the route and
+the status are.
+
+**Liveness and readiness were one endpoint, and that was wrong.** `/health`
+now touches nothing — restarting a process will not fix a database — and
+`/ready` asks the database, the migrations, Redis and storage, each with its
+own timeout, and answers 503 naming which one is down.
+
+**Readiness found a boundary rather than crossing it.** The migration check
+could not read `drizzle.__drizzle_migrations`, because SP1 deliberately keeps
+the application role out of the migration history and `rls.e2e-spec.ts`
+asserts it. Migration 0066 adds `app.schema_version()`, a SECURITY DEFINER
+function with a pinned `search_path` that returns a count and nothing else: the
+probe learns a number, not a history.
+
+**Two bugs the tests found, both of which would have been ugly in production.**
+A global exception filter built with `useFactory` gets no HTTP adapter — the
+adapter does not exist when the module is compiled — so it caught every 4xx and
+wrote no response at all: every refused request hung until the client gave up.
+And the route-classification sweep in `authorization.e2e-spec.ts` began failing
+because the request-logging middleware registers as a route answering every
+method; it now tells middleware from endpoints, which keeps the sweep's real
+job intact.
+
+**Metrics are counted in the process, not by a library.** Two http series and
+one counter worth alerting on — `audit_write_failures_total`, the failure that
+leaves the record readable and the trail of who read it missing. Route labels
+are patterns, never real ids, which bounds the cardinality and keeps a
+patient's id off a dashboard kept for a year. Queue depth waits for Phase 4,
+where the worker gets a port to scrape.
 
 ### Phase 3 — Hardening the edge
 

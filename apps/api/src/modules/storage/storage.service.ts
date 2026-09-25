@@ -209,6 +209,14 @@ export class StorageService implements OnModuleDestroy {
   }
 
   /**
+   * That storage answers and the bucket is there, for the readiness probe
+   * (sp7-plan.md, T8). Throws when it is not, which is the answer.
+   */
+  async reachable(): Promise<void> {
+    await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+  }
+
+  /**
    * Creates the bucket when it does not exist. For local development and
    * tests: in production the bucket is infrastructure, with its encryption,
    * versioning and public-access block set there.

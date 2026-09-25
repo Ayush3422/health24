@@ -27,7 +27,8 @@ import { StaffModule } from './modules/staff/staff.module';
 import { AuthGuard } from './common/guards/auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { RequestContextMiddleware } from './common/request-context.middleware';
-import { HealthController } from './health.controller';
+import { AppLoggerModule } from './common/logging/logger.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -36,7 +37,10 @@ import { HealthController } from './health.controller';
       // The process refuses to start on invalid configuration.
       validate: validateEnv,
     }),
+    // Structured, scrubbed logging for everything that follows (DF4).
+    AppLoggerModule,
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
+    HealthModule,
     DatabaseModule,
     AuditModule,
     AuthModule,
@@ -61,7 +65,7 @@ import { HealthController } from './health.controller';
     CorrectionsModule,
     PrivacyModule,
   ],
-  controllers: [HealthController],
+  controllers: [],
   providers: [
     // Order matters: rate limiting, then authentication, then authorisation.
     // Registering these globally means a new route is protected by default and

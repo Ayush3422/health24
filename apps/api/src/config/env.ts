@@ -69,6 +69,25 @@ const envSchema = z
     CORS_ORIGINS: z.string().optional(),
 
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+    /**
+     * `json` always, except on a developer's terminal, where a line per
+     * request is easier to read than a JSON object per request. Production
+     * ignores this and writes JSON regardless.
+     */
+    LOG_FORMAT: z.enum(['json', 'pretty']).optional(),
+    /**
+     * Where lines are written, when they go to a file rather than to standard
+     * output — a host without a log collector, or the test that proves no
+     * patient reaches a log line.
+     */
+    LOG_FILE: z.string().optional(),
+
+    /**
+     * What is running, answered by `/version`. Set by the image build; the
+     * first question asked during an incident is which commit is deployed.
+     */
+    BUILD_SHA: z.string().optional(),
+    BUILD_TIME: z.string().optional(),
 
     /**
      * Whether synthetic DEMO- terminology may be coded onto a patient record.

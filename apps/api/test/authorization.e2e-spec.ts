@@ -82,6 +82,11 @@ const TERMINOLOGY_READERS: RoleKey[] = ['platformAdmin', 'clinician', 'records',
 
 const ROUTES: RouteExpectation[] = [
   { method: 'get', path: '/health', allow: [], public: true },
+  // The probes and the metrics a load balancer and a scraper read. Public by
+  // necessity, and carrying nothing about a patient (sp7-plan.md, T8, T9).
+  { method: 'get', path: '/ready', allow: [], public: true },
+  { method: 'get', path: '/version', allow: [], public: true },
+  { method: 'get', path: '/metrics', allow: [], public: true },
 
   { method: 'post', path: '/api/v1/auth/login', allow: [], public: true },
   { method: 'post', path: '/api/v1/auth/mfa/verify', allow: [], public: true },
@@ -728,6 +733,9 @@ const ABSENT_ID = '00000000-0000-4000-8000-000000000000';
  * hand-written list to stay complete — and a list nobody is forced to update
  * is the exact failure this suite exists to prevent.
  */
+/** The methods an endpoint is declared with; anything else is middleware. */
+const VERBS = new Set(['get', 'post', 'put', 'patch', 'delete']);
+
 function registeredRoutes(server: unknown): Array<{ method: string; path: string }> {
   const found: Array<{ method: string; path: string }> = [];
 
@@ -747,9 +755,16 @@ function registeredRoutes(server: unknown): Array<{ method: string; path: string
       if (entry.route?.path) {
         const paths = Array.isArray(entry.route.path) ? entry.route.path : [entry.route.path];
 
-        for (const routePath of paths) {
-          for (const [method, enabled] of Object.entries(entry.route.methods ?? {})) {
-            if (enabled && method !== '_all') found.push({ method, path: routePath });
+        // Middleware mounted for every method — the request logger, for one —
+        // appears here as a route answering all of them. It is not an endpoint,
+        // and counting it would bury the endpoints that are.
+        const isMiddleware = Object.keys(entry.route.methods ?? {}).length > VERBS.size;
+
+        if (!isMiddleware) {
+          for (const routePath of paths) {
+            for (const [method, enabled] of Object.entries(entry.route.methods ?? {})) {
+              if (enabled && VERBS.has(method)) found.push({ method, path: routePath });
+            }
           }
         }
       } else if (entry.name === 'router' && entry.handle?.stack) {

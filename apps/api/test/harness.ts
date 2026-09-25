@@ -48,11 +48,12 @@ export async function createTestApp(): Promise<TestContext> {
   // Imported after the environment is repointed, so the database provider
   // factory reads the test URL.
   const { AppModule } = await import('../src/app.module');
+  const { PROBE_ROUTES } = await import('../src/health/health.module');
 
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
 
   const app = moduleRef.createNestApplication<NestExpressApplication>();
-  app.setGlobalPrefix('api/v1', { exclude: ['health'] });
+  app.setGlobalPrefix('api/v1', { exclude: PROBE_ROUTES });
   await app.init();
 
   return {
