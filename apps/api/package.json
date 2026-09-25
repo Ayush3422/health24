@@ -14,6 +14,7 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:e2e-fixture": "tsx src/db/e2e-fixture.ts",
     "db:bootstrap": "tsx src/db/bootstrap-local.ts",
+    "keys:rewrap": "tsx src/db/rewrap-secrets.ts",
     "smoke:auth": "node scripts/smoke-auth.mjs",
     "smoke:tenancy": "node scripts/smoke-tenancy.mjs",
     "smoke:patients": "node scripts/smoke-patients.mjs",

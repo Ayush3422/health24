@@ -27,10 +27,14 @@ describe('demoTerminologyAllowed', () => {
 });
 
 describe('environment validation', () => {
+  // Everything a deployed environment needs, so that the assertions below are
+  // about demo terminology and nothing else (sp7-plan.md, T2).
   const base = {
     DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
+    REDIS_URL: 'redis://localhost:6379',
     JWT_ACCESS_SECRET: 'a-production-secret-that-is-long-enough',
-    TOTP_ENCRYPTION_KEY: 'x'.repeat(44),
+    TOTP_ENCRYPTION_KEY: 'x'.repeat(43),
+    CORS_ORIGINS: 'https://clinical.health24.in',
   };
 
   it('refuses to start production with demo terminology allowed', () => {

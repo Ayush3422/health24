@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { eq } from 'drizzle-orm';
 import type { AuthenticatedStaff } from '@health24/shared';
+import { jwtSecrets, verifyWithRotation } from '../../config/keys';
 import { DatabaseService } from '../../db/database.service';
 import { hospitals, staffUsers } from '../../db/schema';
 import { hashToken } from '../../common/crypto';
@@ -403,7 +404,11 @@ export class AuthService {
     let payload: ChallengePayload;
 
     try {
-      payload = await this.jwt.verifyAsync<ChallengePayload>(token);
+      payload = await verifyWithRotation<ChallengePayload>(
+        this.jwt,
+        jwtSecrets(this.config),
+        token,
+      );
     } catch {
       throw new UnauthorizedException('Your sign-in attempt expired; please start again');
     }

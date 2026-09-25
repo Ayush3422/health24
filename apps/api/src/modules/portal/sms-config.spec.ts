@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { validateEnv } from '../../config/env';
 
 describe('SMS provider configuration', () => {
+  // Everything a deployed environment needs, so that the assertions below are
+  // about the SMS provider and nothing else (sp7-plan.md, T2).
   const base = {
     DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
+    REDIS_URL: 'redis://localhost:6379',
     JWT_ACCESS_SECRET: 'a-production-secret-that-is-long-enough',
-    TOTP_ENCRYPTION_KEY: 'x'.repeat(44),
+    TOTP_ENCRYPTION_KEY: 'x'.repeat(43),
+    CORS_ORIGINS: 'https://clinical.health24.in',
   };
 
   it('refuses to start production with codes written to the log', () => {

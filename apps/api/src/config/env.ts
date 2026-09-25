@@ -1,12 +1,34 @@
 import { z } from 'zod';
 
 /**
- * Environment validation.
+ * Environment validation (sp7-plan.md, T2, DF2).
  *
  * The process refuses to start if configuration is missing or malformed. A
  * clinical API that boots with a placeholder JWT secret is worse than one that
  * does not boot at all.
+ *
+ * Every variable here is documented in `docs/configuration.md`, and a test
+ * fails if the two drift apart. The `_PREVIOUS` keys exist so that a key can
+ * be rotated without a window in which nobody can sign in — see
+ * `docs/runbooks/key-rotation.md`.
  */
+
+/** A key that must decode to exactly 32 bytes, as `common/crypto.ts` requires. */
+const encryptionKey = z.string().refine(
+  (value) => {
+    try {
+      return Buffer.from(value, 'base64url').length === 32;
+    } catch {
+      return false;
+    }
+  },
+  {
+    message:
+      'must be 32 bytes, base64url-encoded. Generate one with: ' +
+      'node -e "console.log(crypto.randomBytes(32).toString(`base64url`))"',
+  },
+);
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -20,6 +42,12 @@ const envSchema = z
     REDIS_URL: z.string().url().optional(),
 
     JWT_ACCESS_SECRET: z.string().min(16, 'JWT_ACCESS_SECRET must be at least 16 characters'),
+    /**
+     * The secret this one replaced, during a rotation. Tokens are only ever
+     * signed with the current secret; one signed with this one is still
+     * accepted, so that a rotation does not sign everybody out.
+     */
+    JWT_ACCESS_SECRET_PREVIOUS: z.string().min(16).optional(),
     JWT_ACCESS_TTL: z.string().default('15m'),
     REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
 
@@ -29,7 +57,14 @@ const envSchema = z
      * secret is a bearer credential, and a database dump holding them in clear
      * would hand an attacker every user's second factor.
      */
-    TOTP_ENCRYPTION_KEY: z.string().min(32),
+    TOTP_ENCRYPTION_KEY: encryptionKey,
+    /**
+     * The key this one replaced. Secrets are written with the current key and
+     * read with either, which is what makes rotation possible without locking
+     * every user out of their second factor. Removed once
+     * `pnpm --filter @health24/api keys:rewrap` has rewritten them all.
+     */
+    TOTP_ENCRYPTION_KEY_PREVIOUS: encryptionKey.optional(),
 
     CORS_ORIGINS: z.string().optional(),
 
@@ -99,6 +134,74 @@ const envSchema = z
         code: z.ZodIssueCode.custom,
         path: ['JWT_ACCESS_SECRET'],
         message: 'Refusing to start in production with the development JWT secret',
+      });
+    }
+
+    // Sixteen characters is enough to refuse a typo; a deployed signing secret
+    // is a key, and is generated rather than chosen.
+    if (env.NODE_ENV === 'production' && env.JWT_ACCESS_SECRET.length < 32) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['JWT_ACCESS_SECRET'],
+        message: 'Refusing to start in production with a signing secret shorter than 32 characters',
+      });
+    }
+
+    // A key rotation that leaves both keys the same has rotated nothing.
+    if (env.JWT_ACCESS_SECRET_PREVIOUS === env.JWT_ACCESS_SECRET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['JWT_ACCESS_SECRET_PREVIOUS'],
+        message: 'The previous signing secret is the same as the current one',
+      });
+    }
+
+    if (env.TOTP_ENCRYPTION_KEY_PREVIOUS === env.TOTP_ENCRYPTION_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['TOTP_ENCRYPTION_KEY_PREVIOUS'],
+        message: 'The previous encryption key is the same as the current one',
+      });
+    }
+
+    // Uploads are scanned and patients are texted by the worker, through
+    // queues. Without Redis both fail quietly, which is the worst way to fail.
+    if (env.NODE_ENV === 'production' && !env.REDIS_URL) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['REDIS_URL'],
+        message: 'Refusing to start in production without the queue Redis is needed for',
+      });
+    }
+
+    // The running application holds the unprivileged connection and nothing
+    // else. The owner connection belongs to migrations, which run as a job.
+    if (env.NODE_ENV === 'production' && env.DATABASE_ADMIN_URL) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['DATABASE_ADMIN_URL'],
+        message:
+          'Refusing to start in production with the owner connection in the application environment',
+      });
+    }
+
+    // Long-lived storage keys in the environment are a credential to steal;
+    // the task's own IAM role supplies them instead.
+    if (env.NODE_ENV === 'production' && (env.STORAGE_ACCESS_KEY_ID || env.STORAGE_SECRET_ACCESS_KEY)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['STORAGE_ACCESS_KEY_ID'],
+        message:
+          'Refusing to start in production with static storage credentials; use the task role',
+      });
+    }
+
+    // Without an explicit list the API would answer whatever asked it.
+    if (env.NODE_ENV === 'production' && !env.CORS_ORIGINS) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['CORS_ORIGINS'],
+        message: 'Refusing to start in production without the origins that may call this API',
       });
     }
 

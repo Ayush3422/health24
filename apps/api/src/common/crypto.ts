@@ -74,6 +74,34 @@ export function decryptSecret(encoded: string, rawKey: string): string {
 }
 
 /**
+ * Decrypts with whichever key wrote it (sp7-plan.md, T4).
+ *
+ * During a key rotation the database holds secrets written under both the old
+ * key and the new one, and nobody can say which is which without trying. This
+ * returns the plaintext and the key that worked, so a caller can tell that a
+ * row is still on the old key and have it rewritten.
+ *
+ * Keys are tried in order, so the current key is tried first and the cost of
+ * the overlap falls on the rows that have not been rewritten yet.
+ */
+export function decryptWithAnyKey(
+  encoded: string,
+  keys: readonly string[],
+): { plaintext: string; keyIndex: number } {
+  if (keys.length === 0) throw new CryptoError('No decryption key was supplied');
+
+  for (const [index, key] of keys.entries()) {
+    try {
+      return { plaintext: decryptSecret(encoded, key), keyIndex: index };
+    } catch {
+      // The next key, or the error below when none is left.
+    }
+  }
+
+  throw new CryptoError('Could not decrypt secret with any key');
+}
+
+/**
  * Hash for high-entropy tokens (refresh tokens, invite tokens).
  *
  * SHA-256 rather than argon2 deliberately: the input is 256 bits of random

@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import argon2 from 'argon2';
 import * as OTPAuth from 'otpauth';
-import { decryptSecret, encryptSecret, generateToken } from '../../common/crypto';
+import { decryptWithAnyKey, encryptSecret, generateToken } from '../../common/crypto';
+import { totpKeys } from '../../config/keys';
 
 export interface TotpEnrolment {
   /** Encrypted, ready to store. */
@@ -30,7 +31,8 @@ export interface RecoveryCodes {
 @Injectable()
 export class TotpService {
   private readonly issuer: string;
-  private readonly encryptionKey: string;
+  /** The key in force, then the one it replaced while a rotation is running. */
+  private readonly encryptionKeys: string[];
 
   /**
    * Accepts codes from one step either side of now — 30 seconds of tolerance
@@ -43,7 +45,7 @@ export class TotpService {
 
   constructor(private readonly config: ConfigService) {
     this.issuer = this.config.get<string>('TOTP_ISSUER') ?? 'Health24';
-    this.encryptionKey = this.config.getOrThrow<string>('TOTP_ENCRYPTION_KEY');
+    this.encryptionKeys = totpKeys(this.config);
   }
 
   /** Generates a new secret for a user who is enrolling. */
@@ -60,7 +62,7 @@ export class TotpService {
     });
 
     return {
-      secretEncrypted: encryptSecret(secret.base32, this.encryptionKey),
+      secretEncrypted: encryptSecret(secret.base32, this.encryptionKeys[0]!),
       otpauthUrl: totp.toString(),
       secretForDisplay: secret.base32,
     };
@@ -76,7 +78,9 @@ export class TotpService {
     let base32: string;
 
     try {
-      base32 = decryptSecret(secretEncrypted, this.encryptionKey);
+      // Either key, so that a rotation does not lock every user out of their
+      // second factor while the rows are being rewritten (sp7-plan.md, T4).
+      base32 = decryptWithAnyKey(secretEncrypted, this.encryptionKeys).plaintext;
     } catch {
       return false;
     }

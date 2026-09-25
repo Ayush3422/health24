@@ -1,6 +1,6 @@
 # SP7 — Production readiness and compliance: Implementation Plan
 
-**Status:** Awaiting review. Decisions U–W answered 2026-09-25: **U1, V1, W1**. No SP7 code has been written.
+**Status:** Building. Decisions U–W answered 2026-09-25: **U1, V1, W1**. Phase 1 complete.
 **Scope:** What stands between a system that works on a developer's machine and one that may hold a real patient's record: configuration and secrets, logs that never leak a patient, health and readiness, security headers and rate limits, container and infrastructure definitions for AWS Mumbai, backups with a restore drill that is actually run, a threat model and automated scanning in CI, the runbooks somebody follows at three in the morning, and an honest self-assessment against the DPDP Act and the EHR Standards.
 **Design reference:** `planning.md` §11 (security, privacy, compliance), §13 (infrastructure), §14 stage 7 · `sp1-plan.md` (tenancy, auth, audit) · `sp5-plan.md` (the patient's rights, erasure, exports) · `sp6-plan.md` (what the system now holds)
 
@@ -92,10 +92,39 @@ Carried in from earlier sub-projects and not reopened here.
 
 ### Phase 1 — Configuration, secrets and rotation
 
-- [ ] **T1** Audit every environment variable: required or optional, its shape, and what happens when it is missing (DF2)
-- [ ] **T2** Fail-fast validation at boot for the API, the worker and both apps' build-time configuration, with messages that name the variable
-- [ ] **T3** The secret store contract: what production injects, from where, and what the repository may never contain (DF3)
-- [ ] **T4** Key rotation the code supports — the TOTP encryption key and the JWT signing secret, each with a documented procedure and a test that both the old and the new key work through the overlap
+- [x] **T1** Audit every environment variable: required or optional, its shape, and what happens when it is missing (DF2)
+- [x] **T2** Fail-fast validation at boot for the API, the worker and both apps' build-time configuration, with messages that name the variable
+- [x] **T3** The secret store contract: what production injects, from where, and what the repository may never contain (DF3)
+- [x] **T4** Key rotation the code supports — the TOTP encryption key and the JWT signing secret, each with a documented procedure and a test that both the old and the new key work through the overlap
+
+**Most of the validation was already there; what it let through was not.** The
+schema refused a development JWT secret in production and storage outside
+Mumbai, but accepted an encryption key of the right length that was not a key,
+started in production without Redis — so uploads went unscanned and patients
+untexted, silently — and let static storage credentials and the owner database
+connection sit in the environment of a task that should have neither. Each of
+those is now a refusal with a message naming the variable, and
+`config/env.spec.ts` holds a case for every one.
+
+**The documentation cannot drift.** `docs/configuration.md` lists every
+variable, and a test reads both it and the schema and fails if either holds a
+name the other does not. Documentation that quietly goes stale is worse than
+none: somebody sets the system up from it, believes they are finished, and
+finds out in production.
+
+**Both keys rotate without an outage.** They are read as a pair — the key in
+force, then the one it replaced — so a rotation is: set both, deploy, rewrite
+the rows, withdraw the old one. Tokens need no rewrite because they expire;
+secrets at rest do, which is what `keys:rewrap` is for, and it is safe to run
+twice and refuses to declare success while any row is unreadable. The whole
+procedure is walked by `test/key-rotation.e2e-spec.ts` against a real
+database, including the part that matters most: that a second factor stored
+under the old key still opens the door during the overlap. Without that, a
+rotation ends with an administrator re-enrolling every member of staff by hand.
+
+**The apps have no secrets to validate**, which is stated in the documentation
+rather than papered over with configuration that does nothing: they are static
+builds behind a proxy, and anything a browser can read is not a secret.
 
 ### Phase 2 — Observability
 

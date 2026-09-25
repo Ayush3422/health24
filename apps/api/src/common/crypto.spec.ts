@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import {
   CryptoError,
   decryptSecret,
+  decryptWithAnyKey,
   encryptSecret,
   generateToken,
   hashToken,
@@ -11,6 +12,38 @@ import {
 
 const KEY = crypto.randomBytes(32).toString('base64url');
 const OTHER_KEY = crypto.randomBytes(32).toString('base64url');
+
+/**
+ * Reading under either key, which is what makes a rotation possible
+ * (sp7-plan.md, T4). Without this, changing the key would lock every user out
+ * of their second factor at the moment it changed.
+ */
+describe('a key rotation', () => {
+  it('reads a secret written under the key that has been replaced', () => {
+    const written = encryptSecret('JBSWY3DPEHPK3PXP', OTHER_KEY);
+    const read = decryptWithAnyKey(written, [KEY, OTHER_KEY]);
+
+    expect(read.plaintext).toBe('JBSWY3DPEHPK3PXP');
+    // Not the current key, so the caller knows the row still has to move.
+    expect(read.keyIndex).toBe(1);
+  });
+
+  it('says which key opened it, so a rewritten row is not rewritten again', () => {
+    const written = encryptSecret('JBSWY3DPEHPK3PXP', KEY);
+    expect(decryptWithAnyKey(written, [KEY, OTHER_KEY]).keyIndex).toBe(0);
+  });
+
+  it('refuses when neither key opens it', () => {
+    const third = crypto.randomBytes(32).toString('base64url');
+    const written = encryptSecret('JBSWY3DPEHPK3PXP', third);
+
+    expect(() => decryptWithAnyKey(written, [KEY, OTHER_KEY])).toThrow(CryptoError);
+  });
+
+  it('refuses when there is no key at all', () => {
+    expect(() => decryptWithAnyKey(encryptSecret('x', KEY), [])).toThrow(CryptoError);
+  });
+});
 
 describe('secret encryption', () => {
   it('round-trips a value', () => {

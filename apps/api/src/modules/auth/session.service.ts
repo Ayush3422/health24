@@ -6,6 +6,7 @@ import type { StaffRole } from '@health24/shared';
 import { DatabaseService } from '../../db/database.service';
 import { sessions, staffUsers } from '../../db/schema';
 import { generateToken, hashToken } from '../../common/crypto';
+import { jwtSecrets, verifyWithRotation } from '../../config/keys';
 
 export interface IssuedSession {
   accessToken: string;
@@ -47,7 +48,7 @@ export class SessionService {
   constructor(
     private readonly db: DatabaseService,
     private readonly jwt: JwtService,
-    config: ConfigService,
+    private readonly config: ConfigService,
   ) {
     this.accessTtl = config.get<string>('JWT_ACCESS_TTL') ?? '15m';
     this.refreshTtlDays = Number(config.get<number>('REFRESH_TOKEN_TTL_DAYS') ?? 30);
@@ -100,7 +101,9 @@ export class SessionService {
 
   async verifyAccessToken(token: string): Promise<AccessTokenPayload> {
     try {
-      return await this.jwt.verifyAsync<AccessTokenPayload>(token, { audience: STAFF_TOKEN_AUDIENCE });
+      return await verifyWithRotation<AccessTokenPayload>(this.jwt, jwtSecrets(this.config), token, {
+        audience: STAFF_TOKEN_AUDIENCE,
+      });
     } catch {
       throw new UnauthorizedException('Invalid or expired access token');
     }

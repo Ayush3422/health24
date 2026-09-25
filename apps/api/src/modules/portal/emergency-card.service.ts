@@ -11,7 +11,8 @@ import {
   type PortalEmergencyCardState,
 } from '@health24/shared';
 import type { PatientActor, RequestMeta } from '../../common/actor';
-import { decryptSecret, encryptSecret, generateToken, hashToken } from '../../common/crypto';
+import { decryptWithAnyKey, encryptSecret, generateToken, hashToken } from '../../common/crypto';
+import { totpKeys } from '../../config/keys';
 import type { DbTransaction } from '../../db/client';
 import { DatabaseService } from '../../db/database.service';
 import { emergencyCards } from '../../db/schema';
@@ -44,7 +45,8 @@ const NOT_IN_USE = 'This emergency card is not in use';
 @Injectable()
 export class EmergencyCardService {
   /** The key that encrypts TOTP secrets at rest also keeps card links unreadable in a dump. */
-  private readonly key: string;
+  /** The key in force, then the one it replaced while a rotation is running. */
+  private readonly keys: string[];
 
   constructor(
     private readonly db: DatabaseService,
@@ -52,7 +54,7 @@ export class EmergencyCardService {
     private readonly record: PortalRecordService,
     config: ConfigService,
   ) {
-    this.key = config.getOrThrow<string>('TOTP_ENCRYPTION_KEY');
+    this.keys = totpKeys(config);
   }
 
   async state(patient: PatientActor, meta: RequestMeta): Promise<PortalEmergencyCardState> {
@@ -214,7 +216,7 @@ export class EmergencyCardService {
       .values({
         patientId: patient.patientId,
         tokenHash: hashToken(token),
-        tokenEncrypted: encryptSecret(token, this.key),
+        tokenEncrypted: encryptSecret(token, this.keys[0]!),
         fields: [...fields],
         createdByAccountId: patient.accountId,
       })
@@ -263,7 +265,7 @@ export class EmergencyCardService {
       id: row.id,
       // In the order the portal lists them, whatever order they were chosen in.
       fields: EMERGENCY_CARD_FIELDS.filter((field) => row.fields.includes(field)),
-      token: decryptSecret(row.token_encrypted, this.key),
+      token: decryptWithAnyKey(row.token_encrypted, this.keys).plaintext,
       createdAt: toIso(row.created_at),
       updatedAt: toIso(row.updated_at),
     };

@@ -17,6 +17,7 @@ import type {
 } from '@health24/shared';
 import type { PatientActor } from '../../common/actor';
 import { generateToken, hashToken } from '../../common/crypto';
+import { jwtSecrets, verifyWithRotation } from '../../config/keys';
 import { toIso } from '../clinical/clinical-access';
 import type { DbTransaction } from '../../db/client';
 import { DatabaseService } from '../../db/database.service';
@@ -61,7 +62,7 @@ export class PortalSessionService {
   constructor(
     private readonly db: DatabaseService,
     private readonly jwt: JwtService,
-    config: ConfigService,
+    private readonly config: ConfigService,
   ) {
     this.accessTtl = config.get<string>('JWT_ACCESS_TTL') ?? '15m';
     this.refreshTtlDays = Number(config.get<number>('REFRESH_TOKEN_TTL_DAYS') ?? 30);
@@ -80,9 +81,12 @@ export class PortalSessionService {
 
   async verifySelection(token: string): Promise<string> {
     try {
-      const payload = await this.jwt.verifyAsync<SelectionPayload>(token, {
-        audience: SELECTION_AUDIENCE,
-      });
+      const payload = await verifyWithRotation<SelectionPayload>(
+        this.jwt,
+        jwtSecrets(this.config),
+        token,
+        { audience: SELECTION_AUDIENCE },
+      );
       if (payload.purpose !== 'select_patient') throw new Error('wrong purpose');
       return payload.sub;
     } catch {
@@ -222,9 +226,12 @@ export class PortalSessionService {
     let payload: PortalAccessPayload;
 
     try {
-      payload = await this.jwt.verifyAsync<PortalAccessPayload>(token, {
-        audience: PORTAL_TOKEN_AUDIENCE,
-      });
+      payload = await verifyWithRotation<PortalAccessPayload>(
+        this.jwt,
+        jwtSecrets(this.config),
+        token,
+        { audience: PORTAL_TOKEN_AUDIENCE },
+      );
     } catch {
       throw new UnauthorizedException('Invalid or expired access token');
     }
