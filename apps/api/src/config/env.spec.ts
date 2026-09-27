@@ -123,6 +123,30 @@ describe('environment validation', () => {
       expect(refusal({ ...production(), STORAGE_ACCESS_KEY_ID: 'AKIAEXAMPLE' })).toContain(
         'task role',
       );
+
+      // Including when an endpoint is set, if that endpoint is on the internet.
+      expect(
+        refusal({
+          ...production(),
+          STORAGE_ENDPOINT: 'https://storage.example.com',
+          STORAGE_ACCESS_KEY_ID: 'AKIAEXAMPLE',
+          STORAGE_SECRET_ACCESS_KEY: 'secret',
+        }),
+      ).toContain('task role');
+    });
+
+    it('allows a storage container on its own network, which has no task role', () => {
+      // What `docker-compose.prod.yml` runs: the production configuration in
+      // every respect except that storage is a container beside it (T15). A
+      // stack that cannot boot is a stack nobody runs.
+      const env = validateEnv({
+        ...production(),
+        STORAGE_ENDPOINT: 'http://storage:7070',
+        STORAGE_ACCESS_KEY_ID: 'local',
+        STORAGE_SECRET_ACCESS_KEY: 'local-secret',
+      });
+
+      expect(env.STORAGE_ENDPOINT).toBe('http://storage:7070');
     });
 
     it('refuses to answer origins nobody named', () => {
@@ -132,6 +156,8 @@ describe('environment validation', () => {
 
     it('keeps patient data in India, and off plain HTTP', () => {
       expect(refusal({ ...production(), STORAGE_REGION: 'eu-west-1' })).toContain('ap-south-1');
+      // A name with dots in it can be resolved from the internet, so plain
+      // HTTP to it is a patient's scan in clear on the wire.
       expect(refusal({ ...production(), STORAGE_ENDPOINT: 'http://storage.internal' })).toContain(
         'plain HTTP',
       );

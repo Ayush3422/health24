@@ -13,6 +13,32 @@ import { z } from 'zod';
  * `docs/runbooks/key-rotation.md`.
  */
 
+/**
+ * Whether a storage endpoint is a server on this machine's own network.
+ *
+ * Real object storage is AWS's, and `STORAGE_ENDPOINT` is then unset entirely.
+ * An endpoint that *is* set points either at a container beside this one — a
+ * bare hostname on a private network, or a loopback address — or at something
+ * on the internet, and only the second is a problem worth refusing to start
+ * over. The production-like local stack (`docker-compose.prod.yml`) is the
+ * first kind, and it has to be able to boot, or nobody runs it.
+ */
+function isLocalEndpoint(endpoint: string | undefined): boolean {
+  if (!endpoint) return false;
+
+  try {
+    const { hostname } = new URL(endpoint);
+
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') return true;
+
+    // A container name on a docker network, or a Kubernetes service: a name
+    // with no dots in it cannot be resolved from the internet.
+    return !hostname.includes('.');
+  } catch {
+    return false;
+  }
+}
+
 /** A key that must decode to exactly 32 bytes, as `common/crypto.ts` requires. */
 const encryptionKey = z.string().refine(
   (value) => {
@@ -83,6 +109,12 @@ const envSchema = z
     LOG_FILE: z.string().optional(),
 
     /**
+     * The port the worker serves its liveness probe and its metrics on. It has
+     * no API: two paths, and nothing that could grow into one (T9, T14).
+     */
+    WORKER_PORT: z.coerce.number().int().min(1).max(65535).default(3100),
+
+    /**
      * What is running, answered by `/version`. Set by the image build; the
      * first question asked during an incident is which commit is deployed.
      */
@@ -139,7 +171,14 @@ const envSchema = z
       });
     }
 
-    if (env.NODE_ENV === 'production' && env.STORAGE_ENDPOINT?.startsWith('http:')) {
+    // Plain HTTP to storage somewhere on the internet is a patient's scan in
+    // clear on the wire. Plain HTTP to a container on this machine's own
+    // network is the local stack, and is allowed so that it can be run.
+    if (
+      env.NODE_ENV === 'production' &&
+      env.STORAGE_ENDPOINT?.startsWith('http:') &&
+      !isLocalEndpoint(env.STORAGE_ENDPOINT)
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['STORAGE_ENDPOINT'],
@@ -204,9 +243,14 @@ const envSchema = z
       });
     }
 
-    // Long-lived storage keys in the environment are a credential to steal;
-    // the task's own IAM role supplies them instead.
-    if (env.NODE_ENV === 'production' && (env.STORAGE_ACCESS_KEY_ID || env.STORAGE_SECRET_ACCESS_KEY)) {
+    // Long-lived AWS keys in the environment are a credential to steal; the
+    // task's own IAM role supplies them instead. A local storage container has
+    // no IAM role, so keys are allowed for one — and only one — of those.
+    if (
+      env.NODE_ENV === 'production' &&
+      (env.STORAGE_ACCESS_KEY_ID || env.STORAGE_SECRET_ACCESS_KEY) &&
+      !isLocalEndpoint(env.STORAGE_ENDPOINT)
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['STORAGE_ACCESS_KEY_ID'],

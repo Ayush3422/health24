@@ -154,3 +154,46 @@ jobs:
 
       - name: Build patient portal
         run: pnpm --filter @health24/portal build
+
+  # ---------------------------------------------------------------------------
+  # The infrastructure definitions (sp7-plan.md, T16)
+  # ---------------------------------------------------------------------------
+  infrastructure:
+    name: Terraform
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Formatting
+        working-directory: infra/terraform
+        run: terraform fmt -check -recursive -diff
+
+      # No backend and no credentials: this checks that the definitions are
+      # valid HCL and that every reference resolves, which is everything that
+      # can be known without an account (V1).
+      - name: Initialise without a backend
+        working-directory: infra/terraform
+        run: terraform init -backend=false
+
+      - name: Validate
+        working-directory: infra/terraform
+        run: terraform validate
+
+      # A plan needs an account, which CI does not have (V1). What can be
+      # checked without one is that every environment names itself, which is
+      # the variable the region and the deletion protections hang off.
+      - name: Check each environment's variables
+        working-directory: infra/terraform
+        run: |
+          set -euo pipefail
+          for file in environments/*.tfvars; do
+            grep -qE '^environment[[:space:]]*=' "$file" || {
+              echo "$file does not set environment"; exit 1;
+            }
+            echo "$file names its environment"
+          done

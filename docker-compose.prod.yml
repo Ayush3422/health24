@@ -1,0 +1,238 @@
+# The whole stack from the images that would be deployed (sp7-plan.md, T15).
+#
+# Not a production deployment — that is ECS, described in `infra/terraform` —
+# but the same images, the same configuration shape and the same startup
+# order, on one machine. It exists so that "does the image work" is a question
+# anybody can answer in five minutes without an AWS account.
+#
+#   docker compose -f docker-compose.prod.yml up --build
+#
+# Two differences from a real deployment, both deliberate and both marked
+# below: the data services run here rather than being RDS, ElastiCache and S3,
+# and the secrets come from `.env.prod-local` rather than a secret store.
+#
+# The data is synthetic, always. Nothing in this file is allowed near a real
+# record (DF1).
+
+name: health24-prod-local
+
+services:
+  # --- Data services, which are managed services in a real deployment -------
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: health24
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-health24_prod_local}
+      POSTGRES_DB: health24
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U health24 -d health24']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  storage:
+    image: versity/versitygw:v1.8.0
+    restart: unless-stopped
+    command: ['posix', '/data']
+    environment:
+      ROOT_ACCESS_KEY_ID: ${STORAGE_ACCESS_KEY_ID:-health24_local}
+      ROOT_SECRET_ACCESS_KEY: ${STORAGE_SECRET_ACCESS_KEY:-health24_local_storage_secret}
+      VGW_REGION: ap-south-1
+    volumes:
+      - storage_data:/data
+
+  clamav:
+    image: clamav/clamav:1.4
+    restart: unless-stopped
+    volumes:
+      - clamav_data:/var/lib/clamav
+    healthcheck:
+      test: ['CMD-SHELL', 'clamdscan --ping 1 || exit 1']
+      interval: 15s
+      timeout: 10s
+      # The first start downloads the signature database, which takes minutes.
+      retries: 40
+      start_period: 120s
+
+  # --- Migrations, as a job that has to finish before anything serves -------
+
+  # Deliberately not run on boot by the API. Two API tasks starting together
+  # would both try to migrate, and a migration that fails halfway through a
+  # rolling deploy leaves half the tasks serving against a schema they do not
+  # expect. One job, run once, watched — and the API's readiness probe checks
+  # that it happened (DF6).
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+      args:
+        BUILD_SHA: ${BUILD_SHA:-local}
+        BUILD_TIME: ${BUILD_TIME:-unknown}
+    command: ['node', 'dist/db/migrate.js']
+    environment:
+      NODE_ENV: production
+      # The owner connection, which exists only for this job. The API itself is
+      # refused in production if it is given one (T2).
+      DATABASE_ADMIN_URL: postgresql://health24:${POSTGRES_PASSWORD:-health24_prod_local}@postgres:5432/health24
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  # The login role the application connects as, which is infrastructure rather
+  # than application code: in a deployment it is created by whoever provisions
+  # the database, and the API never holds the owner's credentials at all. It can
+  # only be granted after the migrations, because the `health24_app` privilege
+  # group is created by one of them.
+  db-init:
+    image: postgres:16-alpine
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-health24_prod_local}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-health24_local_dev}
+    entrypoint:
+      - sh
+      - -c
+      - >
+        set -e;
+        psql -h postgres -U health24 -d health24 -tAc
+        "SELECT 1 FROM pg_roles WHERE rolname = 'health24_api'" | grep -q 1
+        || psql -h postgres -U health24 -d health24 -v ON_ERROR_STOP=1 -c
+        "CREATE ROLE health24_api LOGIN PASSWORD '$$APP_DB_PASSWORD'";
+        psql -h postgres -U health24 -d health24 -v ON_ERROR_STOP=1 -c
+        "GRANT health24_app TO health24_api";
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: 'no'
+
+  # The document bucket, which in a deployment is infrastructure with its
+  # encryption, versioning and public-access block set there (infra/terraform).
+  #
+  # Made with an S3 client rather than by the application, deliberately: the
+  # API's own bootstrap command refuses to run in production, because a
+  # production bucket is not something an application should be able to create.
+  # Running that refusal into the ground would have been the easy way to make
+  # this stack start.
+  storage-init:
+    image: amazon/aws-cli:2.17.0
+    environment:
+      AWS_ACCESS_KEY_ID: ${STORAGE_ACCESS_KEY_ID:-health24_local}
+      AWS_SECRET_ACCESS_KEY: ${STORAGE_SECRET_ACCESS_KEY:-health24_local_storage_secret}
+      AWS_DEFAULT_REGION: ap-south-1
+    entrypoint:
+      - sh
+      - -c
+      - >
+        aws --endpoint-url http://storage:7070 s3api head-bucket --bucket health24-documents
+        2>/dev/null
+        || aws --endpoint-url http://storage:7070 s3 mb s3://health24-documents
+    depends_on:
+      - storage
+    restart: 'no'
+
+  # --- The application ------------------------------------------------------
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+      args:
+        BUILD_SHA: ${BUILD_SHA:-local}
+        BUILD_TIME: ${BUILD_TIME:-unknown}
+    restart: unless-stopped
+    env_file:
+      - .env.prod-local
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      DATABASE_URL: postgresql://health24_api:${APP_DB_PASSWORD:-health24_local_dev}@postgres:5432/health24
+      REDIS_URL: redis://redis:6379
+      STORAGE_ENDPOINT: http://storage:7070
+      CLAMAV_HOST: clamav
+      CORS_ORIGINS: http://localhost:8081,http://localhost:8082
+      LOG_FORMAT: json
+    ports:
+      - '3001:3000'
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      storage-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+      args:
+        BUILD_SHA: ${BUILD_SHA:-local}
+        BUILD_TIME: ${BUILD_TIME:-unknown}
+    command: ['node', 'dist/worker.js']
+    restart: unless-stopped
+    env_file:
+      - .env.prod-local
+    environment:
+      NODE_ENV: production
+      WORKER_PORT: '3100'
+      DATABASE_URL: postgresql://health24_api:${APP_DB_PASSWORD:-health24_local_dev}@postgres:5432/health24
+      REDIS_URL: redis://redis:6379
+      STORAGE_ENDPOINT: http://storage:7070
+      CLAMAV_HOST: clamav
+      # The worker answers no HTTP request, so this is unused by it — and it is
+      # set anyway, because both processes are configured identically in a
+      # deployment (infra/terraform/ecs.tf) and a stack that diverges from that
+      # is a stack that proves less than it appears to.
+      CORS_ORIGINS: http://localhost:8081,http://localhost:8082
+      LOG_FORMAT: json
+    ports:
+      - '3101:3100'
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:3100/health']
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+
+  clinical:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      args:
+        APP: clinical
+    restart: unless-stopped
+    ports:
+      - '8081:8080'
+
+  portal:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      args:
+        APP: portal
+    restart: unless-stopped
+    ports:
+      - '8082:8080'
+
+volumes:
+  postgres_data:
+  storage_data:
+  clamav_data:

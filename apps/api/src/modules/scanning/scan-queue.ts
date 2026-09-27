@@ -59,6 +59,24 @@ export class ScanQueue implements OnModuleDestroy {
   async enqueue(key: string): Promise<string> {
     assertStorageKey(key);
 
+    const job = await this.open().add('scan', { key });
+    return job.id!;
+  }
+
+  /**
+   * How much work is waiting, and how much has given up (sp7-plan.md, T9).
+   *
+   * A queue nobody is draining is the failure that goes unnoticed for a day:
+   * uploads stay unscanned, so documents stay unavailable, and every screen
+   * looks fine.
+   */
+  async depth(): Promise<{ waiting: number; failed: number }> {
+    const counts = await this.open().getJobCounts('wait', 'failed');
+
+    return { waiting: counts.wait ?? 0, failed: counts.failed ?? 0 };
+  }
+
+  private open(): Queue<ScanJobData, ScanJobResult> {
     this.queue ??= new Queue<ScanJobData, ScanJobResult>(this.name, {
       connection: redisConnection(this.config.getOrThrow<string>('REDIS_URL')),
       defaultJobOptions: {
@@ -69,8 +87,7 @@ export class ScanQueue implements OnModuleDestroy {
       },
     });
 
-    const job = await this.queue.add('scan', { key });
-    return job.id!;
+    return this.queue;
   }
 
   async onModuleDestroy(): Promise<void> {

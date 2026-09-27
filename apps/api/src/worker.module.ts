@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from './config/env';
 import { AppLoggerModule } from './common/logging/logger.module';
 import { MetricsModule } from './health/metrics.module';
+import { WorkerProbeServer } from './health/worker-probe.server';
 import { DatabaseModule } from './db/database.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { DocumentCleanupTimer } from './modules/documents/document-cleanup.timer';
@@ -45,6 +46,8 @@ import { StorageModule } from './modules/storage/storage.module';
     ReportsModule,
   ],
   providers: [
+    // Liveness and queue depth for the worker, on a port of its own (T9).
+    WorkerProbeServer,
     ScanWorker,
     // Each scan's verdict is recorded against its document.
     { provide: SCAN_JOB_HANDLER, useExisting: DocumentScanHandler },

@@ -1,0 +1,41 @@
+# What never belongs in an image (sp7-plan.md, T14).
+#
+# Two reasons, and the second is the important one: a smaller image builds and
+# deploys faster, and a build context that cannot carry a secret cannot leak
+# one. `.env` is excluded here as well as in `.gitignore`, because a file
+# copied into a layer is in that layer forever, whatever the next line deletes.
+
+.env
+.env.*
+!.env.example
+
+.git
+.github
+.claude
+
+node_modules
+**/node_modules
+**/dist
+**/build
+
+# Test output, coverage, browser traces and screenshots.
+**/test-results
+**/playwright-report
+**/coverage
+**/.vitest
+
+# Editor and OS noise.
+.vscode
+.idea
+**/.DS_Store
+**/*.log
+
+# Documentation and plans: read in the repository, not shipped in an image.
+docs
+*.md
+!README.md
+
+# The local stack's own definitions.
+docker-compose.yml
+docker-compose.prod.yml
+infra

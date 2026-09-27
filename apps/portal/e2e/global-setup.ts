@@ -22,6 +22,15 @@ const REPO = path.resolve(HERE, '..', '..', '..');
 const OUT = path.resolve(HERE, '..', 'test-results');
 
 export const API_PORT = 3100;
+/**
+ * The worker's probe port, which must not be the API's.
+ *
+ * It defaults to 3100 — one hundred above the API's usual 3000 — and this run
+ * puts the API on 3100 itself. Without this the worker's probe server binds the
+ * port first and answers the API's requests, which it does by refusing every
+ * POST (sp7-plan.md, T9).
+ */
+export const WORKER_PROBE_PORT = 3102;
 export const PORTAL_PORT = 5175;
 /** The clinical app, whose SP6 screens are tested beside the portal (T25). */
 export const CLINICAL_PORT = 5176;
@@ -152,7 +161,10 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   };
 
   const api = start('node apps/api/dist/main.js', 'the API', apiEnv);
-  const worker = start('node apps/api/dist/worker.js', 'the worker', apiEnv);
+  const worker = start('node apps/api/dist/worker.js', 'the worker', {
+    ...apiEnv,
+    WORKER_PORT: String(WORKER_PROBE_PORT),
+  });
   const portal = start(
     `pnpm --filter @health24/portal exec vite --port ${PORTAL_PORT} --strictPort`,
     'the portal',

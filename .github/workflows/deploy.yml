@@ -1,0 +1,257 @@
+# Building the images, and deploying them (sp7-plan.md, T17).
+#
+# Two halves, deliberately separate. Building and scanning happens on every
+# push to master and needs no cloud account: it proves the images build and
+# that nothing in them has a known high-severity vulnerability. Pushing and
+# deploying happens only when somebody asks, only with credentials that exist,
+# and only through an environment a reviewer has to approve.
+#
+# Without AWS credentials configured, everything after the build is skipped
+# rather than failed. A repository with no account should have a green pipeline
+# — the alternative is a permanently red one that everybody learns to ignore.
+
+name: Images and deploy
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Which environment to deploy
+        required: true
+        default: staging
+        type: choice
+        options: [staging, production]
+
+permissions:
+  contents: read
+
+concurrency:
+  # One deploy at a time per environment. Two applies in parallel is how a
+  # deploy ends up half done.
+  group: deploy-${{ github.event.inputs.environment || 'build' }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-south-1
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build and scan. No credentials, no push: this runs everywhere.
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build and scan (${{ matrix.image }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: api
+            dockerfile: docker/api.Dockerfile
+            build_args: |
+              BUILD_SHA=${{ github.sha }}
+              BUILD_TIME=${{ github.event.repository.updated_at }}
+          - image: clinical
+            dockerfile: docker/web.Dockerfile
+            build_args: APP=clinical
+          - image: portal
+            dockerfile: docker/web.Dockerfile
+            build_args: APP=portal
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          build-args: ${{ matrix.build_args }}
+          # Loaded into the local daemon so the scanner can read it. Pushing is
+          # a separate job, and only after the scan passes.
+          load: true
+          tags: health24/${{ matrix.image }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max
+
+      - name: Scan the image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: health24/${{ matrix.image }}:${{ github.sha }}
+          format: table
+          # A high-severity vulnerability in an image that will hold patient
+          # data is a build failure, not a ticket (DF8).
+          exit-code: '1'
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+
+      - name: Save the image for the push job
+        if: github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
+        run: docker save "health24/${{ matrix.image }}:${{ github.sha }}" | gzip > "${{ matrix.image }}.tar.gz"
+
+      - uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
+        with:
+          name: image-${{ matrix.image }}
+          path: ${{ matrix.image }}.tar.gz
+          retention-days: 3
+
+  # ---------------------------------------------------------------------------
+  # Push to the registry. Skipped entirely without a role to assume.
+  # ---------------------------------------------------------------------------
+  push:
+    name: Push to ECR
+    needs: build
+    runs-on: ubuntu-latest
+    if: vars.AWS_DEPLOY_ROLE_ARN != ''
+
+    permissions:
+      contents: read
+      # OIDC rather than a long-lived access key: there is no credential to
+      # leak, and the role can only be assumed by this repository.
+      id-token: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: image-*
+          path: images
+
+      - name: Load the images
+        run: |
+          for archive in images/*/*.tar.gz; do
+            gunzip -c "$archive" | docker load
+          done
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Tag and push
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          set -euo pipefail
+          for image in api clinical portal; do
+            docker tag "health24/${image}:${GITHUB_SHA}" "${REGISTRY}/health24/${image}:${GITHUB_SHA}"
+            docker push "${REGISTRY}/health24/${image}:${GITHUB_SHA}"
+          done
+
+  # ---------------------------------------------------------------------------
+  # Deploy: asked for by a person, approved by a reviewer.
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment }}
+    needs: push
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && vars.AWS_DEPLOY_ROLE_ARN != ''
+
+    # The gate. A production deploy waits for whoever is named as a reviewer of
+    # this environment in the repository's settings.
+    environment: ${{ github.event.inputs.environment }}
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Initialise
+        working-directory: infra/terraform
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="key=${{ github.event.inputs.environment }}/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ vars.TF_LOCK_TABLE }}" \
+            -backend-config="encrypt=true"
+
+      # The migration task definition first, so the job that runs next is
+      # running this build's migrations rather than the last one's.
+      - name: Register the migration task
+        working-directory: infra/terraform
+        run: |
+          terraform apply -auto-approve \
+            -var-file="environments/${{ github.event.inputs.environment }}.tfvars" \
+            -var="image_tag=${GITHUB_SHA}" \
+            -target=aws_ecs_task_definition.migrate
+
+      # Migrations run as a job and are waited for. Not on boot: two tasks
+      # starting together would both try, and a migration that fails halfway
+      # through a rolling deploy leaves half the tasks serving against a schema
+      # they do not expect.
+      - name: Migrate, and wait
+        working-directory: infra/terraform
+        run: |
+          set -euo pipefail
+
+          cluster=$(terraform output -raw cluster_name)
+          family=$(terraform output -raw migrate_task_definition)
+          subnets=$(terraform output -json task_network | jq -r '.subnets | join(",")')
+          groups=$(terraform output -json task_network | jq -r '.security_groups | join(",")')
+
+          task=$(aws ecs run-task \
+            --cluster "$cluster" \
+            --task-definition "$family" \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[$subnets],securityGroups=[$groups],assignPublicIp=DISABLED}" \
+            --query 'tasks[0].taskArn' --output text)
+
+          echo "Migration task: $task"
+          aws ecs wait tasks-stopped --cluster "$cluster" --tasks "$task"
+
+          code=$(aws ecs describe-tasks --cluster "$cluster" --tasks "$task" \
+            --query 'tasks[0].containers[0].exitCode' --output text)
+
+          echo "Migration exit code: $code"
+          test "$code" = "0"
+
+      - name: Apply
+        working-directory: infra/terraform
+        run: |
+          terraform apply -auto-approve \
+            -var-file="environments/${{ github.event.inputs.environment }}.tfvars" \
+            -var="image_tag=${GITHUB_SHA}"
+
+      # A deploy is not finished when Terraform returns; it is finished when the
+      # new tasks are serving.
+      - name: Wait for the services to settle
+        working-directory: infra/terraform
+        run: |
+          set -euo pipefail
+          cluster=$(terraform output -raw cluster_name)
+          services=$(terraform output -json service_names | jq -r '.[]' | tr '\n' ' ')
+
+          # shellcheck disable=SC2086
+          aws ecs wait services-stable --cluster "$cluster" --services $services
+
+      - name: Check what is running
+        run: |
+          set -euo pipefail
+          host="${{ vars.API_HOSTNAME }}"
+          test -n "$host" || { echo "API_HOSTNAME is not set; skipping the check"; exit 0; }
+
+          version=$(curl -fsS "https://${host}/version")
+          echo "$version"
+
+          echo "$version" | jq -e --arg sha "$GITHUB_SHA" '.commit == $sha' > /dev/null
+          curl -fsS "https://${host}/ready" | jq -e '.ready == true' > /dev/null

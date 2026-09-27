@@ -29,3 +29,6 @@ Thumbs.db
 # text messages they read the sign-in code from.
 test-results/
 playwright-report/
+
+# The production-like local stack's secrets (sp7-plan.md, T15).
+.env.prod-local

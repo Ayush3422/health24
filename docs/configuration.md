@@ -39,6 +39,7 @@ repository; deployed values come from a secret store — see
 | `BUILD_SHA` | Optional | git sha | `unknown` | What `/version` reports as the running commit. Set by the image build. |
 | `BUILD_TIME` | Optional | ISO instant | `unknown` | What `/version` reports as the build time. Set by the image build. |
 | `LOG_FILE` | Optional | path | — | Writes the log to a file instead of standard output, as JSON, for a host with no collector — and for the test that proves no patient reaches a log line. |
+| `WORKER_PORT` | Optional | 1–65535 | `3100` | Where the worker serves `/health` and `/metrics`. It has no API. |
 | `ALLOW_DEMO_TERMINOLOGY` | Optional | `true` \| `false` | unset | Whether synthetic `DEMO-` codes may be recorded on a patient. **`true` is refused in production**: a demo code on a real record is a falsified diagnosis. |
 | `STORAGE_BUCKET` | Optional | bucket name | `health24-documents` | Where uploaded documents and rendered PDFs live. |
 | `STORAGE_REGION` | Optional | AWS region | `ap-south-1` | **Anything but `ap-south-1` is refused in production**: data residency is a legal requirement. |

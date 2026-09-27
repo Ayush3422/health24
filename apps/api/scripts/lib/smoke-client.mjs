@@ -14,7 +14,15 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as OTPAuth from 'otpauth';
 
-export const BASE = 'http://localhost:3000/api/v1';
+/**
+ * Where to smoke.
+ *
+ * The development API by default, and anything else when asked — the
+ * production-like stack answers on another port (docker-compose.prod.yml), and
+ * a smoke test that cannot be pointed at it is a smoke test that never runs
+ * against the images that get deployed (sp7-plan.md, T15, T31).
+ */
+export const BASE = `${process.env.API_BASE_URL ?? 'http://localhost:3000'}/api/v1`;
 export const SEED_PASSWORD = 'health24-dev-password';
 
 const here = path.dirname(fileURLToPath(import.meta.url));

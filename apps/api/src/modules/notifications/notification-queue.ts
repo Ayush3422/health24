@@ -31,6 +31,38 @@ export class NotificationQueue implements OnModuleDestroy {
   }
 
   async breakGlassTaken(consentId: string): Promise<void> {
+    const queue = this.open();
+    let timer: NodeJS.Timeout | undefined;
+
+    try {
+      await Promise.race([
+        // One job per emergency access, however often it is added.
+        queue.add('break-glass', { consentId }, { jobId: `break-glass-${consentId}` }),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error('The notification queue did not answer in time')),
+            ENQUEUE_TIMEOUT_MS,
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * How many messages are waiting, and how many have given up (T9).
+   *
+   * A patient who was not told their record was read under emergency access
+   * is a promise SP5 made and broke, and nothing on a screen would show it.
+   */
+  async depth(): Promise<{ waiting: number; failed: number }> {
+    const counts = await this.open().getJobCounts('wait', 'failed');
+
+    return { waiting: counts.wait ?? 0, failed: counts.failed ?? 0 };
+  }
+
+  private open(): Queue<BreakGlassNotificationJob, BreakGlassNotificationOutcome> {
     this.queue ??= new Queue<BreakGlassNotificationJob, BreakGlassNotificationOutcome>(this.name, {
       connection: redisConnection(this.config.getOrThrow<string>('REDIS_URL')),
       defaultJobOptions: {
@@ -42,22 +74,7 @@ export class NotificationQueue implements OnModuleDestroy {
       },
     });
 
-    let timer: NodeJS.Timeout | undefined;
-
-    try {
-      await Promise.race([
-        // One job per emergency access, however often it is added.
-        this.queue.add('break-glass', { consentId }, { jobId: `break-glass-${consentId}` }),
-        new Promise<never>((_, reject) => {
-          timer = setTimeout(
-            () => reject(new Error('The notification queue did not answer in time')),
-            ENQUEUE_TIMEOUT_MS,
-          );
-        }),
-      ]);
-    } finally {
-      clearTimeout(timer);
-    }
+    return this.queue;
   }
 
   async onModuleDestroy(): Promise<void> {

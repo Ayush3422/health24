@@ -1,0 +1,9 @@
+# Vulnerabilities deliberately allowed past the scanner (sp7-plan.md, DF8).
+#
+# Every line needs three things: the identifier, why it does not apply here or
+# why it cannot be fixed yet, and a date to look again. An entry with no date
+# is an entry nobody will ever remove.
+#
+# Empty on purpose. A finding is fixed by updating the image or the dependency;
+# this file is for the case where neither is possible yet, and that case has to
+# be argued rather than assumed.

@@ -1,0 +1,11 @@
+# Terraform's own working files. State lives in S3, not here.
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
+# A variables file that is not one of the environments above is somebody's
+# local experiment, and may hold an account identifier.
+*.auto.tfvars
+override.tf
+override.tf.json
