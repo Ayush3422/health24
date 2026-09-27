@@ -50,7 +50,9 @@ RUN pnpm --filter @health24/shared build \
 
 # Generated rather than hand-written, so the deployed policy is the one the
 # browser suites ran against (T10).
-RUN node scripts/render-nginx-headers.mjs "${APP}" /security-headers.conf
+# It keeps ${STORAGE_ORIGIN} as a placeholder, which the container entrypoint
+# substitutes at start (T23).
+RUN node scripts/render-nginx-headers.mjs "${APP}" /security-headers.conf.template
 
 # ---------------------------------------------------------------------------
 # Runtime
@@ -60,13 +62,23 @@ FROM nginx:${NGINX_VERSION} AS runtime
 ARG APP
 
 COPY docker/nginx.conf /etc/nginx/nginx.conf
-COPY --from=build /security-headers.conf /etc/nginx/conf.d/security-headers.conf
+# nginx own entrypoint runs envsubst over everything in this directory and
+# writes the result into conf.d, which is how the storage origin becomes
+# configuration rather than something baked into the image (T23).
+COPY --from=build /security-headers.conf.template /etc/nginx/templates/security-headers.conf.template
 COPY --from=build /repo/apps/${APP}/dist /usr/share/nginx/html
+
+# Where documents live. Empty by default, which is a policy that allows
+# none of them — a deployment sets it to the bucket own origin.
+ENV STORAGE_ORIGIN=""
+# Only this variable is substituted; a dollar sign anywhere else in the
+# policy is left alone.
+ENV NGINX_ENVSUBST_FILTER="STORAGE_ORIGIN"
 
 # The stock image's default site, which would otherwise shadow ours.
 RUN rm -f /etc/nginx/conf.d/default.conf \
  && mkdir -p /tmp/client_body \
- && chown -R nginx:nginx /tmp /var/cache/nginx /usr/share/nginx/html
+ && chown -R nginx:nginx /tmp /var/cache/nginx /usr/share/nginx/html /etc/nginx/conf.d
 
 USER nginx
 

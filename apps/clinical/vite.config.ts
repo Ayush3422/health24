@@ -26,7 +26,9 @@ const toApi: ProxyOptions = {
  * tests, rather than in production where somebody would be tempted to switch
  * it off.
  */
-const headers = securityHeaders('clinical', { development: true });
+const storageOrigin = new URL(process.env.STORAGE_ENDPOINT ?? 'http://localhost:7070').origin;
+
+const headers = securityHeaders('clinical', { development: true, storageOrigin });
 
 export default defineConfig({
   plugins: [react()],
@@ -41,5 +43,5 @@ export default defineConfig({
     },
     headers,
   },
-  preview: { headers: securityHeaders('clinical') },
+  preview: { headers: securityHeaders('clinical', { storageOrigin }) },
 });

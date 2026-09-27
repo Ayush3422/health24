@@ -21,12 +21,23 @@ export type Surface = 'api' | 'clinical' | 'portal';
 /**
  * Where the app may fetch from.
  *
- * Both apps talk to their own origin only: the proxy in front of them forwards
- * `/api` to the API, so a browser never makes a cross-origin request in normal
- * use. That is deliberate — it keeps the tokens same-origin and makes a
- * `connect-src 'self'` policy honest rather than aspirational.
+ * Almost everything is the app's own origin: the proxy in front of it forwards
+ * `/api` to the API, so a browser makes no cross-origin request for anything
+ * the API serves. That keeps the tokens same-origin and makes
+ * `connect-src 'self'` honest rather than aspirational.
+ *
+ * Object storage is the exception, and it has to be named. A document is
+ * uploaded by the browser straight to storage with a presigned URL, and read
+ * back from storage in an `img` or an `iframe` (SP4) — three directives that
+ * would otherwise refuse it. Leaving them out does not make the system safer;
+ * it makes the document viewer silently blank, which is how a content security
+ * policy ends up being switched off altogether.
  */
-function contentSecurityPolicy(surface: Surface, development: boolean): string {
+function contentSecurityPolicy(
+  surface: Surface,
+  development: boolean,
+  storageOrigin: string,
+): string {
   if (surface === 'api') {
     // An API serves JSON. Nothing it returns should ever be rendered, and
     // `sandbox` means a browser that is tricked into navigating to one of its
@@ -40,18 +51,25 @@ function contentSecurityPolicy(surface: Surface, development: boolean): string {
     ].join('; ');
   }
 
+  // Named once, so that a policy with no storage configured is a policy with
+  // no extra origin in it rather than a dangling space.
+  const storage = storageOrigin ? ` ${storageOrigin}` : '';
+
   const directives = [
     "default-src 'self'",
     // The bundler inlines a small runtime style; scripts are always files.
     "script-src 'self'",
     "style-src 'self' 'unsafe-inline'",
-    // Data URIs are how the QR code for a second factor is drawn.
-    "img-src 'self' data: blob:",
+    // Data URIs are how the QR code for a second factor is drawn; storage is
+    // where a scanned report actually lives.
+    `img-src 'self' data: blob:${storage}`,
     "font-src 'self'",
-    "connect-src 'self'",
-    // Uploaded documents are shown in an iframe from object storage, which is
-    // reached through the same origin's proxy.
-    "frame-src 'self' blob:",
+    // The API through the proxy, and the presigned PUT that sends a file to
+    // storage without it passing through the API at all.
+    `connect-src 'self'${storage}`,
+    // A PDF is read in an iframe, from storage, through a presigned URL that
+    // expires in a minute.
+    `frame-src 'self' blob:${storage}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -67,7 +85,7 @@ function contentSecurityPolicy(surface: Surface, development: boolean): string {
         directive.startsWith('script-src')
           ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
           : directive.startsWith('connect-src')
-            ? "connect-src 'self' ws: wss:"
+            ? `connect-src 'self'${storage} ws: wss:`
             : directive,
       )
       .filter((directive) => directive !== 'upgrade-insecure-requests')
@@ -83,15 +101,25 @@ function contentSecurityPolicy(surface: Surface, development: boolean): string {
  * `development` relaxes exactly two directives, and nothing else: the same
  * frame, referrer and content-type rules apply on a laptop as in production,
  * so a mistake shows up while it is cheap to fix.
+ *
+ * `storageOrigin` is where documents live — `http://localhost:7070` locally,
+ * the bucket's own origin in a deployment. It is configuration rather than a
+ * constant because it differs per environment, and the static server
+ * substitutes it at start rather than at build, so one image serves every
+ * environment.
  */
 export function securityHeaders(
   surface: Surface,
-  options: { development?: boolean } = {},
+  options: { development?: boolean; storageOrigin?: string } = {},
 ): SecurityHeaders {
   const development = options.development ?? false;
 
   const headers: SecurityHeaders = {
-    'Content-Security-Policy': contentSecurityPolicy(surface, development),
+    'Content-Security-Policy': contentSecurityPolicy(
+      surface,
+      development,
+      options.storageOrigin ?? '',
+    ),
     // A clinical record is never framed by anybody, which is what stops it
     // being clickjacked into a consent nobody meant to give.
     'X-Frame-Options': 'DENY',

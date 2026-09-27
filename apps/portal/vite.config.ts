@@ -25,7 +25,9 @@ const toApi: ProxyOptions = {
  * tests, rather than in production where somebody would be tempted to switch
  * it off.
  */
-const headers = securityHeaders('portal', { development: true });
+const storageOrigin = new URL(process.env.STORAGE_ENDPOINT ?? 'http://localhost:7070').origin;
+
+const headers = securityHeaders('portal', { development: true, storageOrigin });
 
 export default defineConfig({
   plugins: [react()],
@@ -35,5 +37,5 @@ export default defineConfig({
     proxy: { '/api': toApi },
     headers,
   },
-  preview: { headers: securityHeaders('portal') },
+  preview: { headers: securityHeaders('portal', { storageOrigin }) },
 });

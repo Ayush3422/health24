@@ -293,6 +293,17 @@ resource "aws_ecs_task_definition" "web" {
 
       portMappings = [{ containerPort = 8080, protocol = "tcp" }]
 
+      # The bucket's own origin, named in the content security policy this
+      # container serves: a document is read from storage in an iframe and
+      # uploaded to it directly, and a policy that does not name it leaves the
+      # viewer silently blank (sp7-plan.md, T23).
+      environment = [
+        {
+          name  = "STORAGE_ORIGIN"
+          value = "https://${aws_s3_bucket.documents.bucket}.s3.${var.region}.amazonaws.com"
+        },
+      ]
+
       healthCheck = {
         command     = ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1"]
         interval    = 30
