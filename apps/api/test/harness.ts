@@ -25,13 +25,13 @@ loadEnv();
  * test.
  */
 
-function pointAtTestDatabase(): void {
+function pointAtTestDatabase(database: string = TEST_DATABASE): void {
   for (const key of ['DATABASE_URL', 'DATABASE_ADMIN_URL'] as const) {
     const value = process.env[key];
     if (!value) continue;
 
     const url = new URL(value);
-    url.pathname = `/${TEST_DATABASE}`;
+    url.pathname = `/${database}`;
     process.env[key] = url.toString();
   }
 }
@@ -42,8 +42,16 @@ export interface TestContext {
   close: () => Promise<void>;
 }
 
-export async function createTestApp(): Promise<TestContext> {
-  pointAtTestDatabase();
+/**
+ * The whole application against a database.
+ *
+ * `database` exists for one caller: the restore drill, which has to boot the
+ * application against the copy it restored rather than against the test
+ * database, because "the backup is readable" and "the application runs on it"
+ * are different claims (sp7-plan.md, T19).
+ */
+export async function createTestApp(options: { database?: string } = {}): Promise<TestContext> {
+  pointAtTestDatabase(options.database);
 
   // Imported after the environment is repointed, so the database provider
   // factory reads the test URL.

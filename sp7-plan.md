@@ -272,10 +272,42 @@ into Secrets Manager, and there is no `secret_version` resource anywhere.
 
 ### Phase 5 — Backups and restore
 
-- [ ] **T18** The backup position: what is backed up, how often, where it is kept, how long, and who can read it
-- [ ] **T19** A restore drill script: dump, restore into a scratch database, boot the application against it, prove the record reads correctly (DF7)
-- [ ] **T20** The drill in CI on synthetic data, with the measured RPO and RTO written into the runbook
-- [ ] **T21** The migration position: how a bad migration is caught before production, and what is done when one reaches it
+- [x] **T18** The backup position: what is backed up, how often, where it is kept, how long, and who can read it
+- [x] **T19** A restore drill script: dump, restore into a scratch database, boot the application against it, prove the record reads correctly (DF7)
+- [x] **T20** The drill in CI on synthetic data, with the measured RPO and RTO written into the runbook
+- [x] **T21** The migration position: how a bad migration is caught before production, and what is done when one reaches it
+
+**The drill asks the restored copy five questions**, and the one that matters
+most is not "is the record there": it is whether row-level security is still
+enabled and forced. A dump restored carelessly loses policies, and a restored
+database with the rows intact and the policies gone would serve every
+hospital's record to every other — while looking, from every screen, exactly
+right.
+
+**"The dump restores" and "the system runs on it" are different claims.** The
+script proves the first; the test proves the second by booting the application
+against the restored copy and signing a member of staff in to read a patient
+through the API. The second is the one people discover to be false at three in
+the morning.
+
+**It runs where a developer is, not only where CI is.** Neither `pg_dump` nor
+`pg_restore` is installed on this machine, so the drill uses the same Postgres
+image the database runs from — and chooses between the two by comparing the
+client's major version with the server's, because a client older than its
+server refuses to dump at all. A drill only CI can run is a drill nobody runs.
+
+**The timings are published and hedged.** 0.45 MB dumps, restores and verifies
+in 5.6 seconds here, and that number says something about the procedure and
+nothing about production. The runbook says so in those words: the recovery time
+to promise a hospital is the one measured against a production-sized copy, and
+that measurement waits for the first staging environment.
+
+**Migrations are append-only, and CI now enforces it.** A pull request that
+edits or deletes a file under `apps/api/drizzle/*.sql` fails, because an edited
+migration means the database somebody already migrated and the repository
+disagree with nothing to say so. The runbook also writes down the shape that
+makes a rollback possible at all: anything destructive happens in two deploys —
+stop using it, then drop it — never one.
 
 ### Phase 6 — Security review
 

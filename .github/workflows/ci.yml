@@ -120,6 +120,14 @@ jobs:
       - name: Test
         run: pnpm --filter @health24/api test
 
+      # An untested backup is not a backup (sp7-plan.md, DF7). This dumps the
+      # database the suite has just filled, restores it into a scratch copy, and
+      # asks the copy whether the record is there and row-level security is
+      # still in force — then prints how long each step took, which is what
+      # docs/runbooks/restore.md quotes as a recovery time.
+      - name: Restore drill
+        run: pnpm --filter @health24/api db:restore-drill
+
       - name: Install Chromium for the browser tests
         run: pnpm --filter @health24/portal exec playwright install --with-deps chromium
 
@@ -154,6 +162,41 @@ jobs:
 
       - name: Build patient portal
         run: pnpm --filter @health24/portal build
+
+  # ---------------------------------------------------------------------------
+  # Migrations are append-only (sp7-plan.md, T21)
+  # ---------------------------------------------------------------------------
+  migrations:
+    name: Migrations are append-only
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The merge base is needed to know which files existed before.
+          fetch-depth: 0
+
+      # A migration that has been applied anywhere is history. Editing one means
+      # the database somebody already migrated and the file in the repository
+      # disagree, and nothing will ever tell them so — the fix for a bad
+      # migration is another migration (docs/runbooks/migrations.md).
+      - name: No edits to migrations that already existed
+        run: |
+          set -euo pipefail
+          base=$(git merge-base "origin/${{ github.base_ref }}" HEAD)
+
+          edited=$(git diff --name-only --diff-filter=MD "$base" HEAD -- 'apps/api/drizzle/*.sql' || true)
+
+          if [ -n "$edited" ]; then
+            echo "These migrations were changed or removed, and they are history:"
+            echo "$edited"
+            echo
+            echo "Write a new migration instead. See docs/runbooks/migrations.md."
+            exit 1
+          fi
+
+          echo "No applied migration was edited."
 
   # ---------------------------------------------------------------------------
   # The infrastructure definitions (sp7-plan.md, T16)
