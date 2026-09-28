@@ -175,6 +175,44 @@ describe('environment validation', () => {
       expect(() => validateEnv({ ...production(), ABDM_MODE: 'off' })).not.toThrow();
     });
 
+    it('refuses a half-configured gateway, naming what is missing', () => {
+      // Half-configured is the worst of the three states: it looks enabled
+      // and fails on the first call (sp8-plan.md, T9).
+      const message = refusal({ ...production(), ABDM_MODE: 'gateway' });
+
+      expect(message).toContain('ABDM_GATEWAY_URL');
+      expect(message).toContain('ABDM_CLIENT_SECRET');
+      expect(message).toContain('ABDM_HIP_ID');
+    });
+
+    it('refuses to talk to the gateway in clear, or to trust an unsigned callback', () => {
+      const configured = {
+        ...production(),
+        ABDM_MODE: 'gateway',
+        ABDM_CLIENT_ID: 'health24',
+        ABDM_CLIENT_SECRET: 'a-real-client-secret',
+        ABDM_HIP_ID: 'HFR-0001',
+        ABDM_CM_ID: 'abdm',
+        ABDM_CALLBACK_SECRET: 'a-real-callback-secret',
+      };
+
+      expect(refusal({ ...configured, ABDM_GATEWAY_URL: 'http://gateway.abdm.gov.in' })).toContain(
+        'plain HTTP',
+      );
+
+      expect(
+        refusal({
+          ...configured,
+          ABDM_GATEWAY_URL: 'https://gateway.abdm.gov.in',
+          ABDM_CALLBACK_SECRET: undefined,
+        }),
+      ).toContain('unauthenticated ABDM callbacks');
+
+      expect(() =>
+        validateEnv({ ...configured, ABDM_GATEWAY_URL: 'https://gateway.abdm.gov.in' }),
+      ).not.toThrow();
+    });
+
     it('refuses demo terminology on real records', () => {
       expect(refusal({ ...production(), ALLOW_DEMO_TERMINOLOGY: 'true' })).toContain(
         'demo terminology',

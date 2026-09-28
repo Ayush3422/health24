@@ -52,7 +52,15 @@ repository; deployed values come from a secret store — see
 | `SMS_PROVIDER` | Optional | `log` | unset | How sign-in codes reach patients. **`log` is refused in production**: a code in a log is a code anyone with log access can use. A DLT-registered provider is chosen before the pilot. |
 | `SMS_LOG_FILE` | Optional | path | — | Where the `log` provider also writes each message, for the browser tests. **Refused in production.** |
 | `NOTIFICATION_QUEUE_NAME` | Optional | text | the default queue | As `SCAN_QUEUE_NAME`. |
-| `ABDM_MODE` | Optional | `off`, `mock` | `mock` outside production, `off` in it | How this system reaches ABDM. `mock` is an in-process stand-in for the national gateway that needs no credential and accepts a well-known code, so the flows can be tested; `off` refuses every ABDM operation. **`mock` is refused in production** — it would mark any ABHA verified without the patient being there. The real gateway arrives in SP8 Phase 2. |
+| `ABDM_MODE` | Optional | `off`, `mock`, `gateway` | `mock` outside production, `off` in it | How this system reaches ABDM. `mock` is an in-process stand-in that needs no credential and accepts a well-known code; `off` refuses every ABDM operation; `gateway` is the wire adapter, and needs the five settings below. **`mock` is refused in production** — it would mark any ABHA verified without the patient being there. See [abdm.md](abdm.md). |
+| `ABDM_GATEWAY_URL` | With `gateway` | URL | — | The gateway's base URL. **Plain HTTP is refused in production** unless it is loopback or a private address. |
+| `ABDM_CLIENT_ID` | With `gateway` | text | — | This deployment's registered client. |
+| `ABDM_CLIENT_SECRET` | With `gateway` | secret | — | Its secret. Injected, never in the repository, and never logged. |
+| `ABDM_HIP_ID` | With `gateway` | text | — | This facility's id in the Health Facility Registry. |
+| `ABDM_CM_ID` | With `gateway` | text | — | The consent manager this deployment is registered with. |
+| `ABDM_CALLBACK_SECRET` | Optional | secret | — | What an inbound callback must carry. **Required in production with `gateway`**: without it, anything that can reach the callback URL can answer for the registry. What it is and is not worth is in [abdm.md](abdm.md). |
+| `ABDM_CALL_TIMEOUT_MS` | Optional | 1000–120000 | `30000` | How long to wait for an answer that arrives as a separate inbound request. |
+| `ABDM_CALLBACK_SKEW_SECONDS` | Optional | 30–3600 | `300` | How far a callback's own timestamp may be from ours, in either direction, before it is refused as a replay. |
 
 ## The apps
 

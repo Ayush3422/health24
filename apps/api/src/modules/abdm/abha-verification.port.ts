@@ -14,7 +14,7 @@ import type { AbhaVerificationMethod } from '@health24/shared';
 export const ABHA_VERIFICATION = Symbol('ABHA_VERIFICATION');
 
 /** How this system is configured to reach ABDM. */
-export type AbdmMode = 'off' | 'mock';
+export type AbdmMode = 'off' | 'mock' | 'gateway';
 
 export interface AbhaChallengeRequest {
   /** One of the two is present; the address is the one a patient knows. */

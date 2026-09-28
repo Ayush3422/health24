@@ -1,6 +1,6 @@
 # SP8 — ABDM: Implementation Plan
 
-**Status:** In progress — Phase 1 complete, 2026-09-28. Decisions X–AA answered 2026-09-28: **X1, Y1, Z1, AA1**.
+**Status:** In progress — Phases 1–2 complete, 2026-09-28. Decisions X–AA answered 2026-09-28: **X1, Y1, Z1, AA1**.
 **Scope:** Joining the national network as a **Health Information Provider**: an ABHA number and address verified and linked to a patient, care contexts discovered and linked, a consent artefact arriving from the consent manager and landing in the consent model this system already has, and the record assembled as encrypted FHIR bundles and pushed to whoever the patient has allowed — plus the `/fhir/R4` read surface that all of it is built on, the screens that make linking and sharing visible to staff and to the patient, and an honest account of how far this is from a certificate.
 **Design reference:** `planning.md` §10 (the `/fhir/R4` surface as the seam ABDM arrives through), §8 (consent and access control), §14 stage 8 · `sp1-plan.md` (patient identity and matching) · `sp3-plan.md` (the clinical record and `app.consent_permits`) · `sp5-plan.md` (the patient's rights, the portal, the FHIR export) · [docs/compliance/ehr-standards-self-assessment.md](docs/compliance/ehr-standards-self-assessment.md) gaps 1–3
 
@@ -172,11 +172,72 @@ something unimplemented is exactly the sort of claim DF11 exists to refuse.
 
 ### Phase 2 — The gateway adapter and its mock
 
-- [ ] **T5** The adapter interface: every ABDM operation this system performs or answers, expressed in this system's own types (DF4)
-- [ ] **T6** The wire implementation — session tokens, the correlation id on every call, the headers, clock skew, and the asynchronous pattern where the answer arrives as a separate request rather than a response
-- [ ] **T7** The mock gateway: discovery, linking, consent notification and data request, deterministic, needing no credential, started by the test harness (Z1, DF9)
-- [ ] **T8** Callback authentication: how a request claiming to be the gateway is proved to be one, and what happens when it cannot be
-- [ ] **T9** Configuration and its refusals — which variables the ABDM half needs, and the production refusal when it is half-configured (S8)
+- [x] **T5** The adapter interface: every ABDM operation this system performs or answers, expressed in this system's own types (DF4)
+- [x] **T6** The wire implementation — session tokens, the correlation id on every call, the headers, clock skew, and the asynchronous pattern where the answer arrives as a separate request rather than a response
+- [x] **T7** The mock gateway: deterministic, needing no credential, started by the test suite (Z1, DF9) — with the operations that have callers, and a named place for the ones Phases 3–5 add
+- [x] **T8** Callback authentication: how a request claiming to be the gateway is proved to be one, and what happens when it cannot be
+- [x] **T9** Configuration and its refusals — which variables the ABDM half needs, and the production refusal when it is half-configured (S8)
+
+**ABDM's answer does not come back in the response, and that is the whole
+shape of this phase.** A call is accepted with 202 and an empty body; the
+answer arrives later as a **separate inbound request** quoting the id that was
+sent. So the adapter is not a wrapper around `fetch` — it is a registry of
+calls in flight, and `call()` registers the wait *before* it sends, because a
+gateway fast enough to call back while we are still reading its 202 is not a
+race worth losing.
+
+**One consequence, written into `docs/abdm.md` rather than discovered later.**
+A pending call lives in memory in the process that made it, so the callback has
+to reach **that** process — several API tasks behind a load balancer need the
+callback routed, or one task serving that path. Persisting pending calls was
+considered and rejected: after a restart the caller is gone, and resuming the
+wait would only create the illusion that a dropped call could be recovered.
+
+**The mock is a server, not a stub**, because only a server can exercise what
+this phase is about. It hands out session tokens, refuses a call that does not
+carry one, answers 202, and then calls back on its own connection — so the
+session cache, the correlation, the headers and the callback endpoint are
+tested by being used, over real HTTP, in both directions. It is deliberately
+awkward in the ways the real one is: it can be told to answer with an error,
+or **not to answer at all**, which is how the timeout path is covered. That is
+the failure that never happens on a developer's machine and always happens
+eventually.
+
+**T8 got the honest answer rather than the comfortable one.** The right
+question was not "how do we authenticate the callback" but "what does the
+specification give us to authenticate it with", and the answer is less than one
+would like. So there are three checks, and the documentation says what each is
+worth: a shared secret, required in production and the one ABDM is least
+generous about; **a correlation id we issued and are still waiting on**, which
+is the strongest and needs nothing from ABDM at all — an answer to a question
+nobody asked is refused, so reaching the URL buys a caller nothing; and a
+timestamp within the skew window, in either direction. What none of them
+establishes is the **content** of a consent artefact, which rests on the
+artefact's own signature and is Phase 4's problem — named here so that nobody
+reads the three as covering it.
+
+**The refusal says nothing about which check failed.** Telling a caller their
+correlation id was unknown tells them how to find one that is not.
+
+**The session is cached, renewed a minute early, and fetched by one caller at
+a time.** Each of the three is a bug when it is missing: a token per call is
+two round trips for every operation, a token that lapses mid-flight fails a
+request that had nothing wrong with it, and a burst on a cold process asks for
+twenty tokens at once — which from the other side looks like an attack. There
+is exactly one retry, for exactly one cause: a 401, which means the token, not
+the request. Retrying anything else would send a duplicate of something the
+gateway may already be acting on.
+
+**Half-configured is the worst of the three modes**, because it looks enabled
+and fails on the first call. `ABDM_MODE=gateway` without its five settings is
+refused at boot with all of the missing names in one message, rather than one
+name per restart.
+
+**The operation list was written before most of it has an implementation**,
+with each entry carrying whether it is built. That is the point: it says what
+this system's ABDM surface is, it is where Phases 3–5 add rather than inventing
+a second way in, and the `built: false` markers mean nothing in it can be read
+as a claim (DF11).
 
 ### Phase 3 — Care contexts, discovery and linking
 

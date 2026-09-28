@@ -169,7 +169,37 @@ const envSchema = z
      * message saying so. Unset means `mock` outside production and `off` in
      * it — the real gateway arrives in Phase 2.
      */
-    ABDM_MODE: z.enum(['off', 'mock']).optional(),
+    ABDM_MODE: z.enum(['off', 'mock', 'gateway']).optional(),
+
+    /**
+     * Where the gateway is, and who this deployment is to it (SP8, T9).
+     *
+     * All of these are required together when `ABDM_MODE=gateway`, and the
+     * refusal below names the ones that are missing rather than letting the
+     * first call fail at three in the morning. `ABDM_HIP_ID` is this
+     * facility's id in the Health Facility Registry; `ABDM_CM_ID` is the
+     * consent manager this deployment is registered with.
+     */
+    ABDM_GATEWAY_URL: z.string().url().optional(),
+    ABDM_CLIENT_ID: z.string().optional(),
+    ABDM_CLIENT_SECRET: z.string().optional(),
+    ABDM_HIP_ID: z.string().optional(),
+    ABDM_CM_ID: z.string().optional(),
+
+    /**
+     * The shared secret an inbound callback must carry.
+     *
+     * What it is worth is written down in `docs/abdm.md`: it is one of three
+     * checks, and the one the specification is least generous about. It is
+     * required in production because the alternative is accepting anything
+     * that can reach the callback URL.
+     */
+    ABDM_CALLBACK_SECRET: z.string().optional(),
+
+    /** How long to wait for an answer that arrives as a separate request. */
+    ABDM_CALL_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(30_000),
+    /** How far a callback's own timestamp may be from ours before it is refused. */
+    ABDM_CALLBACK_SKEW_SECONDS: z.coerce.number().int().min(30).max(3_600).default(300),
   })
   .superRefine((env, ctx) => {
     // Data residency is a legal requirement: patient documents stay in India.
@@ -307,6 +337,53 @@ const envSchema = z
         path: ['ABDM_MODE'],
         message: 'Refusing to start in production with the ABDM gateway mocked',
       });
+    }
+
+    // Half-configured is the worst of the three states: it looks enabled and
+    // fails on the first call. Named together, missing together.
+    if (env.ABDM_MODE === 'gateway') {
+      const missing = (
+        [
+          ['ABDM_GATEWAY_URL', env.ABDM_GATEWAY_URL],
+          ['ABDM_CLIENT_ID', env.ABDM_CLIENT_ID],
+          ['ABDM_CLIENT_SECRET', env.ABDM_CLIENT_SECRET],
+          ['ABDM_HIP_ID', env.ABDM_HIP_ID],
+          ['ABDM_CM_ID', env.ABDM_CM_ID],
+        ] as const
+      )
+        .filter(([, value]) => !value)
+        .map(([name]) => name);
+
+      if (missing.length > 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['ABDM_MODE'],
+          message: `ABDM_MODE=gateway needs ${missing.join(', ')}`,
+        });
+      }
+
+      // A patient's national identifier crossing the internet in clear.
+      if (
+        env.NODE_ENV === 'production' &&
+        env.ABDM_GATEWAY_URL?.startsWith('http:') &&
+        !isLocalEndpoint(env.ABDM_GATEWAY_URL)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['ABDM_GATEWAY_URL'],
+          message: 'Refusing to start in production talking to the gateway over plain HTTP',
+        });
+      }
+
+      // Without it, anything that can reach the callback URL can answer for
+      // the national registry.
+      if (env.NODE_ENV === 'production' && !env.ABDM_CALLBACK_SECRET) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['ABDM_CALLBACK_SECRET'],
+          message: 'Refusing to start in production with unauthenticated ABDM callbacks',
+        });
+      }
     }
 
     // Worse still on disk, where it outlives the log and nothing rotates it.

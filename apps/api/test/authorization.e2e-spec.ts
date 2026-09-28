@@ -233,6 +233,13 @@ const ROUTES: RouteExpectation[] = [
     body: { transactionId: 'authorisation-probe', code: '000000' },
   },
 
+  // Where the gateway's answers arrive (SP8, T8). No member of staff is
+  // signed in — and it is not open: what authorises a callback is that it
+  // quotes a call this process made and is still waiting on. Proved in
+  // `abdm-gateway.e2e-spec.ts` rather than here, because this sweep asks
+  // about staff permissions and that endpoint has none to ask about.
+  { method: 'post', path: '/api/v1/abdm/callbacks/:operation', allow: [], public: true },
+
   // Terminology
   { method: 'get', path: '/api/v1/terminology/systems', allow: TERMINOLOGY_READERS },
   { method: 'get', path: '/api/v1/terminology/search', allow: TERMINOLOGY_READERS },
