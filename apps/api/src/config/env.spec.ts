@@ -168,6 +168,13 @@ describe('environment validation', () => {
       expect(refusal({ ...production(), SMS_LOG_FILE: '/tmp/sms.jsonl' })).toContain('SMS_LOG_FILE');
     });
 
+    it('refuses a mocked national registry', () => {
+      // A mock that accepts a well-known code is a way to mark any ABHA
+      // verified without the patient being there (sp8-plan.md, T9).
+      expect(refusal({ ...production(), ABDM_MODE: 'mock' })).toContain('ABDM');
+      expect(() => validateEnv({ ...production(), ABDM_MODE: 'off' })).not.toThrow();
+    });
+
     it('refuses demo terminology on real records', () => {
       expect(refusal({ ...production(), ALLOW_DEMO_TERMINOLOGY: 'true' })).toContain(
         'demo terminology',

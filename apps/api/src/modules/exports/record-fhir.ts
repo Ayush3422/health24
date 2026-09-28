@@ -16,6 +16,17 @@ import type { ExportRecord } from './export-record';
 
 const HOSPITAL = 'urn:health24:hospital';
 
+/**
+ * ABDM's own identifier systems (SP8, T3).
+ *
+ * Written here rather than inferred, and checked against the published
+ * profiles in T30: a bundle that names the wrong system for a national
+ * identifier is worse than one that omits it, because the receiving system
+ * believes it.
+ */
+const ABHA_NUMBER = 'https://healthid.ndhm.gov.in';
+const ABHA_ADDRESS = 'https://healthid.ndhm.gov.in/address';
+
 const reference = (type: string, id: string) => ({ reference: `${type}/${id}` });
 
 const encounterClass: Record<string, { code: string; display: string }> = {
@@ -42,10 +53,21 @@ export function buildRecordFhir(record: ExportRecord, exportedAt: Date): unknown
   const patient = {
     resourceType: 'Patient',
     id: record.patient.id,
-    identifier: record.hospitals.map((hospital) => ({
-      system: `${HOSPITAL}:${hospital.id}`,
-      value: hospital.mrn,
-    })),
+    identifier: [
+      // Only a confirmed ABHA is asserted here. An unverified one is a number
+      // somebody typed, and a bundle that presents it as a national identity
+      // would be believed by whatever reads it.
+      ...(record.patient.abhaVerified && record.patient.abhaNumber
+        ? [{ system: ABHA_NUMBER, value: record.patient.abhaNumber }]
+        : []),
+      ...(record.patient.abhaVerified && record.patient.abhaAddress
+        ? [{ system: ABHA_ADDRESS, value: record.patient.abhaAddress }]
+        : []),
+      ...record.hospitals.map((hospital) => ({
+        system: `${HOSPITAL}:${hospital.id}`,
+        value: hospital.mrn,
+      })),
+    ],
     name: [{ text: record.patient.name }],
     gender: ['male', 'female', 'other'].includes(record.patient.gender)
       ? record.patient.gender

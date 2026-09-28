@@ -277,6 +277,10 @@ export class EmergencyCardService {
   ): EmergencyFacts {
     const shows = (field: EmergencyCardField) => fields.includes(field);
 
+    // Deliberately no ABHA here (sp8-plan.md, T3). This card is readable by
+    // anyone holding it, which is the point — and a national identifier on it
+    // helps the clinician in the ambulance not at all while handing whoever
+    // finds a dropped card the one number that opens accounts elsewhere.
     return {
       name: essentials.name,
       ageYears: essentials.ageYears,

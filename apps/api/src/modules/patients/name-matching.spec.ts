@@ -107,14 +107,64 @@ describe('scoreIdentities', () => {
     birthYear: 1984,
   };
 
-  it('treats a shared ABHA number as decisive', () => {
+  it('treats a shared ABHA number as decisive when both sides were verified', () => {
     const result = scoreIdentities(
-      { ...base, abhaNumber: '12345678901234' },
-      { name: 'Totally Different', gender: 'female', abhaNumber: '12345678901234' },
+      { ...base, abhaNumber: '12345678901234', abhaVerified: true },
+      {
+        name: 'Totally Different',
+        gender: 'female',
+        abhaNumber: '12345678901234',
+        abhaVerified: true,
+      },
     );
 
     expect(result.score).toBe(1);
     expect(result.method).toBe('abha_exact');
+    expect(result.matchedOn).toContain('abha_number_verified');
+  });
+
+  /**
+   * The case this distinction exists for: a parent's ABHA typed in for a
+   * newborn. "B/O Meera Joshi" normalises to exactly the mother's name, and
+   * the family shares a handset — so before SP8 the shared number alone made
+   * this decisive and the child's record would have been linked into the
+   * mother's.
+   */
+  it('does not treat a typed ABHA number as decisive, however much else agrees', () => {
+    const mother = {
+      name: 'Meera Joshi',
+      gender: 'female',
+      phone: '+919812345670',
+      abhaNumber: '12345678901234',
+      abhaVerified: true,
+    };
+
+    const newborn = {
+      name: 'B/O Meera Joshi',
+      gender: 'female',
+      phone: '+919812345670',
+      // Typed at the desk from the mother's card. Nobody confirmed it.
+      abhaNumber: '12345678901234',
+      abhaVerified: false,
+    };
+
+    const result = scoreIdentities(newborn, mother);
+
+    expect(result.method).toBe('probabilistic');
+    expect(result.score).toBeLessThan(1);
+    expect(result.matchedOn).toContain('abha_number_declared');
+  });
+
+  it('still puts a typed ABHA agreement in front of a human', () => {
+    const result = scoreIdentities(
+      { name: 'Ramesh Kumar', gender: 'male', abhaNumber: '12345678901234' },
+      { name: 'Somebody Else', gender: 'male', abhaNumber: '12345678901234' },
+    );
+
+    // Above the review threshold on its own, below the auto-link threshold
+    // however little else agrees.
+    expect(result.score).toBeGreaterThanOrEqual(REVIEW_THRESHOLD);
+    expect(result.score).toBeLessThan(AUTO_LINK_THRESHOLD);
   });
 
   it('reaches the auto-link threshold only with phone, name and birth year agreeing', () => {

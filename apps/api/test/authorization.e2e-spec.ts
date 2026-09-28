@@ -213,6 +213,26 @@ const ROUTES: RouteExpectation[] = [
     body: { name: 'Probe Patient' },
   },
 
+  // ABHA (SP8). Reading it is reading the patient; confirming it is its own
+  // permission, held by the three roles that stand in front of a patient.
+  {
+    method: 'get',
+    path: '/api/v1/patients/:patientId/abha',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
+  {
+    method: 'post',
+    path: '/api/v1/patients/:patientId/abha/verification',
+    allow: ['clinician', 'frontDesk', 'records'],
+    body: { abhaAddress: 'probe.patient@abdm', method: 'mobile_otp' },
+  },
+  {
+    method: 'post',
+    path: '/api/v1/patients/:patientId/abha/verification/confirm',
+    allow: ['clinician', 'frontDesk', 'records'],
+    body: { transactionId: 'authorisation-probe', code: '000000' },
+  },
+
   // Terminology
   { method: 'get', path: '/api/v1/terminology/systems', allow: TERMINOLOGY_READERS },
   { method: 'get', path: '/api/v1/terminology/search', allow: TERMINOLOGY_READERS },

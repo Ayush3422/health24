@@ -20,6 +20,7 @@ import { PORTAL_RELATIONSHIPS, type Address } from '@health24/shared';
 import { hospitals } from './hospitals';
 import { staffUsers } from './staff';
 import {
+  abhaVerificationMethodEnum,
   bloodGroupEnum,
   genderEnum,
   matchMethodEnum,
@@ -63,8 +64,23 @@ export const patients = pgTable(
     /** E.164, normalised on input so comparison is reliable. */
     phone: text('phone'),
 
+    /**
+     * The national health identifier, and where it came from (SP8, T1).
+     *
+     * Until SP8 these were two strings with no provenance, which made a
+     * number a receptionist typed indistinguishable from one the registry
+     * confirmed — and matching treated both as certainty. The timestamps are
+     * what tell them apart: set only by a completed verification, never by
+     * the demographic-correction route, and frozen afterwards by
+     * `app.guard_abha_identity`.
+     */
     abhaNumber: text('abha_number').unique(),
     abhaAddress: text('abha_address').unique(),
+    abhaNumberVerifiedAt: timestamp('abha_number_verified_at', { withTimezone: true }),
+    abhaAddressVerifiedAt: timestamp('abha_address_verified_at', { withTimezone: true }),
+    abhaVerificationMethod: abhaVerificationMethodEnum('abha_verification_method'),
+    /** The member of staff who was with the patient while they read the code back. */
+    abhaVerifiedByStaffId: uuid('abha_verified_by_staff_id').references(() => staffUsers.id),
 
     bloodGroup: bloodGroupEnum('blood_group'),
     address: jsonb('address').$type<Address>(),

@@ -12,15 +12,72 @@ import { requireHospital, type Actor, type RequestMeta } from '../../common/acto
 import { AuditService } from '../audit/audit.service';
 import { maskName, maskPhone } from './name-matching';
 
+/**
+ * What an ABHA was on a record before the merge moved it (sp8-plan.md, T4).
+ *
+ * Carried as a unit because the identifier and its provenance cannot be
+ * separated: a number put back without its verification quietly becomes a
+ * typed one, and a verification put back without its number breaks the check
+ * constraint that says a timestamp implies the thing it is about.
+ */
+interface AbhaSnapshot {
+  abhaNumber: string | null;
+  abhaAddress: string | null;
+  /**
+   * ISO strings, not `Date`s. The snapshot is stored as JSONB and comes back
+   * as whatever JSON can carry, so writing the type as `Date` here would be a
+   * lie the compiler believes and the driver does not.
+   */
+  abhaNumberVerifiedAt: string | null;
+  abhaAddressVerifiedAt: string | null;
+  abhaVerificationMethod: (typeof patients.$inferSelect)['abhaVerificationMethod'];
+  abhaVerifiedByStaffId: string | null;
+}
+
+/** What a row's ABHA columns are set to when it gives its identifiers up. */
+const NO_ABHA = {
+  abhaNumber: null,
+  abhaAddress: null,
+  abhaNumberVerifiedAt: null,
+  abhaAddressVerifiedAt: null,
+  abhaVerificationMethod: null,
+  abhaVerifiedByStaffId: null,
+} as const;
+
+function abhaOf(row: typeof patients.$inferSelect): AbhaSnapshot {
+  return {
+    abhaNumber: row.abhaNumber,
+    abhaAddress: row.abhaAddress,
+    abhaNumberVerifiedAt: row.abhaNumberVerifiedAt?.toISOString() ?? null,
+    abhaAddressVerifiedAt: row.abhaAddressVerifiedAt?.toISOString() ?? null,
+    abhaVerificationMethod: row.abhaVerificationMethod,
+    abhaVerifiedByStaffId: row.abhaVerifiedByStaffId,
+  };
+}
+
+/** The same values on their way back into the columns they came from. */
+function abhaColumns(snapshot: AbhaSnapshot) {
+  return {
+    abhaNumber: snapshot.abhaNumber,
+    abhaAddress: snapshot.abhaAddress,
+    abhaNumberVerifiedAt: snapshot.abhaNumberVerifiedAt
+      ? new Date(snapshot.abhaNumberVerifiedAt)
+      : null,
+    abhaAddressVerifiedAt: snapshot.abhaAddressVerifiedAt
+      ? new Date(snapshot.abhaAddressVerifiedAt)
+      : null,
+    abhaVerificationMethod: snapshot.abhaVerificationMethod,
+    abhaVerifiedByStaffId: snapshot.abhaVerifiedByStaffId,
+  };
+}
+
 interface MergeSnapshot {
-  survivor: { id: string; abhaNumber: string | null; abhaAddress: string | null };
+  survivor: { id: string } & AbhaSnapshot;
   merged: {
     id: string;
     status: string;
     mergedIntoPatientId: string | null;
-    abhaNumber: string | null;
-    abhaAddress: string | null;
-  };
+  } & AbhaSnapshot;
   /** Link rows moved or dropped, with enough detail to put them back. */
   links: Array<{ hospitalId: string; mrn: string; action: 'moved' | 'kept_on_merged' }>;
 }
@@ -207,6 +264,22 @@ export class MergeService {
         throw new BadRequestException('One of these records has already been merged');
       }
 
+      // Two different ABHA numbers, each confirmed against the national
+      // registry, is the registry saying these are two people (sp8-plan.md,
+      // T4). Merging them discards one confirmed national identity in
+      // silence. Whichever of the two is wrong has to be corrected at ABDM
+      // first, and that is not a decision this code can take.
+      if (
+        survivor.abhaNumberVerifiedAt &&
+        merged.abhaNumberVerifiedAt &&
+        survivor.abhaNumber !== merged.abhaNumber
+      ) {
+        throw new BadRequestException(
+          'These records hold two different verified ABHA numbers. ' +
+            'Resolve that with ABDM before merging them here.',
+        );
+      }
+
       const survivorLinks = await tx
         .select()
         .from(patientHospitalLinks)
@@ -256,17 +329,12 @@ export class MergeService {
       await tx.delete(patientHospitalLinks).where(eq(patientHospitalLinks.patientId, mergedId));
 
       const snapshot: MergeSnapshot = {
-        survivor: {
-          id: survivor.id,
-          abhaNumber: survivor.abhaNumber,
-          abhaAddress: survivor.abhaAddress,
-        },
+        survivor: { id: survivor.id, ...abhaOf(survivor) },
         merged: {
           id: merged.id,
           status: merged.status,
           mergedIntoPatientId: merged.mergedIntoPatientId,
-          abhaNumber: merged.abhaNumber,
-          abhaAddress: merged.abhaAddress,
+          ...abhaOf(merged),
         },
         links: snapshotLinks,
       };
@@ -278,20 +346,19 @@ export class MergeService {
         .set({
           status: 'merged',
           mergedIntoPatientId: survivorId,
-          abhaNumber: null,
-          abhaAddress: null,
+          ...NO_ABHA,
           updatedAt: new Date(),
         })
         .where(eq(patients.id, mergedId));
 
+      // The survivor takes the identifier **and how it was established**: an
+      // ABHA that arrives here verified stays verified, and one that arrives
+      // typed stays typed. Adopting the number without its timestamp would
+      // silently downgrade a confirmed identity to a claimed one.
       if (!survivor.abhaNumber && merged.abhaNumber) {
         await tx
           .update(patients)
-          .set({
-            abhaNumber: merged.abhaNumber,
-            abhaAddress: merged.abhaAddress,
-            updatedAt: new Date(),
-          })
+          .set({ ...abhaColumns(abhaOf(merged)), updatedAt: new Date() })
           .where(eq(patients.id, survivorId));
       }
 
@@ -376,28 +443,26 @@ export class MergeService {
 
       const snapshot = entry.snapshot as MergeSnapshot;
 
+      // The survivor gives back any identifier it adopted during the merge,
+      // and it gives it back **first**: these identifiers are unique across
+      // the table, so the merged record cannot have its own returned while
+      // another row still holds them.
+      if (!snapshot.survivor.abhaNumber && snapshot.merged.abhaNumber) {
+        await tx
+          .update(patients)
+          .set({ ...abhaColumns(snapshot.survivor), updatedAt: new Date() })
+          .where(eq(patients.id, entry.survivingPatientId));
+      }
+
       await tx
         .update(patients)
         .set({
           status: 'active',
           mergedIntoPatientId: null,
-          abhaNumber: snapshot.merged.abhaNumber,
-          abhaAddress: snapshot.merged.abhaAddress,
+          ...abhaColumns(snapshot.merged),
           updatedAt: new Date(),
         })
         .where(eq(patients.id, entry.mergedPatientId));
-
-      // The survivor gives back any identifier it adopted during the merge.
-      if (!snapshot.survivor.abhaNumber && snapshot.merged.abhaNumber) {
-        await tx
-          .update(patients)
-          .set({
-            abhaNumber: snapshot.survivor.abhaNumber,
-            abhaAddress: snapshot.survivor.abhaAddress,
-            updatedAt: new Date(),
-          })
-          .where(eq(patients.id, entry.survivingPatientId));
-      }
 
       for (const link of snapshot.links) {
         if (link.action === 'moved') {

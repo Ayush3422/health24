@@ -1,4 +1,5 @@
 import {
+  ABHA_VERIFICATION_METHODS,
   ACCESS_ACTIONS,
   ACTOR_TYPES,
   ALLERGY_CATEGORIES,
@@ -93,6 +94,12 @@ export const accessOutcomeEnum = pgEnum('access_outcome', ['allowed', 'denied'])
 
 /** A patient row is either live or a tombstone pointing at the record it merged into. */
 export const patientStatusEnum = pgEnum('patient_status', ['active', 'merged']);
+
+/** How an ABHA was confirmed to belong to this patient (SP8). */
+export const abhaVerificationMethodEnum = pgEnum(
+  'abha_verification_method',
+  tuple(ABHA_VERIFICATION_METHODS),
+);
 
 // Terminology
 

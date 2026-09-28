@@ -16,6 +16,12 @@ export interface CandidateIdentity {
   gender?: string | null;
   phone?: string | null;
   abhaNumber?: string | null;
+  /**
+   * Whether the ABHA above arrived verified (SP8, T2). Registration cannot
+   * set this — a number typed at the desk has been confirmed by nobody — and
+   * that is exactly why it defaults to false rather than being assumed.
+   */
+  abhaVerified?: boolean | null;
   birthYear?: number | null;
 }
 
@@ -69,6 +75,7 @@ export class MatchingService {
         gender: string;
         phone: string | null;
         abha_number: string | null;
+        abha_number_verified_at: Date | null;
         birth_year: number | null;
         hospital_count: string;
       }>(sql`
@@ -77,6 +84,7 @@ export class MatchingService {
                p."gender",
                p."phone",
                p."abha_number",
+               p."abha_number_verified_at",
                p."birth_year",
                (SELECT count(*) FROM "patient_hospital_link" l WHERE l."patient_id" = p."id")
                  AS hospital_count
@@ -103,6 +111,7 @@ export class MatchingService {
           gender: row.gender,
           phone: row.phone,
           abhaNumber: row.abha_number,
+          abhaVerified: row.abha_number_verified_at !== null,
           birthYear: row.birth_year === null ? null : Number(row.birth_year),
         });
 

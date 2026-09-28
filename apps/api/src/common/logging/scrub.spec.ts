@@ -93,6 +93,23 @@ describe('scrubbing a log line', () => {
       expect(scrubText('aadhaar 1234 5678 9012 given')).toBe(`aadhaar ${REDACTED} given`);
     });
 
+    /**
+     * An ABHA address has no dot after the `@`, so the email pattern walked
+     * straight past it. It is a national identifier written in a form that
+     * looks like nothing else, and it reached logs untouched until SP8 (T3).
+     */
+    it('takes an ABHA address, whose domain has no dot', () => {
+      expect(scrubText('verifying lakshmi.devi@abdm for this patient')).toBe(
+        `verifying ${REDACTED} for this patient`,
+      );
+      expect(looksLikePersonalData('linked meera.joshi@sbx')).toBe(true);
+    });
+
+    it('takes an ABHA number under any spelling of its key', () => {
+      expect(scrub({ abhaNumber: '12345678901234' })).toEqual({ abhaNumber: REDACTED });
+      expect(scrub({ abha_address: 'lakshmi.devi@abdm' })).toEqual({ abha_address: REDACTED });
+    });
+
     it('leaves what a log is for alone', () => {
       const line = 'GET /api/v1/patients/01a0d7c3-a410-7273-864b-ad9f69444495/timeline 200 in 42ms';
       expect(scrubText(line)).toBe(line);

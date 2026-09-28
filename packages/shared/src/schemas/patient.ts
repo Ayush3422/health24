@@ -115,6 +115,13 @@ export const patientSummarySchema = z.object({
   approximateAgeYears: z.number().int().nullable(),
   phone: z.string().nullable(),
   abhaNumber: z.string().nullable(),
+  abhaAddress: z.string().nullable(),
+  /**
+   * Whether the ABHA above was confirmed against the national registry or
+   * simply typed in (SP8). A screen that shows one as though it were the
+   * other is the mistake this field exists to prevent.
+   */
+  abhaVerified: z.boolean(),
   bloodGroup: z.enum(BLOOD_GROUPS).nullable(),
   /** The caller's own hospital's MRN for this patient. */
   mrn: mrnSchema.nullable(),

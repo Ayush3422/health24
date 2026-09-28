@@ -33,6 +33,14 @@ export const PERMISSIONS = [
   'patient:update',
   /** Search across hospitals for an existing person, before creating a duplicate. */
   'patient:lookup_global',
+  /**
+   * Confirm a patient's ABHA against the national registry, with the patient
+   * in front of you to read the code back (SP8). Separate from
+   * `patient:update` because it attaches a national identity to a record
+   * rather than correcting a field, and because an unverified ABHA can be
+   * typed by anyone while a verified one cannot be typed at all.
+   */
+  'patient:abha_verify',
 
   // Duplicate resolution
   'merge:read',
@@ -190,6 +198,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'patient:search',
     'patient:update',
     'patient:lookup_global',
+    'patient:abha_verify',
     'terminology:read',
     'clinical:read',
     'clinical:write',
@@ -214,6 +223,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'patient:search',
     'patient:update',
     'patient:lookup_global',
+    'patient:abha_verify',
     'merge:read',
     'merge:resolve',
     'consent:read',
@@ -249,6 +259,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'patient:search',
     'patient:update',
     'patient:lookup_global',
+    'patient:abha_verify',
     'merge:read',
     'merge:resolve',
     'terminology:read',

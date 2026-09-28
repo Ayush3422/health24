@@ -52,6 +52,7 @@ repository; deployed values come from a secret store — see
 | `SMS_PROVIDER` | Optional | `log` | unset | How sign-in codes reach patients. **`log` is refused in production**: a code in a log is a code anyone with log access can use. A DLT-registered provider is chosen before the pilot. |
 | `SMS_LOG_FILE` | Optional | path | — | Where the `log` provider also writes each message, for the browser tests. **Refused in production.** |
 | `NOTIFICATION_QUEUE_NAME` | Optional | text | the default queue | As `SCAN_QUEUE_NAME`. |
+| `ABDM_MODE` | Optional | `off`, `mock` | `mock` outside production, `off` in it | How this system reaches ABDM. `mock` is an in-process stand-in for the national gateway that needs no credential and accepts a well-known code, so the flows can be tested; `off` refuses every ABDM operation. **`mock` is refused in production** — it would mark any ABHA verified without the patient being there. The real gateway arrives in SP8 Phase 2. |
 
 ## The apps
 

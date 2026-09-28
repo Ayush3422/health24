@@ -30,6 +30,18 @@ export async function buildRecordPdf(record: ExportRecord, exportedAt: Date): Pr
     ]),
     { muted: true },
   );
+  // The patient's own ABHA, on their own copy, said as precisely as the
+  // record knows it (SP8, T3).
+  if (patient.abhaAddress ?? patient.abhaNumber) {
+    sheet.line(
+      join([
+        `ABHA ${patient.abhaAddress ?? patient.abhaNumber}`,
+        patient.abhaVerified ? 'verified' : 'not verified',
+      ]),
+      { muted: true },
+    );
+  }
+
   if (patient.emergencyContactName && patient.emergencyContactPhone) {
     sheet.line(`Emergency contact: ${patient.emergencyContactName}, ${patient.emergencyContactPhone}`, {
       muted: true,

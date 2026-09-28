@@ -15,6 +15,7 @@ import {
   patients,
 } from '../../db/schema';
 import { requireHospital, type Actor, type RequestMeta } from '../../common/actor';
+import { violatedConstraint } from '../../common/database-errors';
 import { AuditService } from '../audit/audit.service';
 import { MatchingService, type ScoredCandidate } from './matching.service';
 import { MrnService } from './mrn.service';
@@ -91,6 +92,39 @@ export class PatientsService {
     const patientId = uuidv7();
     const mrn = await this.mrn.allocate(hospitalId);
 
+    try {
+      await this.createRecord(hospitalId, patientId, mrn, input, birthYear);
+    } catch (error) {
+      throw this.explainRegistration(error);
+    }
+
+    // The receptionist overrode the duplicate warning. They may well be right
+    // — but the pairing is recorded so that records staff can reconcile it
+    // later, rather than the duplicate silently becoming permanent.
+    const queued = input.forceCreate
+      ? await this.queueForReview(hospitalId, patientId, candidates)
+      : 0;
+
+    await this.audit.recordForActor(actor, {
+      resourceType: 'patient',
+      resourceId: patientId,
+      patientId,
+      action: 'create',
+      meta,
+    });
+
+    const patient = await this.findById(actor, patientId, meta, { skipAudit: true });
+
+    return { patient, linkedExisting: false, queuedForReview: queued };
+  }
+
+  private async createRecord(
+    hospitalId: string,
+    patientId: string,
+    mrn: string,
+    input: RegisterPatientInput,
+    birthYear: number | null,
+  ): Promise<void> {
     await this.db.asTenant(hospitalId, async (tx) => {
       // Inserted without RETURNING deliberately: the row is not yet visible
       // under the SELECT policy, because visibility depends on the link that
@@ -116,25 +150,41 @@ export class PatientsService {
 
       await tx.insert(patientHospitalLinks).values({ patientId, hospitalId, mrn });
     });
+  }
 
-    // The receptionist overrode the duplicate warning. They may well be right
-    // — but the pairing is recorded so that records staff can reconcile it
-    // later, rather than the duplicate silently becoming permanent.
-    const queued = input.forceCreate
-      ? await this.queueForReview(hospitalId, patientId, candidates)
-      : 0;
+  /**
+   * An ABHA already on another record, as a sentence rather than a 500.
+   *
+   * The matcher surfaces most of these as duplicate candidates before the
+   * insert is attempted, but not all: a typed ABHA that agrees while the name,
+   * the age and the gender all disagree scores below the review threshold, so
+   * nothing is offered and the unique index is the first thing to object
+   * (sp8-plan.md, T4). Two records cannot hold one national identifier, and a
+   * person has to decide which is right.
+   */
+  private explainRegistration(error: unknown): unknown {
+    const constraint = violatedConstraint(error);
 
-    await this.audit.recordForActor(actor, {
-      resourceType: 'patient',
-      resourceId: patientId,
-      patientId,
-      action: 'create',
-      meta,
-    });
+    if (constraint === 'patient_abha_number_unique') {
+      return new ConflictException({
+        message:
+          'Another patient record already holds that ABHA number. Find that record, or check the number.',
+        code: 'ABHA_ALREADY_REGISTERED',
+      });
+    }
 
-    const patient = await this.findById(actor, patientId, meta, { skipAudit: true });
+    if (
+      constraint === 'patient_abha_address_unique' ||
+      constraint === 'patient_abha_address_lower_idx'
+    ) {
+      return new ConflictException({
+        message:
+          'Another patient record already holds that ABHA address. Find that record, or check the address.',
+        code: 'ABHA_ALREADY_REGISTERED',
+      });
+    }
 
-    return { patient, linkedExisting: false, queuedForReview: queued };
+    return error;
   }
 
   /**
@@ -298,13 +348,18 @@ export class PatientsService {
         approximate_age_years: number | null;
         phone: string | null;
         abha_number: string | null;
+        abha_address: string | null;
+        abha_number_verified_at: Date | null;
+        abha_address_verified_at: Date | null;
         blood_group: string | null;
         mrn: string;
         created_at: string;
         total: string;
       }>(sql`
         SELECT p."id", p."name", p."gender", p."date_of_birth", p."approximate_age_years",
-               p."phone", p."abha_number", p."blood_group", l."mrn", p."created_at",
+               p."phone", p."abha_number", p."abha_address",
+               p."abha_number_verified_at", p."abha_address_verified_at",
+               p."blood_group", l."mrn", p."created_at",
                count(*) OVER () AS total
           FROM "patient" p
           JOIN "patient_hospital_link" l ON l."patient_id" = p."id"
@@ -337,6 +392,8 @@ export class PatientsService {
           row.approximate_age_years === null ? null : Number(row.approximate_age_years),
         phone: row.phone,
         abhaNumber: row.abha_number,
+        abhaAddress: row.abha_address,
+        abhaVerified: Boolean(row.abha_number_verified_at ?? row.abha_address_verified_at),
         bloodGroup: row.blood_group as PatientSummary['bloodGroup'],
         mrn: row.mrn,
         createdAt: new Date(row.created_at).toISOString(),
@@ -363,6 +420,9 @@ export class PatientsService {
           approximateAgeYears: patients.approximateAgeYears,
           phone: patients.phone,
           abhaNumber: patients.abhaNumber,
+          abhaAddress: patients.abhaAddress,
+          abhaNumberVerifiedAt: patients.abhaNumberVerifiedAt,
+          abhaAddressVerifiedAt: patients.abhaAddressVerifiedAt,
           bloodGroup: patients.bloodGroup,
           createdAt: patients.createdAt,
           mrn: patientHospitalLinks.mrn,
@@ -397,6 +457,8 @@ export class PatientsService {
       approximateAgeYears: row.approximateAgeYears,
       phone: row.phone,
       abhaNumber: row.abhaNumber,
+      abhaAddress: row.abhaAddress,
+      abhaVerified: Boolean(row.abhaNumberVerifiedAt ?? row.abhaAddressVerifiedAt),
       bloodGroup: row.bloodGroup,
       mrn: row.mrn,
       createdAt: row.createdAt.toISOString(),
@@ -451,6 +513,29 @@ export class PatientsService {
     if (input.phone !== undefined) {
       track('phone', before.phone, input.phone);
       changes.phone = input.phone;
+    }
+
+    // A verified ABHA is frozen by `app.guard_abha_identity`. Saying so here
+    // turns a database refusal into a sentence a receptionist can act on —
+    // and names the route that can change it (SP8, T1).
+    if (
+      input.abhaNumber !== undefined &&
+      before.abhaNumberVerifiedAt !== null &&
+      input.abhaNumber !== before.abhaNumber
+    ) {
+      throw new ConflictException(
+        'This ABHA number was verified against the national registry and cannot be edited. Verify the new one instead.',
+      );
+    }
+
+    if (
+      input.abhaAddress !== undefined &&
+      before.abhaAddressVerifiedAt !== null &&
+      input.abhaAddress !== before.abhaAddress
+    ) {
+      throw new ConflictException(
+        'This ABHA address was verified against the national registry and cannot be edited. Verify the new one instead.',
+      );
     }
 
     if (input.abhaNumber !== undefined) {

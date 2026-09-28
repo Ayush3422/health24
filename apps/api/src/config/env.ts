@@ -159,6 +159,17 @@ const envSchema = z
      */
     SMS_LOG_FILE: z.string().optional(),
     NOTIFICATION_QUEUE_NAME: z.string().optional(),
+
+    /**
+     * How this system reaches ABDM (SP8, Decision Z1).
+     *
+     * `mock` is an in-process stand-in for the gateway that needs no
+     * credential, and is what development and CI run against so that the
+     * flows can be tested at all. `off` refuses every ABDM operation with a
+     * message saying so. Unset means `mock` outside production and `off` in
+     * it — the real gateway arrives in Phase 2.
+     */
+    ABDM_MODE: z.enum(['off', 'mock']).optional(),
   })
   .superRefine((env, ctx) => {
     // Data residency is a legal requirement: patient documents stay in India.
@@ -284,6 +295,17 @@ const envSchema = z
         code: z.ZodIssueCode.custom,
         path: ['SMS_PROVIDER'],
         message: 'Refusing to start in production without a real SMS provider',
+      });
+    }
+
+    // A mock of the national gateway accepts a well-known code and confirms
+    // whatever it is asked to. In production that is a way to mark any ABHA
+    // verified without the patient being there.
+    if (env.NODE_ENV === 'production' && env.ABDM_MODE === 'mock') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ABDM_MODE'],
+        message: 'Refusing to start in production with the ABDM gateway mocked',
       });
     }
 

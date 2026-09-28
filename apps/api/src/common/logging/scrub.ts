@@ -56,6 +56,7 @@ const REDACTED_KEYS = new Set(
     'aadhaar',
     'abha',
     'abhaaddress',
+    'abhanumber',
     'mrn',
     // What is wrong with them
     'display',
@@ -107,6 +108,12 @@ const PATTERNS: Array<[RegExp, string]> = [
   [/\b[A-Z]{2,6}-\d{4,}\b/g, REDACTED],
   // Aadhaar (12 digits) and an ABHA number (14), grouped or not.
   [/\b\d{4}[\s-]?\d{4}[\s-]?\d{4}([\s-]?\d{2})?\b/g, REDACTED],
+  // An ABHA address: `lakshmi.devi@abdm`. The email pattern above does not
+  // catch it, because its domain has no dot — which is how an ABHA address
+  // interpolated into a message survived every check here until SP8 went
+  // looking (T3). It also over-matches a package specifier such as
+  // `typescript@latest`, which is the right direction to be wrong in.
+  [/\b[a-z0-9._]{4,}@[a-z]{3,}\b/gi, REDACTED],
 ];
 
 const MAX_DEPTH = 6;

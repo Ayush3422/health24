@@ -217,6 +217,12 @@ export interface MatchableIdentity {
   gender?: string | null;
   phone?: string | null;
   abhaNumber?: string | null;
+  /**
+   * Whether that ABHA was confirmed against the national registry, or simply
+   * typed in (SP8, T2). The distinction decides whether an agreement between
+   * two of them is proof or evidence.
+   */
+  abhaVerified?: boolean | null;
   birthYear?: number | null;
 }
 
@@ -253,23 +259,42 @@ export const MAX_PROBABILISTIC_SCORE = 0.98;
 /**
  * Scores two identities against each other.
  *
- * An ABHA match is decisive: it is a government-issued health identifier, and
- * two records carrying the same one are the same person by definition.
+ * An ABHA match is decisive **when both sides were verified**: a
+ * government-issued health identifier, confirmed against the registry by the
+ * person who holds it, means one person.
  *
- * Everything else is weighted evidence. Phone carries the most, because in
- * India a mobile number is close to a personal identifier — but not quite:
- * families share handsets, which is exactly why a phone match alone cannot
- * reach the auto-link threshold. A gender mismatch subtracts rather than
- * merely failing to add, because it is positive evidence of two different
- * people.
+ * A typed ABHA does not mean that, and until SP8 this function treated the
+ * two as the same thing. The failure it allowed is not exotic: a parent's
+ * ABHA entered for a child auto-links the child's record into the parent's,
+ * and one person's history is then handed to another. So an unverified
+ * agreement is scored as strong evidence — stronger than a phone match — and
+ * has to be corroborated by something before it can link anything by itself.
+ *
+ * Everything else is weighted evidence. Phone carries the most after ABHA,
+ * because in India a mobile number is close to a personal identifier — but
+ * not quite: families share handsets, which is exactly why a phone match
+ * alone cannot reach the auto-link threshold. A gender mismatch subtracts
+ * rather than merely failing to add, because it is positive evidence of two
+ * different people.
  */
 export function scoreIdentities(left: MatchableIdentity, right: MatchableIdentity): MatchScore {
-  if (left.abhaNumber && right.abhaNumber && left.abhaNumber === right.abhaNumber) {
-    return { score: 1, matchedOn: ['abha_number'], method: 'abha_exact' };
+  const abhaMatches = Boolean(
+    left.abhaNumber && right.abhaNumber && left.abhaNumber === right.abhaNumber,
+  );
+
+  if (abhaMatches && left.abhaVerified === true && right.abhaVerified === true) {
+    return { score: 1, matchedOn: ['abha_number_verified'], method: 'abha_exact' };
   }
 
   const matchedOn: string[] = [];
   let score = 0;
+
+  if (abhaMatches) {
+    // Enough on its own to reach the review queue, and deliberately not
+    // enough on its own to link anything.
+    score += 0.6;
+    matchedOn.push('abha_number_declared');
+  }
 
   const similarity = nameSimilarity(left.name, right.name);
 
@@ -321,7 +346,11 @@ export function scoreIdentities(left: MatchableIdentity, right: MatchableIdentit
   // A strong name alone must never approach the auto-link threshold. Common
   // Indian names repeat constantly — there are a great many people called
   // Ramesh Kumar — so without a second corroborating identifier this is a
-  // suggestion for a human, not a conclusion.
+  // suggestion for a human, not a conclusion. A typed ABHA does not lift that
+  // cap either: the case it has to survive is a parent's ABHA entered for a
+  // newborn, where the normalised names are identical ("B/O Meera Joshi"
+  // reduces to "meera joshi") and the only thing standing between the two
+  // records is that nothing here is allowed to conclude on its own.
   if (!phoneMatches) {
     score = Math.min(score, 0.7);
   }

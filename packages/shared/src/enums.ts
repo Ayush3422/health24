@@ -115,9 +115,32 @@ export type AccessAction = (typeof ACCESS_ACTIONS)[number];
 export const MERGE_CANDIDATE_STATUSES = ['pending', 'merged', 'rejected'] as const;
 export type MergeCandidateStatus = (typeof MERGE_CANDIDATE_STATUSES)[number];
 
-/** How two patient records came to be linked. */
+/**
+ * How two patient records came to be linked.
+ *
+ * `abha_exact` means certainty, and from SP8 it is earned rather than assumed:
+ * it requires the ABHA to have been **verified** on both sides, not merely
+ * typed into both. A typed ABHA is strong evidence and is scored as such.
+ */
 export const MATCH_METHODS = ['abha_exact', 'probabilistic', 'manual'] as const;
 export type MatchMethod = (typeof MATCH_METHODS)[number];
+
+/**
+ * How an ABHA was confirmed to belong to the person in front of the desk
+ * (sp8-plan.md, T1).
+ *
+ * Both methods here are a challenge and a response: a code goes to something
+ * the patient holds, and they read it back. Demographic matching, which ABDM
+ * also offers, is deliberately absent — it is not a challenge, it confirms
+ * nothing about who is standing at the desk, and an enum value for something
+ * unimplemented is the kind of claim SP8 refuses to make.
+ *
+ * The set is provisional in one direction only: reconciling it with what the
+ * sandbox actually returns is T38, and a method arriving that is not in this
+ * list is a refusal rather than a silent `other`.
+ */
+export const ABHA_VERIFICATION_METHODS = ['mobile_otp', 'aadhaar_otp'] as const;
+export type AbhaVerificationMethod = (typeof ABHA_VERIFICATION_METHODS)[number];
 
 // ---------------------------------------------------------------------------
 // Terminology

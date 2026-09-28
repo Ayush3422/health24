@@ -15,6 +15,16 @@ export interface ExportRecord {
     phone: string | null;
     emergencyContactName: string | null;
     emergencyContactPhone: string | null;
+    /**
+     * The patient's national identifier, and whether it was confirmed against
+     * the registry (SP8, T3). Both values travel; only a confirmed one is
+     * asserted as an identifier in the FHIR bundle, because a bundle that
+     * says "this is their ABHA" about a number somebody typed is a claim the
+     * record cannot support.
+     */
+    abhaNumber: string | null;
+    abhaAddress: string | null;
+    abhaVerified: boolean;
   };
   hospitals: Array<{ id: string; name: string; mrn: string }>;
   encounters: Array<{
@@ -124,7 +134,10 @@ export async function readExportRecord(
     SELECT "id", "name", "gender"::text AS gender, to_char("date_of_birth", 'YYYY-MM-DD') AS "dateOfBirth",
            "approximate_age_years" AS "approximateAgeYears", "blood_group"::text AS "bloodGroup",
            "phone", "emergency_contact_name" AS "emergencyContactName",
-           "emergency_contact_phone" AS "emergencyContactPhone"
+           "emergency_contact_phone" AS "emergencyContactPhone",
+           "abha_number" AS "abhaNumber", "abha_address" AS "abhaAddress",
+           ("abha_number_verified_at" IS NOT NULL
+             OR "abha_address_verified_at" IS NOT NULL) AS "abhaVerified"
       FROM "patient" WHERE "id" = ${patientId}::uuid
   `);
 
@@ -253,6 +266,9 @@ export async function readExportRecord(
       phone: null,
       emergencyContactName: null,
       emergencyContactPhone: null,
+      abhaNumber: null,
+      abhaAddress: null,
+      abhaVerified: false,
     },
     hospitals: [...hospitals],
     encounters: [...encounters],

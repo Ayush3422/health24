@@ -470,6 +470,20 @@
       "when": 1790343182248,
       "tag": "0066_sp7_schema_version",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1790595751660,
+      "tag": "0067_sp8_abha_identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1790595762176,
+      "tag": "0068_sp8_abha_rules",
+      "breakpoints": true
     }
   ]
 }
