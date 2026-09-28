@@ -1,0 +1,1 @@
+ALTER TYPE "public"."consent_capture_method" ADD VALUE 'abdm';

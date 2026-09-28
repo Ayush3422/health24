@@ -339,6 +339,18 @@ export type ClinicalDataCategory = (typeof CLINICAL_DATA_CATEGORIES)[number];
 export const CONSENT_PURPOSES = ['care_management'] as const;
 export type ConsentPurpose = (typeof CONSENT_PURPOSES)[number];
 
+/**
+ * Where a consent artefact came from (sp8-plan.md, Decision Y1).
+ *
+ * One table, two origins. `local` is this platform's own: recorded at a desk
+ * or granted by the patient in our portal, and it names a hospital. `abdm` is
+ * notified by the national consent manager, and names a requester that is not
+ * a hospital here at all. Both are read by the same database rules, which is
+ * the whole point of keeping them in one table.
+ */
+export const CONSENT_SOURCES = ['local', 'abdm'] as const;
+export type ConsentSource = (typeof CONSENT_SOURCES)[number];
+
 /** Expiry is a date on the artefact rather than a status, so it cannot be forgotten. */
 export const CONSENT_STATUSES = ['active', 'revoked'] as const;
 export type ConsentStatus = (typeof CONSENT_STATUSES)[number];
@@ -360,6 +372,13 @@ export const CONSENT_CAPTURE_METHODS = [
   'verbal_witnessed',
   'break_glass',
   'patient_portal',
+  /**
+   * Granted by the patient in their ABHA app and notified to us by the
+   * consent manager (SP8, Decision Y1). Nobody here witnessed it, and the
+   * artefact it produces names a requester that is not a hospital on this
+   * platform — but it is the same table, read by the same database rules.
+   */
+  'abdm',
 ] as const;
 export type ConsentCaptureMethod = (typeof CONSENT_CAPTURE_METHODS)[number];
 

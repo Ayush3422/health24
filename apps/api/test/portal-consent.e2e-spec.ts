@@ -160,7 +160,9 @@ describe('patient portal consent', () => {
     });
     expect(granted.status, JSON.stringify(granted.body)).toBe(201);
     expect(granted.body).toMatchObject({
-      hospital: { id: hospitalB, name: 'City General Consent Test' },
+      // From SP8 a consent names its grantee rather than assuming a
+      // hospital: ABDM's requester is not one.
+      grantee: { kind: 'hospital', id: hospitalB, name: 'City General Consent Test' },
       dataCategories: ['allergies'],
       status: 'active',
       captureMethod: 'patient_portal',

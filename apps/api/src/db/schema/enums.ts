@@ -17,6 +17,7 @@ import {
   CONDITION_VERIFICATION_STATUSES,
   CONSENT_CAPTURE_METHODS,
   CONSENT_PURPOSES,
+  CONSENT_SOURCES,
   CONSENT_STATUSES,
   DOCUMENT_AVAILABILITY,
   DOCUMENT_TYPES,
@@ -170,6 +171,7 @@ export const clinicalDataCategoryEnum = pgEnum(
 );
 export const consentPurposeEnum = pgEnum('consent_purpose', tuple(CONSENT_PURPOSES));
 export const consentStatusEnum = pgEnum('consent_status', tuple(CONSENT_STATUSES));
+export const consentSourceEnum = pgEnum('consent_source', tuple(CONSENT_SOURCES));
 export const consentCaptureMethodEnum = pgEnum(
   'consent_capture_method',
   tuple(CONSENT_CAPTURE_METHODS),

@@ -36,8 +36,11 @@ import { staffName, type ReaderContext } from './staff-names';
 type ConsentRow = {
   id: string;
   patient_id: string;
-  grantee_hospital_id: string;
+  grantee_hospital_id: string | null;
   grantee_hospital_name: string | null;
+  grantee_abdm_hiu_id: string | null;
+  grantee_abdm_hiu_name: string | null;
+  source: 'local' | 'abdm';
   data_categories: ConsentSummary['dataCategories'];
   date_range_from: string | null;
   date_range_to: string | null;
@@ -77,6 +80,7 @@ const EMERGENCY_NOTICE_DAYS = 90;
  */
 const consentSelect = (context: ReaderContext): SQL => sql`
   SELECT ca."id", ca."patient_id", ca."grantee_hospital_id", hd."name" AS grantee_hospital_name,
+         ca."grantee_abdm_hiu_id", ca."grantee_abdm_hiu_name", ca."source"::text AS source,
          ca."data_categories"::text[] AS data_categories,
          to_char(ca."date_range_from", 'YYYY-MM-DD') AS date_range_from,
          to_char(ca."date_range_to", 'YYYY-MM-DD') AS date_range_to,
@@ -449,7 +453,8 @@ export class ConsentService {
       emergencyAccesses: rows.map((row) => ({
         id: row.id,
         hospital: {
-          id: row.grantee_hospital_id,
+          // Emergency access is always a hospital's; ABDM has no such thing.
+          id: row.grantee_hospital_id ?? '',
           name: row.grantee_hospital_name ?? 'Unknown hospital',
         },
         clinicianName: row.recorded_by_name,
@@ -603,7 +608,18 @@ export class ConsentService {
 
     return {
       id: row.id,
-      hospital: { id: row.grantee_hospital_id, name: row.grantee_hospital_name ?? 'Unknown hospital' },
+      grantee:
+        row.source === 'abdm'
+          ? {
+              kind: 'abdm',
+              id: row.grantee_abdm_hiu_id ?? '',
+              name: row.grantee_abdm_hiu_name ?? row.grantee_abdm_hiu_id ?? 'A national requester',
+            }
+          : {
+              kind: 'hospital',
+              id: row.grantee_hospital_id ?? '',
+              name: row.grantee_hospital_name ?? 'Unknown hospital',
+            },
       dataCategories: row.data_categories,
       dateRangeFrom: row.date_range_from,
       dateRangeTo: row.date_range_to,

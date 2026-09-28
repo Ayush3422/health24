@@ -32,6 +32,7 @@ import {
   conditionVerificationStatusEnum,
   consentCaptureMethodEnum,
   consentPurposeEnum,
+  consentSourceEnum,
   consentStatusEnum,
   durationUnitEnum,
   encounterClassEnum,
@@ -1371,9 +1372,63 @@ export const consentArtefacts = pgTable(
     patientId: uuid('patient_id')
       .notNull()
       .references(() => patients.id, { onDelete: 'restrict' }),
-    granteeHospitalId: uuid('grantee_hospital_id')
-      .notNull()
-      .references(() => hospitals.id, { onDelete: 'restrict' }),
+    /**
+     * The hospital this consent lets read the record — null for a consent
+     * notified by ABDM, whose requester is not a hospital on this platform
+     * at all (SP8, T16). Exactly one of the two grantees is set, and
+     * `app.consent_permits` is unchanged in what it does with this one: a
+     * row with no hospital can never satisfy it.
+     */
+    granteeHospitalId: uuid('grantee_hospital_id').references(() => hospitals.id, {
+      onDelete: 'restrict',
+    }),
+
+    /** The health information user ABDM named, and what to call it on a screen. */
+    granteeAbdmHiuId: text('grantee_abdm_hiu_id'),
+    granteeAbdmHiuName: text('grantee_abdm_hiu_name'),
+
+    /**
+     * The facility whose records this ABDM consent covers.
+     *
+     * The artefact names no grantee hospital, but it very much concerns one:
+     * the hospital holding the visits being shared. It is here so that the
+     * hospital can see what a national requester has been allowed of its
+     * records, and so the write is an ordinary tenant write rather than a
+     * privileged one.
+     */
+    hipHospitalId: uuid('hip_hospital_id').references(() => hospitals.id, {
+      onDelete: 'restrict',
+    }),
+
+    /**
+     * The care contexts — visits — the artefact named, as a snapshot.
+     *
+     * The date range says which days may be read; this says which visits were
+     * put in front of the patient when they agreed. Phase 5 assembles from
+     * these and from nothing else, so a visit linked afterwards is not
+     * covered by a consent granted before it existed.
+     */
+    abdmCareContextIds: uuid('abdm_care_context_ids').array(),
+
+    source: consentSourceEnum('source').notNull().default('local'),
+
+    /**
+     * The consent manager's own id for the artefact.
+     *
+     * Unique, and that is the whole of the idempotency: a notification
+     * redelivered — which the specification allows and networks guarantee —
+     * writes nothing the second time (T17).
+     */
+    abdmConsentId: text('abdm_consent_id').unique(),
+
+    /**
+     * What the notification asked for that this system cannot grant.
+     *
+     * Recorded rather than dropped: a consent narrowed in translation is a
+     * consent the patient believes is wider than it is, and somebody has to
+     * be able to see which parts did not map (T15).
+     */
+    abdmUnmappedTypes: text('abdm_unmapped_types').array(),
 
     purpose: consentPurposeEnum('purpose').notNull().default('care_management'),
     dataCategories: clinicalDataCategoryEnum('data_categories').array().notNull(),

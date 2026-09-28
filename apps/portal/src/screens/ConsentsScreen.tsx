@@ -66,7 +66,7 @@ export function ConsentsScreen(): JSX.Element {
                 <ConsentCard
                   key={consent.id}
                   consent={consent}
-                  onRevoked={() => setNotice(t('consents.revoked', { hospital: consent.hospital.name }))}
+                  onRevoked={() => setNotice(t('consents.revoked', { hospital: consent.grantee.name }))}
                 />
               ))}
             </ul>
@@ -326,7 +326,7 @@ function ConsentCard({
         <span className="badge">{t(`consents.status_${consent.status}`)}</span>
         {emergency ? <span className="badge badge--danger">{t('consents.emergency')}</span> : null}
       </p>
-      <strong>{consent.hospital.name}</strong>
+      <strong>{consent.grantee.name}</strong>
       <span className="item__detail">
         {emergency
           ? t('consents.reason', { reason: consent.emergencyReason ?? '' })
@@ -365,7 +365,7 @@ function ConsentCard({
       {consent.status === 'active' && !emergency ? (
         confirming ? (
           <div className="confirm">
-            <p>{t('consents.revokeConfirm', { hospital: consent.hospital.name })}</p>
+            <p>{t('consents.revokeConfirm', { hospital: consent.grantee.name })}</p>
             {error ? (
               <p className="alert" role="alert">
                 {error}

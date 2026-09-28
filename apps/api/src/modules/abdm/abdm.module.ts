@@ -4,6 +4,7 @@ import { SmsModule } from '../portal/sms.module';
 import { CareContextController } from './care-contexts/care-context.controller';
 import { DiscoveryService } from './care-contexts/discovery.service';
 import { LinkingService } from './care-contexts/linking.service';
+import { AbdmConsentService } from './consent/abdm-consent.service';
 import { AbdmConfig } from './abdm.config';
 import { AbhaController } from './abha.controller';
 import { AbhaService } from './abha.service';
@@ -39,6 +40,7 @@ import { GatewaySession } from './gateway/session';
     AbhaService,
     DiscoveryService,
     LinkingService,
+    AbdmConsentService,
     AbdmConfig,
     PendingRequests,
     GatewaySession,
@@ -68,6 +70,6 @@ import { GatewaySession } from './gateway/session';
       },
     },
   ],
-  exports: [AbhaService, AbdmConfig, PendingRequests, LinkingService],
+  exports: [AbhaService, AbdmConfig, PendingRequests, LinkingService, AbdmConsentService],
 })
 export class AbdmModule {}

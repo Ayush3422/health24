@@ -13,6 +13,7 @@ import {
 import { Public } from '../../../common/decorators';
 import { DiscoveryService } from '../care-contexts/discovery.service';
 import { LinkingService } from '../care-contexts/linking.service';
+import { AbdmConsentService } from '../consent/abdm-consent.service';
 import { AbdmConfig } from '../abdm.config';
 import { INBOUND_REFUSED, refuseInboundRequest } from './callback-auth';
 import { GatewayClient } from './gateway.client';
@@ -41,17 +42,18 @@ export class GatewayInboundController {
     private readonly gateway: GatewayClient,
     private readonly discovery: DiscoveryService,
     private readonly linking: LinkingService,
+    private readonly consent: AbdmConsentService,
   ) {}
 
   @Public()
   @Post(':operation')
   @HttpCode(HttpStatus.ACCEPTED)
-  receive(
+  async receive(
     @Param('operation') operation: string,
     @Body() body: InboundBody,
     @Headers('x-abdm-callback-secret') secret?: string,
     @Headers('x-hip-id') hipId?: string,
-  ): { accepted: true } {
+  ): Promise<{ accepted: true }> {
     const settings = this.config.mode === 'gateway' ? this.config.gateway : null;
 
     const refusal = refuseInboundRequest(body ?? {}, secret, {
@@ -75,7 +77,19 @@ export class GatewayInboundController {
       throw new UnauthorizedException(INBOUND_REFUSED);
     }
 
-    // Answered asynchronously, deliberately. Nothing here is awaited.
+    // A consent notification is the one operation that is written before the
+    // gateway is answered (sp8-plan.md, T17). Everything else here is a
+    // question whose answer the gateway is waiting on and which must not take
+    // a queue's round trip; a consent is a fact to keep, and if it cannot be
+    // kept the right response is to fail loudly so the consent manager sends
+    // it again. Their retry is the durability; a second one of ours would be
+    // a failure mode rather than a remedy.
+    if (operation === 'consent.notify') {
+      await this.answer(operation, hipId, body);
+      return { accepted: true };
+    }
+
+    // Everything else is answered asynchronously, deliberately.
     void this.answer(operation, hipId, body).catch((error: unknown) => {
       this.logger.error(
         `Could not answer ${operation}: ${error instanceof Error ? error.message : String(error)}`,
@@ -153,6 +167,29 @@ export class GatewayInboundController {
       return;
     }
 
+    if (operation === 'consent.notify') {
+      const detail = body.notification?.consentDetail ?? {};
+
+      await this.consent.notified({
+        hipId,
+        status: body.notification?.status ?? 'GRANTED',
+        consentId: body.notification?.consentId ?? detail.consentId ?? '',
+        requester: detail.hiu,
+        careContextReferences: (detail.careContexts ?? []).map(
+          (context) => context.careContextReference,
+        ),
+        hiTypes: detail.hiTypes,
+        dateRange: detail.permission?.dateRange,
+        dataEraseAt: detail.permission?.dataEraseAt,
+      });
+
+      // Sent after the write, so the acknowledgement means the consent is
+      // kept rather than merely received.
+      await this.gateway.notify('consent.on-notify', { ...correlation }, { hipId });
+
+      return;
+    }
+
     if (operation === 'care-context.link.inbound-confirm') {
       const linked = await this.linking.completePatientLink({
         hipId,
@@ -182,4 +219,15 @@ interface InboundBody {
     careContexts?: Array<{ referenceNumber: string }>;
   };
   confirmation?: { linkRefNumber?: string; token?: string };
+  notification?: {
+    status?: 'GRANTED' | 'REVOKED' | 'EXPIRED';
+    consentId?: string;
+    consentDetail?: {
+      consentId?: string;
+      hiu?: { id?: string; name?: string };
+      careContexts?: Array<{ patientReference?: string; careContextReference: string }>;
+      hiTypes?: string[];
+      permission?: { dateRange?: { from?: string; to?: string }; dataEraseAt?: string };
+    };
+  };
 }

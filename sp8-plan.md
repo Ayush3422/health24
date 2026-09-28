@@ -1,6 +1,6 @@
 # SP8 — ABDM: Implementation Plan
 
-**Status:** In progress — Phases 1–3 complete, 2026-09-28. Decisions X–AA answered 2026-09-28: **X1, Y1, Z1, AA1**.
+**Status:** In progress — Phases 1–4 complete, 2026-09-28. Decisions X–AA answered 2026-09-28: **X1, Y1, Z1, AA1**.
 **Scope:** Joining the national network as a **Health Information Provider**: an ABHA number and address verified and linked to a patient, care contexts discovered and linked, a consent artefact arriving from the consent manager and landing in the consent model this system already has, and the record assembled as encrypted FHIR bundles and pushed to whoever the patient has allowed — plus the `/fhir/R4` read surface that all of it is built on, the screens that make linking and sharing visible to staff and to the patient, and an honest account of how far this is from a certificate.
 **Design reference:** `planning.md` §10 (the `/fhir/R4` surface as the seam ABDM arrives through), §8 (consent and access control), §14 stage 8 · `sp1-plan.md` (patient identity and matching) · `sp3-plan.md` (the clinical record and `app.consent_permits`) · `sp5-plan.md` (the patient's rights, the portal, the FHIR export) · [docs/compliance/ehr-standards-self-assessment.md](docs/compliance/ehr-standards-self-assessment.md) gaps 1–3
 
@@ -314,11 +314,71 @@ that writes the literal form.
 
 ### Phase 4 — Consent, mapped onto the model that exists
 
-- [ ] **T15** The mapping, exactly: ABDM's data types to `clinical_data_category`, the permission range to the date range, expiry to expiry, and what happens to anything that does not map (DF2, Y1)
-- [ ] **T16** The requester: ABDM's grantee is not a hospital in this database, and `app.consent_permits` requires one and a patient link beside it — decide and migrate without weakening what that function guarantees today
-- [ ] **T17** Consent notification handled as a job: written once, idempotent under redelivery, and refusing an artefact for a patient who is not linked
-- [ ] **T18** Revocation and expiry arriving from the consent manager, and a revocation made in the portal reaching the other way
-- [ ] **T19** A test that a notified consent grants exactly what it says: not a category more, not a day either side
+- [x] **T15** The mapping, exactly: ABDM's data types to `clinical_data_category`, the permission range to the date range, expiry to expiry, and what happens to anything that does not map (DF2, Y1)
+- [x] **T16** The requester: ABDM's grantee is not a hospital in this database, and `app.consent_permits` requires one and a patient link beside it — decide and migrate without weakening what that function guarantees today
+- [x] **T17** Consent notification: written once, idempotent under redelivery, and refusing an artefact for a patient who is not linked
+- [x] **T18** Revocation and expiry arriving from the consent manager, and a revocation made in the portal reaching the other way
+- [x] **T19** A test that a notified consent grants exactly what it says: not a category more, not a day either side
+
+**T16 had a better answer than the one the plan imagined.** The plan expected
+to "decide and migrate"; what it did was **replace `app.consent_permits` in
+place** and add a second branch to it. Every policy on every clinical table
+already calls that function, so all of them picked up the ABDM case and not
+one of them was touched. The alternative — a second function OR'd into a
+dozen policies — would have been a dozen chances to get one wrong, and a
+permanent second place to look when answering "who may read this row".
+
+**The new branch cannot be entered by accident.** It requires a context bound
+to one consent id and no hospital context at all, and nothing but the assembly
+of a data request will ever set it. The old branch is copied across unchanged,
+and an ABDM artefact names no grantee hospital — so a null matches no hospital
+and nothing a clinician does can widen anything.
+
+**Three refusals, each of which is a way a consent could be wider than the
+patient meant.** A visit this facility never shared is somebody else's consent
+or a mistake. Types that map to nothing are refused rather than stored,
+because an artefact that grants nothing leaves the patient believing their
+records are flowing. And a consent with no end date is refused, because expiry
+is a timestamp here precisely so that nobody has to remember to end one.
+
+**Notes are never granted through ABDM, by any type.** SP5 decided for the
+patient's own export that whether a doctor's free text belongs in a bundle is
+a clinical reviewer's call rather than a mapping choice. `OPConsultation` is
+the broadest type ABDM has and it still does not reach them — asserted for
+every type in the mapping's own spec, and again end to end against a real
+note.
+
+**DF8 was broken deliberately, once, and the reason is written down.** A
+consent notification is the one inbound operation written **before** the
+gateway is answered rather than queued behind a 202. The durability a queue
+would buy already exists on the other side: if the write fails, a non-2xx
+makes the consent manager send it again. A second retry here would add a
+failure mode rather than remove one. Everything else inbound is still answered
+asynchronously, because the gateway is waiting on those.
+
+**An expiry at the consent manager is recorded as a revocation**, which looks
+like a fudge and is not: `expires_at` is frozen by the guard because it is the
+evidence of what was agreed, so the only honest way to record "no longer in
+force" ahead of that date is a revocation with the reason given.
+
+**The patient can end an ABDM consent here, and the portal has to be honest
+about what that does.** SP5's policy already lets a patient revoke any consent
+over their record that is not emergency access, so it worked for these
+artefacts with no change at all — proved at the database, as the patient, on
+the unprivileged connection. What it does **not** do is revoke the artefact at
+the consent manager. Stopping it here is immediate and partial; ending it
+everywhere is done in their ABHA app, and `docs/abdm.md` says so in those
+words.
+
+**A consent names visits, not only dates.** The artefact stores the care
+contexts it was granted over, so a visit linked *after* a consent was given is
+not covered by it. The date range alone would have let a later visit fall
+inside an earlier consent's window.
+
+**One rename fell out of it.** A portal consent used to name a `hospital`;
+ABDM's requester is not one, so it names a `grantee` with a kind. Three lines
+of the portal and one test assertion, and the alternative was a field called
+"hospital" holding something that is not a hospital.
 
 ### Phase 5 — Data request and transfer
 

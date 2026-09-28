@@ -285,8 +285,18 @@ const portalConsentActorSchema = z.discriminatedUnion('kind', [
 
 export const portalConsentSchema = z.object({
   id: uuidSchema,
-  /** The hospital the consent lets see the patient's other records. */
-  hospital: z.object({ id: uuidSchema, name: z.string() }),
+  /**
+   * Who the consent lets read the record.
+   *
+   * A hospital on this platform, or — from SP8 — a requester on the national
+   * network, which has no hospital row here at all. The patient is told the
+   * same thing either way: a name, and what it may see.
+   */
+  grantee: z.object({
+    kind: z.enum(['hospital', 'abdm']),
+    id: z.string(),
+    name: z.string(),
+  }),
   dataCategories: z.array(z.enum(CLINICAL_DATA_CATEGORIES)),
   dateRangeFrom: z.string().nullable(),
   dateRangeTo: z.string().nullable(),

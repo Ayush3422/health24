@@ -4,9 +4,10 @@ How this system reaches the Ayushman Bharat Digital Mission, what is built,
 and — as carefully as the rest — what is not (sp8-plan.md, DF11).
 
 **This page grows with the sub-project.** Today it covers ABHA identity, the
-transport underneath it, and care contexts — which visits are offered to the
-national network and how. Consent notification and the data push are Phases 4
-and 5, and are described here when they exist, not before.
+transport underneath it, care contexts — which visits are offered to the
+national network and how — and the consents that arrive over it. Assembling
+and pushing the data itself is Phase 5, and is described here when it exists,
+not before.
 
 ---
 
@@ -17,7 +18,7 @@ and 5, and are described here when they exist, not before.
 | Confirming a patient's ABHA against the registry | **Built** (Phase 1) |
 | The gateway transport: sessions, correlation, callbacks | **Built** (Phase 2) |
 | Care-context discovery and linking | **Built** (Phase 3) |
-| Consent notification from the consent manager | Phase 4 |
+| Consent notification from the consent manager | **Built** (Phase 4) |
 | Assembling and pushing health information | Phase 5 |
 | A `/fhir/R4` read surface | Phase 6 |
 | **Certified by ABDM** | **No.** Nothing here has been assessed by anybody but this repository's own tests |
@@ -138,6 +139,80 @@ sentences that would each tell the asker something, so outwardly they are one.
 **A discovery that matched is on the patient's audit trail**, whether or not
 they go on to link anything. Their identity was used to find them, and that is
 theirs to see.
+
+---
+
+## Consent: one model, two origins
+
+A consent granted in the patient's ABHA app is written as a row in
+`consent_artefact` — the same table as a consent recorded at a desk — and from
+that moment `app.consent_permits` is the only thing that decides what it
+reveals. There is no second path into the clinical record, which is the whole
+of the decision this was built on.
+
+That function was written for a hospital reading another hospital's record: it
+matches on the grantee hospital and requires the patient to be registered
+there. ABDM's requester is neither. So the function was **replaced in place**
+with a second branch rather than joined by a second function — every policy
+that already called it picks up the new case, and no policy was touched.
+
+The new branch is reachable only inside a context bound to **one** consent id,
+which nothing but the assembly of a data request will ever set. A clinician's
+ordinary request has no such context, and an ABDM artefact names no grantee
+hospital, so it can never widen what a hospital sees.
+
+### What the health information types grant
+
+| ABDM type | Granted here |
+| --- | --- |
+| `Prescription` | medications |
+| `DiagnosticReport` | observations, documents |
+| `OPConsultation` | encounters, diagnoses, medications, allergies, observations, procedures |
+| `DischargeSummary` | encounters, diagnoses, medications, procedures |
+| `HealthDocumentRecord` | documents |
+| `WellnessRecord` | observations |
+| `ImmunizationRecord` | nothing — this system holds no immunisations |
+
+**Clinicians' notes are never granted through ABDM, by any type.** SP5 made
+that call for the patient's own downloadable export — whether a doctor's free
+text belongs in a bundle is a clinical reviewer's decision, not a mapping one
+— and nothing about ABDM changes it.
+
+**What does not map is recorded, not dropped.** An unrecognised or unmodelled
+type is written onto the artefact, so somebody can see the consent is narrower
+than what was asked for.
+
+### What a notification is refused for
+
+- **A visit this facility never shared.** A consent naming care contexts that
+  were never linked here is either a mistake or somebody else's.
+- **Types that map to nothing at all.** Storing that artefact would leave the
+  patient believing their records were flowing when none can.
+- **No end date.** Expiry is a timestamp here rather than a status precisely
+  so nobody has to remember to end a consent; one without a date never could.
+
+A refusal is a non-2xx answer, which is deliberate: the consent manager
+retries, and that retry is the durability. Building a second retry here would
+add a failure mode rather than remove one — which is why a consent
+notification, alone among the inbound operations, is written **before** the
+gateway is answered.
+
+**Redelivery is free.** The consent manager's own id is unique on the table,
+so a notification delivered twice writes nothing the second time.
+
+### Ending one
+
+| How it ends | What happens |
+| --- | --- |
+| The consent manager revokes it | Recorded as a revocation, with the reason |
+| The consent manager says it expired | The same. `expires_at` cannot move — it is the evidence of what was agreed — so "no longer in force" is recorded as a revocation |
+| **The patient revokes it in our portal** | It stops here immediately |
+
+That last row deserves a caveat the portal must say out loud: revoking here
+stops **this system** from assembling anything, at once. It does not revoke
+the artefact at the consent manager, and it does not reach data another
+provider already received. To end it everywhere, the patient revokes it in
+their ABHA app.
 
 ---
 

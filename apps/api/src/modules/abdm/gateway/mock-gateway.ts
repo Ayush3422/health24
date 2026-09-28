@@ -270,7 +270,7 @@ export class MockGatewayServer {
 
     // --- Our one-way answers to what the gateway asked us ------------------
 
-    if (path.startsWith('/v0.5/care-contexts/on-') || path.startsWith('/v0.5/links/link/on-')) {
+    if (path.includes('/on-')) {
       this.received.push({ path, body });
       reply(202, {});
       return;

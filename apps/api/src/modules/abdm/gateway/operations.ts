@@ -56,8 +56,13 @@ export const GATEWAY_OPERATIONS = {
     direction: 'notify',
   },
 
-  /** Phase 4: the consent manager telling us a consent now exists. */
-  'consent.notify': { path: null, built: false, direction: 'inbound' },
+  /** The consent manager telling us a consent now exists, or no longer does. */
+  'consent.notify': { path: null, built: true, direction: 'inbound' },
+  'consent.on-notify': {
+    path: '/v0.5/consents/hip/on-notify',
+    built: true,
+    direction: 'notify',
+  },
 
   /** Phase 5: a request for data, and the outcome of sending it. */
   'health-information.request': { path: null, built: false, direction: 'inbound' },
