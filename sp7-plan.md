@@ -356,11 +356,38 @@ as deployed — is stated rather than left to be assumed.
 
 ### Phase 7 — Runbooks and the compliance position
 
-- [ ] **T26** `docs/runbooks/`: breach notification (with the DPDP timelines), restore from backup, key rotation, incident response, and the on-call basics (DF9)
-- [ ] **T27** The DPDP Act self-assessment: each obligation mapped to where the system satisfies it, and the gaps listed with owners (DF10)
-- [ ] **T28** The EHR Standards 2016 self-assessment, in the same shape
-- [ ] **T29** The data retention and erasure position, tying together SP5's erasure work, the audit trail's retention and what the law requires kept
-- [ ] **T30** A walk-through of each runbook, and the corrections that walk-through produces
+- [x] **T26** `docs/runbooks/`: breach notification (with the DPDP timelines), restore from backup, key rotation, incident response, and the on-call basics (DF9)
+- [x] **T27** The DPDP Act self-assessment: each obligation mapped to where the system satisfies it, and the gaps listed with owners (DF10)
+- [x] **T28** The EHR Standards 2016 self-assessment, in the same shape
+- [x] **T29** The data retention and erasure position, tying together SP5's erasure work, the audit trail's retention and what the law requires kept
+- [x] **T30** A walk-through of each runbook, and the corrections that walk-through produces
+
+**The self-assessments say what is not done, and who has to do it.** Every gap
+carries an owner and a date, and the summary of the DPDP page is that none of
+its nine gaps is a code gap: the engineering half of the Act is in good order
+and the legal half has not started. The EHR Standards page divides the same way
+— security, audit, consent and clinical content are in place and tested;
+SNOMED CT, ABHA and FHIR over the wire are mostly not built, which is what SP8
+is for.
+
+**Two things this phase refused to invent.** The breach timeline is written as
+the working assumption with counsel named as the person who confirms it, rather
+than stated as fact. And the retention periods are left as "unconfirmed" in the
+table rather than filled in with plausible numbers — a hospital would believe
+them, and nobody here is qualified to have chosen them.
+
+**The walk-through found a query that would have failed** at exactly the wrong
+moment: the breach runbook's audit-trail query named `actor_kind` for a column
+called `actor_type`. Every query in that runbook has now been run against a
+real database. The part of a walk-through that can be automated now is —
+`documentation.spec.ts` checks that every link in the documentation resolves
+and that every `pnpm` command a page tells somebody to type is one a package
+defines. It was tested by breaking a link deliberately and watching it fail.
+
+**On call is described as it actually is:** one developer, no rota, which is
+fine for synthetic data and not fine for a real patient record. The runbook says
+so, and says what has to exist first — two people, a written rota, and one
+rehearsal of a page at an inconvenient hour.
 
 ### Phase 8 — Verification
 
