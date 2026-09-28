@@ -11,6 +11,7 @@ import {
   type UpdatePatientInput,
 } from '@health24/shared';
 import { requireHospital, type Actor, type PatientActor, type RequestMeta } from '../../common/actor';
+import { refusedByPolicy } from '../../common/database-errors';
 import type { DbTransaction } from '../../db/client';
 import { DatabaseService } from '../../db/database.service';
 import { correctionRequests } from '../../db/schema';
@@ -163,8 +164,11 @@ export class CorrectionsService {
         })
         .returning({ id: correctionRequests.id })
         .catch((error: unknown) => {
-          // The insert policy admits only a hospital the patient is registered at.
-          if (String(error).includes('row-level security')) {
+          // The insert policy admits only a hospital the patient is registered
+          // at. Matched down the whole error chain: the ORM wraps a failed
+          // query in its own error, and reading only the top of it turned this
+          // refusal into a 500 for one release (docs/compliance/security-review.md).
+          if (refusedByPolicy(error)) {
             throw new BadRequestException('Choose a hospital where you are registered');
           }
           throw error;

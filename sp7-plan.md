@@ -333,6 +333,14 @@ argument that has to be made again every time somebody adds one. The same for
 `multer` and `lodash`: no exposure today, overridden anyway, because a
 `FileInterceptor` added next year would reintroduce one silently.
 
+**The ORM upgrade broke two things, and the suite caught both.** Drizzle 0.45
+wraps every failed query in its own error and moves the driver's underneath, so
+a check reading only the top-level message stopped matching: a correction
+request naming a hospital the patient is not registered at turned from a 400
+into a 500. One helper now walks the whole chain, with unit tests that need no
+database — and the lesson is written into the review: an upgrade is not
+verified until the integration suite has run against it.
+
 **The gate is on what ships, and the rest is written down.** Production
 dependencies fail the build on a high or critical advisory; development and
 build tooling is reported and reviewed in `accepted-risks.md` with dates,

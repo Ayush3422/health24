@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
+import { databaseErrorText } from '../src/common/database-errors';
 import {
   createTestApp,
   resetDatabase,
@@ -191,7 +192,14 @@ describe('audit trail', () => {
     try {
       // The owner is used deliberately: if even the owner is refused, the
       // application certainly is.
-      await expect(db.execute(sql`DELETE FROM access_log`)).rejects.toThrow(/append-only/i);
+      // Matched down the error chain: the ORM wraps a failed query in its own
+      // error, so the database's own words are in `cause` rather than at the
+      // top (sp7-plan.md, T23).
+      await expect(
+        db.execute(sql`DELETE FROM access_log`).catch((error: unknown) => {
+          throw new Error(databaseErrorText(error));
+        }),
+      ).rejects.toThrow(/append-only/i);
     } finally {
       await close();
     }

@@ -67,6 +67,16 @@ and `kind` is a Zod enum. No request can reach it with anything else.
 is safe today is an argument that has to be made again every time somebody adds
 one.
 
+**The upgrade broke two things, and the suite caught both.** Drizzle 0.45 wraps
+every failed query in its own error, with the driver's — the one carrying the
+constraint name and the policy violation — moved to `cause`. A check reading
+only the top-level message stopped matching, and a correction request naming a
+hospital the patient is not registered at went from a clear 400 to a 500. The
+fix is one helper that walks the whole chain
+(`src/common/database-errors.ts`), used everywhere that reads what the database
+said, with tests that do not need a database. This is why an upgrade is not
+"verified" until the integration suite has run against it.
+
 ### 3. `multer` and `lodash` advisories in transitive production dependencies — **fixed**
 
 **Severity: high advisories; exposure here: none.**
