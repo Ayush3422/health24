@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { ABHA_VERIFICATION_METHODS } from '../enums.js';
-import { abhaAddressSchema, abhaNumberSchema } from '../primitives.js';
+import { ABDM_CARE_CONTEXT_STATUSES, ABHA_VERIFICATION_METHODS } from '../enums.js';
+import { abhaAddressSchema, abhaNumberSchema, uuidSchema } from '../primitives.js';
 
 /**
  * Confirming that an ABHA belongs to the person at the desk (sp8-plan.md, T2).
@@ -53,6 +53,46 @@ export type ConfirmAbhaVerificationInput = z.infer<typeof confirmAbhaVerificatio
  * timestamp was confirmed against the registry, and a value without one was
  * typed by somebody. Both are shown; only the first is treated as identity.
  */
+/**
+ * Offering to link a patient's visits to their ABHA (sp8-plan.md, T12).
+ *
+ * The visits are named one by one rather than "everything": a patient who
+ * wants their last visit on the national network has not asked for the other
+ * eleven to be there, and a screen that offers only "share all" turns a
+ * decision into a formality.
+ */
+export const offerCareContextLinkSchema = z.object({
+  encounterIds: z.array(uuidSchema).min(1).max(50),
+});
+export type OfferCareContextLinkInput = z.infer<typeof offerCareContextLinkSchema>;
+
+export const confirmCareContextLinkSchema = z.object({
+  linkRequestId: uuidSchema,
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{4,8}$/, 'The code is four to eight digits'),
+});
+export type ConfirmCareContextLinkInput = z.infer<typeof confirmCareContextLinkSchema>;
+
+export const unlinkCareContextSchema = z.object({
+  /** Recorded on the row: a withdrawal without a reason is hard to answer for. */
+  reason: z.string().trim().min(3).max(500),
+});
+export type UnlinkCareContextInput = z.infer<typeof unlinkCareContextSchema>;
+
+/** One visit, and whether it is currently shared with the national network. */
+export const careContextStateSchema = z.object({
+  encounterId: uuidSchema,
+  startedAt: z.string(),
+  /** What the patient sees in their app. Never clinical (T10). */
+  display: z.string(),
+  careContextId: uuidSchema.nullable(),
+  status: z.enum(ABDM_CARE_CONTEXT_STATUSES).nullable(),
+  linkedAt: z.string().nullable(),
+});
+export type CareContextState = z.infer<typeof careContextStateSchema>;
+
 export const abhaIdentitySchema = z.object({
   abhaNumber: z.string().nullable(),
   abhaAddress: z.string().nullable(),

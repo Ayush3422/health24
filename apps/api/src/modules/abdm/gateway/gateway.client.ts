@@ -1,7 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import { AbdmConfig } from '../abdm.config';
 import { PendingRequests } from './correlation';
-import { GATEWAY_OPERATIONS, type GatewayOperation } from './operations';
+import { GATEWAY_OPERATIONS, type OutboundOperation } from './operations';
 import { GatewaySession } from './session';
 
 /**
@@ -32,15 +33,19 @@ export class GatewayClient implements OnApplicationShutdown {
     this.pending.abandonAll('the process is shutting down');
   }
 
-  async call<T>(operation: GatewayOperation, payload: Record<string, unknown>): Promise<T> {
+  async call<T>(
+    operation: OutboundOperation,
+    payload: Record<string, unknown>,
+    options: { hipId?: string } = {},
+  ): Promise<T> {
     const { baseUrl, hipId, cmId, callTimeoutMs } = this.config.gateway;
-    const { path } = GATEWAY_OPERATIONS[operation];
+    const path = GATEWAY_OPERATIONS[operation].path as string;
 
     // Registered first, deliberately. See the note above.
     const { requestId, answer } = this.pending.begin<T>(operation, callTimeoutMs);
 
     try {
-      await this.send(`${baseUrl}${path}`, hipId, cmId, callTimeoutMs, {
+      await this.send(`${baseUrl}${path}`, options.hipId ?? hipId, cmId, callTimeoutMs, {
         requestId,
         timestamp: new Date().toISOString(),
         ...payload,
@@ -53,6 +58,35 @@ export class GatewayClient implements OnApplicationShutdown {
     }
 
     return answer;
+  }
+
+  /**
+   * Our answer to something the gateway asked us, sent one way.
+   *
+   * No correlation and no waiting: nothing calls back to a reply. Failure is
+   * reported rather than thrown, because the caller is a job answering the
+   * gateway and there is nobody left to hand an exception to — what a person
+   * needs is a log line naming the operation.
+   */
+  async notify(
+    operation: OutboundOperation,
+    payload: Record<string, unknown>,
+    options: { hipId?: string } = {},
+  ): Promise<void> {
+    const { baseUrl, hipId, cmId, callTimeoutMs } = this.config.gateway;
+    const path = GATEWAY_OPERATIONS[operation].path as string;
+
+    try {
+      await this.send(`${baseUrl}${path}`, options.hipId ?? hipId, cmId, callTimeoutMs, {
+        requestId: randomUUID(),
+        timestamp: new Date().toISOString(),
+        ...payload,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Could not answer the gateway's ${operation}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   private async send(

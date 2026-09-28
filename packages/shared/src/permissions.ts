@@ -41,6 +41,14 @@ export const PERMISSIONS = [
    * typed by anyone while a verified one cannot be typed at all.
    */
   'patient:abha_verify',
+  /**
+   * Offer to put a patient's visits on the national network, and withdraw
+   * one (SP8). Separate again: verifying an ABHA records who somebody is,
+   * while linking a visit tells the country that this hospital holds a
+   * record of it. The patient confirms with a code either way — this
+   * permission is only the right to ask them.
+   */
+  'abdm:link',
 
   // Duplicate resolution
   'merge:read',
@@ -199,6 +207,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'patient:update',
     'patient:lookup_global',
     'patient:abha_verify',
+    'abdm:link',
     'terminology:read',
     'clinical:read',
     'clinical:write',
@@ -224,6 +233,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'patient:update',
     'patient:lookup_global',
     'patient:abha_verify',
+    'abdm:link',
     'merge:read',
     'merge:resolve',
     'consent:read',
@@ -260,6 +270,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
     'patient:update',
     'patient:lookup_global',
     'patient:abha_verify',
+    'abdm:link',
     'merge:read',
     'merge:resolve',
     'terminology:read',

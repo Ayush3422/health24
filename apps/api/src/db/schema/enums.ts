@@ -1,4 +1,7 @@
 import {
+  ABDM_CARE_CONTEXT_STATUSES,
+  ABDM_LINK_INITIATORS,
+  ABDM_LINK_REQUEST_STATUSES,
   ABHA_VERIFICATION_METHODS,
   ACCESS_ACTIONS,
   ACTOR_TYPES,
@@ -99,6 +102,18 @@ export const patientStatusEnum = pgEnum('patient_status', ['active', 'merged']);
 export const abhaVerificationMethodEnum = pgEnum(
   'abha_verification_method',
   tuple(ABHA_VERIFICATION_METHODS),
+);
+
+// Care contexts and linking (SP8 Phase 3)
+
+export const abdmLinkInitiatorEnum = pgEnum('abdm_link_initiator', tuple(ABDM_LINK_INITIATORS));
+export const abdmCareContextStatusEnum = pgEnum(
+  'abdm_care_context_status',
+  tuple(ABDM_CARE_CONTEXT_STATUSES),
+);
+export const abdmLinkRequestStatusEnum = pgEnum(
+  'abdm_link_request_status',
+  tuple(ABDM_LINK_REQUEST_STATUSES),
 );
 
 // Terminology

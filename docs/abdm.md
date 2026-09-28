@@ -3,9 +3,10 @@
 How this system reaches the Ayushman Bharat Digital Mission, what is built,
 and — as carefully as the rest — what is not (sp8-plan.md, DF11).
 
-**This page grows with the sub-project.** Today it covers ABHA identity and the
-transport underneath it. Care contexts, consent notification and the data push
-are Phases 3 to 5 and are described here when they exist, not before.
+**This page grows with the sub-project.** Today it covers ABHA identity, the
+transport underneath it, and care contexts — which visits are offered to the
+national network and how. Consent notification and the data push are Phases 4
+and 5, and are described here when they exist, not before.
 
 ---
 
@@ -15,7 +16,7 @@ are Phases 3 to 5 and are described here when they exist, not before.
 | --- | --- |
 | Confirming a patient's ABHA against the registry | **Built** (Phase 1) |
 | The gateway transport: sessions, correlation, callbacks | **Built** (Phase 2) |
-| Care-context discovery and linking | Phase 3 |
+| Care-context discovery and linking | **Built** (Phase 3) |
 | Consent notification from the consent manager | Phase 4 |
 | Assembling and pushing health information | Phase 5 |
 | A `/fhir/R4` read surface | Phase 6 |
@@ -79,6 +80,80 @@ callback routed to the right one, or a single task serving the callback path.
 Persisting pending calls was considered and rejected: after a restart the
 caller is gone, and resuming the wait would only create the illusion that a
 dropped call could be recovered.
+
+---
+
+## Care contexts: which visits are on the network
+
+A **care context** is ABDM's unit of sharing — the thing a patient sees in
+their health app and chooses to share. Here it is **one encounter**, because
+that is what a patient recognises ("the visit on the twelfth of April") and
+what they can sensibly decide about one at a time. A per-hospital or per-year
+grouping would be easier to produce and impossible to consent to meaningfully.
+
+**A care context's display text carries nothing clinical.** It is shown in the
+consent manager's app, it travels with every consent request, and it sits in
+lists somebody may glance at. So it says the date, the kind of visit and the
+hospital — never the complaint, the diagnosis or the clinician. There is a
+test whose only job is to keep it that way.
+
+**Nothing is linked until the patient answers a code**, in both directions:
+
+| | Who sends the code | Why |
+| --- | --- | --- |
+| The desk offers | The gateway | A member of staff is present, and ABDM's flow puts the challenge at the consent manager |
+| The patient asks, from their own app | **This system** | Nobody is present, and nothing else proves the person holding the app is the person in the record. The code goes to the number on the record |
+
+That code is deliberately **not** a portal sign-in code, and lives in its own
+table. Sharing SP5's challenge table would have meant a code issued to approve
+a link could be spent to sign in.
+
+**Withdrawing.** A hospital can unlink a visit, which stops it being offered
+and is recorded with a reason and a date. What it does **not** do is revoke a
+consent already granted over it — that artefact is the patient's, held by the
+consent manager. So the honest answer to "does unlinking stop the sharing?" is
+in two halves: it stops new requests finding the visit, and Phase 5 must refuse
+to assemble anything for a care context that is no longer linked. Saying only
+the first would be a promise this cannot keep.
+
+---
+
+## Discovery: being asked whether we hold anything
+
+This is the only place in the system where an outsider asks after a patient by
+name, so it is written as though it were an oracle, because that is what a
+careless version would be.
+
+**There is exactly one way to match**: a **verified** ABHA address equal to the
+one in the request. Not a typed one, for the same reason a typed ABHA is not
+certainty anywhere else; and never a name, a phone number or a date of birth,
+because those are what a stranger has. Demographics that positively disagree —
+a year of birth off by more than two — refuse a match the ABHA would otherwise
+have made.
+
+**Every refusal is the same refusal.** "No such person", "that person but you
+got their year of birth wrong" and "we do not know that facility" are three
+sentences that would each tell the asker something, so outwardly they are one.
+
+**A discovery that matched is on the patient's audit trail**, whether or not
+they go on to link anything. Their identity was used to find them, and that is
+theirs to see.
+
+---
+
+## One deployment, many facilities
+
+ABDM registers a **facility**; this platform hosts many. The client id and
+secret belong to the deployment, and the facility id — `X-HIP-ID` — belongs to
+the hospital, which is why it is `hospital.hfr_id` and not only the
+`ABDM_HIP_ID` setting. Outbound calls carry the hospital's own registry id;
+inbound requests are answered for the facility the header names, and a header
+naming a facility this deployment does not know is answered with the same
+"no patient found" as everything else.
+
+`ABDM_HIP_ID` remains as the default for a deployment that serves one
+facility. Phase 2 had only that, which was right for a single clinic and wrong
+here.
 
 ---
 

@@ -10,7 +10,7 @@ export interface SmsMessage {
   to: string;
   body: string;
   /** Each maps to a DLT-registered template with a real provider (sp5-plan.md, DF2). */
-  template: 'otp' | 'break_glass' | 'consent' | 'guardian_handover' | 'erasure';
+  template: 'otp' | 'break_glass' | 'consent' | 'guardian_handover' | 'erasure' | 'abdm_link';
 }
 
 /** Sends one transactional SMS. */

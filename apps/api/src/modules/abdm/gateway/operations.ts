@@ -14,26 +14,84 @@
  */
 
 export const GATEWAY_OPERATIONS = {
-  /** Ask for a code to be sent to whatever the method names. Built. */
-  'abha.verify.init': { path: '/v0.5/users/auth/init', built: true },
-  /** Answer that code. Built. */
-  'abha.verify.confirm': { path: '/v0.5/users/auth/confirm', built: true },
+  /** Ask for a code to be sent to whatever the method names. */
+  'abha.verify.init': { path: '/v0.5/users/auth/init', built: true, direction: 'call' },
+  /** Answer that code. */
+  'abha.verify.confirm': { path: '/v0.5/users/auth/confirm', built: true, direction: 'call' },
 
-  /** Phase 3: answer the gateway's search for a patient we hold records for. */
-  'care-context.discover': { path: '/v0.5/care-contexts/discover', built: false },
-  /** Phase 3: offer a link, and confirm it once the patient answers. */
-  'care-context.link.init': { path: '/v0.5/links/link/init', built: false },
-  'care-context.link.confirm': { path: '/v0.5/links/link/confirm', built: false },
+  /** The desk offers to link a patient's visits; the gateway sends the code. */
+  'care-context.link.init': { path: '/v0.5/links/link/init', built: true, direction: 'call' },
+  'care-context.link.confirm': {
+    path: '/v0.5/links/link/confirm',
+    built: true,
+    direction: 'call',
+  },
+
+  /**
+   * The gateway asking **us** — the patient is in their own health app,
+   * looking for the hospitals that hold something for them. These arrive at
+   * `/abdm/inbound/:operation` and have no path of their own here.
+   */
+  'care-context.discover': { path: null, built: true, direction: 'inbound' },
+  'care-context.link.inbound-init': { path: null, built: true, direction: 'inbound' },
+  'care-context.link.inbound-confirm': { path: null, built: true, direction: 'inbound' },
+
+  /**
+   * Our answers to those, sent one way. Nothing waits for a reply to a reply,
+   * which is why they are `notify` rather than `call`.
+   */
+  'care-context.on-discover': {
+    path: '/v0.5/care-contexts/on-discover',
+    built: true,
+    direction: 'notify',
+  },
+  'care-context.link.on-init': {
+    path: '/v0.5/links/link/on-init',
+    built: true,
+    direction: 'notify',
+  },
+  'care-context.link.on-confirm': {
+    path: '/v0.5/links/link/on-confirm',
+    built: true,
+    direction: 'notify',
+  },
 
   /** Phase 4: the consent manager telling us a consent now exists. */
-  'consent.notify': { path: '/v0.5/consents/hip/notify', built: false },
+  'consent.notify': { path: null, built: false, direction: 'inbound' },
 
   /** Phase 5: a request for data, and the outcome of sending it. */
-  'health-information.request': { path: '/v0.5/health-information/hip/request', built: false },
-  'health-information.notify': { path: '/v0.5/health-information/notify', built: false },
+  'health-information.request': { path: null, built: false, direction: 'inbound' },
+  'health-information.notify': {
+    path: '/v0.5/health-information/notify',
+    built: false,
+    direction: 'notify',
+  },
 } as const;
 
 export type GatewayOperation = keyof typeof GATEWAY_OPERATIONS;
+
+/**
+ * An operation this system sends. The inbound ones have no path because the
+ * gateway calls us at a path of ours instead.
+ */
+export type OutboundOperation = {
+  [K in GatewayOperation]: (typeof GATEWAY_OPERATIONS)[K]['path'] extends string ? K : never;
+}[GatewayOperation];
+
+/** An operation the gateway starts. The correlation check cannot apply to these. */
+export type InboundOperation = {
+  [K in GatewayOperation]: (typeof GATEWAY_OPERATIONS)[K]['direction'] extends 'inbound'
+    ? K
+    : never;
+}[GatewayOperation];
+
+export function isInboundOperation(value: string): value is InboundOperation {
+  const operation = GATEWAY_OPERATIONS[value as GatewayOperation] as
+    | { direction: string; built: boolean }
+    | undefined;
+
+  return operation?.direction === 'inbound' && operation.built;
+}
 
 /** The operations with an implementation behind them today. */
 export function builtOperations(): GatewayOperation[] {

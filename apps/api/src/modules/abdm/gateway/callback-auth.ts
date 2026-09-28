@@ -90,3 +90,44 @@ export function refuseCallback(
 
 /** What to tell the caller. Never which check failed. */
 export const CALLBACK_REFUSED = 'This callback was not accepted.';
+
+/**
+ * A request the **gateway starts** — discovery, and a patient-initiated link
+ * (sp8-plan.md, T11, T12).
+ *
+ * The important thing about this function is what it cannot do. Check 2
+ * above, the strongest of the three and the only one that needs nothing from
+ * ABDM, does not exist here: there is no call of ours for the gateway to be
+ * answering, so "an answer to a question nobody asked" is not a test that can
+ * be applied. What is left is the shared secret and the clock.
+ *
+ * That is a real gap and it is not closed by this function. It is closed by
+ * what the operations behind it will and will not say: discovery matches only
+ * on a **verified ABHA address the caller already knows**, and refuses every
+ * other route to a match with one indistinguishable answer. A caller who
+ * reaches this endpoint without that address learns nothing — including
+ * whether the person exists.
+ *
+ * The secret is therefore required whenever a gateway is configured at all,
+ * not merely in production as for callbacks.
+ */
+export type InboundRefusal = 'no-secret-configured' | 'wrong-secret' | 'stale-timestamp';
+
+export function refuseInboundRequest(
+  body: { timestamp?: string },
+  header: string | undefined,
+  check: { expectedSecret: string | null; maxSkewMs: number; now?: number },
+): InboundRefusal | null {
+  if (!check.expectedSecret) return 'no-secret-configured';
+  if (!header || !secretMatches(check.expectedSecret, header)) return 'wrong-secret';
+
+  const at = Date.parse(body.timestamp ?? '');
+  const now = check.now ?? Date.now();
+
+  if (!Number.isFinite(at) || Math.abs(now - at) > check.maxSkewMs) return 'stale-timestamp';
+
+  return null;
+}
+
+/** What to tell a caller whose inbound request was refused. */
+export const INBOUND_REFUSED = 'This request was not accepted.';

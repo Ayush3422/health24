@@ -56,7 +56,7 @@ repository; deployed values come from a secret store — see
 | `ABDM_GATEWAY_URL` | With `gateway` | URL | — | The gateway's base URL. **Plain HTTP is refused in production** unless it is loopback or a private address. |
 | `ABDM_CLIENT_ID` | With `gateway` | text | — | This deployment's registered client. |
 | `ABDM_CLIENT_SECRET` | With `gateway` | secret | — | Its secret. Injected, never in the repository, and never logged. |
-| `ABDM_HIP_ID` | With `gateway` | text | — | This facility's id in the Health Facility Registry. |
+| `ABDM_HIP_ID` | With `gateway` | text | — | The **default** facility id in the Health Facility Registry. ABDM registers a facility and this platform hosts many, so a hospital's own `hfr_id` is used where it has one and this is the fallback for a deployment serving a single facility. |
 | `ABDM_CM_ID` | With `gateway` | text | — | The consent manager this deployment is registered with. |
 | `ABDM_CALLBACK_SECRET` | Optional | secret | — | What an inbound callback must carry. **Required in production with `gateway`**: without it, anything that can reach the callback URL can answer for the registry. What it is and is not worth is in [abdm.md](abdm.md). |
 | `ABDM_CALL_TIMEOUT_MS` | Optional | 1000–120000 | `30000` | How long to wait for an answer that arrives as a separate inbound request. |

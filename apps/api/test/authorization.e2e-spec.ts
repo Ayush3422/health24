@@ -240,6 +240,41 @@ const ROUTES: RouteExpectation[] = [
   // about staff permissions and that endpoint has none to ask about.
   { method: 'post', path: '/api/v1/abdm/callbacks/:operation', allow: [], public: true },
 
+  // And where the network asks us something of its own accord (SP8, T11).
+  // Also staff-less, and the check that protects it is not a permission: it
+  // answers nothing to a caller who cannot already name a verified ABHA.
+  { method: 'post', path: '/api/v1/abdm/inbound/:operation', allow: [], public: true },
+
+  // Care contexts (SP8, T12, T13). Reading which visits are shared is reading
+  // the patient; offering one to the national network is its own permission,
+  // because it tells the country this hospital holds a record of that visit.
+  {
+    method: 'get',
+    path: '/api/v1/patients/:patientId/care-contexts',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
+  {
+    method: 'post',
+    path: '/api/v1/patients/:patientId/care-contexts/link',
+    allow: ['clinician', 'frontDesk', 'records'],
+    body: { encounterIds: ['01a0d7c3-a410-7273-864b-ad9f69444495'] },
+  },
+  {
+    method: 'post',
+    path: '/api/v1/patients/:patientId/care-contexts/link/confirm',
+    allow: ['clinician', 'frontDesk', 'records'],
+    body: {
+      linkRequestId: '01a0d7c3-a410-7273-864b-ad9f69444495',
+      code: '000000',
+    },
+  },
+  {
+    method: 'post',
+    path: '/api/v1/patients/:patientId/care-contexts/:careContextId/unlink',
+    allow: ['clinician', 'frontDesk', 'records'],
+    body: { reason: 'authorisation probe' },
+  },
+
   // Terminology
   { method: 'get', path: '/api/v1/terminology/systems', allow: TERMINOLOGY_READERS },
   { method: 'get', path: '/api/v1/terminology/search', allow: TERMINOLOGY_READERS },

@@ -1,5 +1,9 @@
 import { Logger, Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
+import { SmsModule } from '../portal/sms.module';
+import { CareContextController } from './care-contexts/care-context.controller';
+import { DiscoveryService } from './care-contexts/discovery.service';
+import { LinkingService } from './care-contexts/linking.service';
 import { AbdmConfig } from './abdm.config';
 import { AbhaController } from './abha.controller';
 import { AbhaService } from './abha.service';
@@ -7,25 +11,34 @@ import { GatewayAbhaVerification } from './abha-verification.gateway';
 import { DisabledAbhaVerification, MockAbhaVerification } from './abha-verification.mock';
 import { ABHA_VERIFICATION, type AbhaVerificationPort } from './abha-verification.port';
 import { GatewayCallbackController } from './gateway/callback.controller';
+import { GatewayInboundController } from './gateway/inbound.controller';
 import { PendingRequests } from './gateway/correlation';
 import { GatewayClient } from './gateway/gateway.client';
 import { GatewaySession } from './gateway/session';
 
 /**
- * Everything this system does with ABDM (sp8-plan.md, Phases 1–2).
+ * Everything this system does with ABDM (sp8-plan.md, Phases 1–3).
  *
- * One operation today — confirming a patient's ABHA — reached three ways,
- * and the three are the whole configuration surface: switched off, an
- * in-process stand-in, or the wire adapter pointed at a gateway. Care
- * contexts, consent notifications and the data push arrive in later phases
- * behind the same interface and through the same client, which is why both
- * exist before there is more than one caller (DF4).
+ * Three configurations and nothing else: switched off, an in-process
+ * stand-in, or the wire adapter pointed at a gateway. Everything that talks
+ * to ABDM goes through one client — confirming an ABHA, offering to link a
+ * patient's visits, and answering the network when a patient goes looking for
+ * this hospital from their own app. Consent notification and the data push
+ * arrive in later phases through the same client, which is why it exists
+ * rather than each flow growing its own (DF4).
  */
 @Module({
-  imports: [AuditModule],
-  controllers: [AbhaController, GatewayCallbackController],
+  imports: [AuditModule, SmsModule],
+  controllers: [
+    AbhaController,
+    CareContextController,
+    GatewayCallbackController,
+    GatewayInboundController,
+  ],
   providers: [
     AbhaService,
+    DiscoveryService,
+    LinkingService,
     AbdmConfig,
     PendingRequests,
     GatewaySession,
@@ -55,6 +68,6 @@ import { GatewaySession } from './gateway/session';
       },
     },
   ],
-  exports: [AbhaService, AbdmConfig, PendingRequests],
+  exports: [AbhaService, AbdmConfig, PendingRequests, LinkingService],
 })
 export class AbdmModule {}

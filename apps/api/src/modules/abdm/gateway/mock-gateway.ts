@@ -70,6 +70,8 @@ export class MockGatewayServer {
   readonly sent: Array<{ operation: string; correlation: string | undefined }> = [];
   /** How many sessions it has handed out — one per burst, if caching works. */
   sessionsIssued = 0;
+  /** Every one-way answer this system has sent back, for a test to read. */
+  readonly received: Array<{ path: string; body: Record<string, unknown> }> = [];
 
   /** See `MockGatewayOptions.callbackBaseUrl`. */
   callbackBaseUrl: string;
@@ -96,6 +98,62 @@ export class MockGatewayServer {
     await new Promise<void>((resolve) => {
       this.server!.listen(0, '127.0.0.1', resolve);
     });
+  }
+
+  /**
+   * The network asking this system something, the way a patient's own health
+   * app makes it happen (T11, T12).
+   *
+   * Sends the request the gateway would send, with the header naming which
+   * facility is being asked about, and hands back what the endpoint answered.
+   * The real answer comes back separately — see `waitForAnswer`.
+   */
+  async ask(
+    operation: string,
+    hipId: string,
+    body: Record<string, unknown>,
+    options: { secret?: string | null } = {},
+  ): Promise<{ status: number }> {
+    const secret =
+      options.secret === undefined ? this.options.callbackSecret : options.secret;
+
+    const headers: Record<string, string> = {
+      'content-type': 'application/json',
+      'x-hip-id': hipId,
+    };
+
+    if (secret) headers['x-abdm-callback-secret'] = secret;
+
+    const response = await fetch(`${this.callbackBaseUrl}/api/v1/abdm/inbound/${operation}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        requestId: randomUUID(),
+        timestamp: new Date().toISOString(),
+        ...body,
+      }),
+    });
+
+    return { status: response.status };
+  }
+
+  /** Waits for this system's one-way answer to arrive at the given path. */
+  async waitForAnswer(
+    pathEnding: string,
+    timeoutMs = 5_000,
+  ): Promise<Record<string, unknown>> {
+    const until = Date.now() + timeoutMs;
+
+    for (;;) {
+      const found = this.received.find((entry) => entry.path.endsWith(pathEnding));
+      if (found) return found.body;
+
+      if (Date.now() > until) {
+        throw new Error(`No answer arrived at ${pathEnding} within ${String(timeoutMs)}ms`);
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
   }
 
   async stop(): Promise<void> {
@@ -160,6 +218,61 @@ export class MockGatewayServer {
         sentTo: 'XXXXXXXX99',
         expiresInSeconds: 300,
       });
+      return;
+    }
+
+    // --- Linking, offered by the hospital --------------------------------
+
+    if (path === '/v0.5/links/link/init') {
+      const transactionId = randomUUID();
+
+      this.challenges.set(transactionId, {
+        abhaNumber: null,
+        abhaAddress: null,
+        method: 'link',
+        attempts: 0,
+      });
+
+      reply(202, {});
+      this.callBack('care-context.link.init', requestId, {
+        transactionId,
+        sentTo: 'XXXXXXXX99',
+      });
+      return;
+    }
+
+    if (path === '/v0.5/links/link/confirm') {
+      const confirmation = (body.confirmation ?? {}) as { linkRefNumber?: string; token?: string };
+      const challenge = this.challenges.get(String(confirmation.linkRefNumber ?? ''));
+
+      reply(202, {});
+
+      if (!challenge) {
+        this.callBack('care-context.link.confirm', requestId, null, {
+          code: 1410,
+          message: 'That linking request has expired.',
+        });
+        return;
+      }
+
+      if (confirmation.token !== MOCK_GATEWAY_CODE) {
+        this.callBack('care-context.link.confirm', requestId, null, {
+          code: 1401,
+          message: 'That code is not correct.',
+        });
+        return;
+      }
+
+      this.challenges.delete(String(confirmation.linkRefNumber));
+      this.callBack('care-context.link.confirm', requestId, { linked: true });
+      return;
+    }
+
+    // --- Our one-way answers to what the gateway asked us ------------------
+
+    if (path.startsWith('/v0.5/care-contexts/on-') || path.startsWith('/v0.5/links/link/on-')) {
+      this.received.push({ path, body });
+      reply(202, {});
       return;
     }
 

@@ -1,6 +1,6 @@
 # SP8 — ABDM: Implementation Plan
 
-**Status:** In progress — Phases 1–2 complete, 2026-09-28. Decisions X–AA answered 2026-09-28: **X1, Y1, Z1, AA1**.
+**Status:** In progress — Phases 1–3 complete, 2026-09-28. Decisions X–AA answered 2026-09-28: **X1, Y1, Z1, AA1**.
 **Scope:** Joining the national network as a **Health Information Provider**: an ABHA number and address verified and linked to a patient, care contexts discovered and linked, a consent artefact arriving from the consent manager and landing in the consent model this system already has, and the record assembled as encrypted FHIR bundles and pushed to whoever the patient has allowed — plus the `/fhir/R4` read surface that all of it is built on, the screens that make linking and sharing visible to staff and to the patient, and an honest account of how far this is from a certificate.
 **Design reference:** `planning.md` §10 (the `/fhir/R4` surface as the seam ABDM arrives through), §8 (consent and access control), §14 stage 8 · `sp1-plan.md` (patient identity and matching) · `sp3-plan.md` (the clinical record and `app.consent_permits`) · `sp5-plan.md` (the patient's rights, the portal, the FHIR export) · [docs/compliance/ehr-standards-self-assessment.md](docs/compliance/ehr-standards-self-assessment.md) gaps 1–3
 
@@ -241,11 +241,76 @@ as a claim (DF11).
 
 ### Phase 3 — Care contexts, discovery and linking
 
-- [ ] **T10** What a care context is here, decided and written down: the unit a patient recognises and can unlink, mapped onto encounters
-- [ ] **T11** Discovery: finding the patient from the identifiers ABDM sends, refusing to guess, and never confirming a person exists to a request that did not already know
-- [ ] **T12** Linking, both directions — the hospital offering a link and the patient initiating one — with confirmation before anything is linked
-- [ ] **T13** Unlinking, and what it means for consents already granted over those care contexts
-- [ ] **T14** Row-level security over the new tables, and their place in the coverage sweep
+- [x] **T10** What a care context is here, decided and written down: the unit a patient recognises and can unlink, mapped onto encounters
+- [x] **T11** Discovery: finding the patient from the identifiers ABDM sends, refusing to guess, and never confirming a person exists to a request that did not already know
+- [x] **T12** Linking, both directions — the hospital offering a link and the patient initiating one — with confirmation before anything is linked
+- [x] **T13** Unlinking, and what it means for consents already granted over those care contexts
+- [x] **T14** Row-level security over the new tables, and their place in the coverage sweep
+
+**A care context is one visit, and its description says nothing about what is
+wrong with the patient.** The unit was the easy half: a patient recognises
+"the visit on the twelfth of April" and can decide about it on its own, where
+a per-year grouping would be easier to produce and impossible to consent to.
+The display string was the half worth thinking about — it is shown in the
+consent manager's app, travels with every consent request, and sits in lists
+somebody may glance at. "Diabetes follow-up" would be more useful and would
+tell anyone looking over a shoulder what the patient has. Date, kind of visit
+and hospital; and the test that keeps it that way is written as a property
+rather than a list of forbidden words, because the way it would break is
+somebody adding the chief complaint to be helpful.
+
+**Discovery is the only place an outsider asks after a patient by name**, so
+it is written as though it were an oracle. There is exactly one way to match —
+a **verified** ABHA address equal to the one in the request — and every other
+route is a refusal: a typed ABHA is not certainty here either, and a name, a
+phone number or a date of birth are what a stranger has. Demographics that
+positively disagree refuse a match the ABHA would have made.
+
+**And every refusal is the same refusal.** "No such person", "that person but
+you got their year of birth wrong" and "we do not know that facility" each
+tell the asker something, so outwardly they are one sentence — asserted in a
+test that compares the three answers byte for byte.
+
+**Phase 3 found the hole in Phase 2's authentication, which is the honest
+result of building the next thing.** T8's strongest check — that a callback
+quotes a call we made and are still waiting on — **cannot apply to a request
+the gateway starts.** There is no call of ours for it to be answering. So the
+inbound endpoint has the shared secret and the clock and nothing else, and
+that gap is not closed by authentication at all: it is closed by discovery
+refusing to say anything to a caller who cannot already name a verified ABHA
+address. That is written into `callback-auth.ts` and `docs/abdm.md` beside the
+three checks, rather than left for somebody to assume the checks cover it.
+
+**Nothing is linked until the patient answers a code, and who sends it
+differs.** When the desk offers, the gateway sends it. When the patient asks
+from their own health app, **this system** sends it to the number on the
+record — because nobody is present and nothing else proves the person holding
+the app is the person in the record. The code lives in its own table rather
+than SP5's: sharing that one would have meant a code issued to approve a link
+could be spent to sign in to the portal.
+
+**The guard refuses the attack the flow invites.** A request's `encounter_ids`
+are frozen the moment the patient is asked, so a request made for one visit
+cannot be widened to twenty before the confirmation arrives — the code they
+read out approves exactly what they were told about.
+
+**ABDM registers a facility; this platform hosts many.** Phase 2 read the
+facility id from the environment, which is right for one clinic and wrong
+here. The hospital's own `hfr_id` — a column SP1 already had — now carries it
+on outbound calls, inbound requests are answered for the facility the header
+names, and `ABDM_HIP_ID` stays as the default for a single-facility
+deployment.
+
+**The second caller found the first caller's translation.** Turning a gateway
+refusal into an answer a person can act on lived inside the ABHA adapter, so
+linking's first wrong code came back as a 500. It now lives in one place that
+a third caller gets by using it rather than by remembering to.
+
+**And one ordinary bug worth recording** because the failure was at the
+database rather than in review: a JavaScript array interpolated into a query
+and cast — `${ids}::uuid[]` — binds something the driver will not make an
+array of. Every query that takes a list of visits now goes through one helper
+that writes the literal form.
 
 ### Phase 4 — Consent, mapped onto the model that exists
 

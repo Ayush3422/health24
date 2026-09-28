@@ -6,3 +6,4 @@ export * from './audit';
 export * from './terminology';
 export * from './clinical';
 export * from './documents';
+export * from './abdm';

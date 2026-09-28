@@ -142,6 +142,26 @@ export type MatchMethod = (typeof MATCH_METHODS)[number];
 export const ABHA_VERIFICATION_METHODS = ['mobile_otp', 'aadhaar_otp'] as const;
 export type AbhaVerificationMethod = (typeof ABHA_VERIFICATION_METHODS)[number];
 
+/**
+ * Who asked for a visit to be linked to a patient's ABHA (sp8-plan.md, T12).
+ *
+ * Both happen, and they are not the same act. `hospital` is the desk offering
+ * — the patient is standing there and confirms with a code. `patient` is the
+ * patient finding this hospital from their own health app, which is the flow
+ * that begins with the national network asking us whether we hold anything
+ * for them at all.
+ */
+export const ABDM_LINK_INITIATORS = ['hospital', 'patient'] as const;
+export type AbdmLinkInitiator = (typeof ABDM_LINK_INITIATORS)[number];
+
+/** Whether a visit is currently exposed to the national network. */
+export const ABDM_CARE_CONTEXT_STATUSES = ['linked', 'unlinked'] as const;
+export type AbdmCareContextStatus = (typeof ABDM_CARE_CONTEXT_STATUSES)[number];
+
+/** A linking attempt: waiting on the patient, or finished one way or another. */
+export const ABDM_LINK_REQUEST_STATUSES = ['pending', 'confirmed', 'expired', 'failed'] as const;
+export type AbdmLinkRequestStatus = (typeof ABDM_LINK_REQUEST_STATUSES)[number];
+
 // ---------------------------------------------------------------------------
 // Terminology
 // ---------------------------------------------------------------------------
