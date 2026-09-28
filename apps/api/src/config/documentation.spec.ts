@@ -35,7 +35,14 @@ function markdownFiles(): string[] {
   walk(DOCS);
 
   for (const entry of readdirSync(REPO)) {
-    if (entry.endsWith('-plan.md') || entry === 'planning.md' || entry === 'features.md') {
+    // The README most of all: it is the page a new engineer reads first, and
+    // the one where a wrong command costs the most (sp7-plan.md, T33).
+    if (
+      entry.endsWith('-plan.md') ||
+      entry === 'planning.md' ||
+      entry === 'features.md' ||
+      entry === 'README.md'
+    ) {
       found.push(path.join(REPO, entry));
     }
   }
@@ -53,7 +60,9 @@ function typedCommands(text: string): string {
   const fenced = [...text.matchAll(/```[a-z]*\n([\s\S]*?)```/g)].map((block) => block[1] ?? '');
   const inline = [...text.matchAll(/`([^`\n]+)`/g)].map((span) => span[1] ?? '');
 
-  return [...fenced, ...inline].join('\n');
+  // Separated by something no command can span, so that a sentence ending in
+  // `pnpm` followed by a span holding a path does not read as one command.
+  return [...fenced, ...inline].join('\n;\n');
 }
 
 const files = markdownFiles();
@@ -62,6 +71,7 @@ describe('the documentation', () => {
   it('is where this test thinks it is', () => {
     expect(files.length).toBeGreaterThan(10);
     expect(files.some((file) => file.endsWith('restore.md'))).toBe(true);
+    expect(files.some((file) => file.endsWith('README.md'))).toBe(true);
   });
 
   it('links only to files that exist', () => {

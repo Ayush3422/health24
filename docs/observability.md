@@ -23,6 +23,17 @@ The audit trail is a different thing and stays where it is: it is the legal
 record of who read what, it is append-only, and nothing moves it into a log
 sink.
 
+**What the scrubber cannot do, and what covers it.** A patient's name
+interpolated into a message is not detectable by shape — a name looks like any
+other words — so the scrubber catches it only when it arrives under a key it
+knows. What catches the rest is the test: `logging.e2e-spec.ts` drives a real
+application and asserts the patient's name appears in no line it wrote. That
+test only covers lines it provokes, which is why the test harness installs the
+same logger `main.ts` does: a service writing through Nest's `Logger` goes
+through the scrubber in a test exactly as it does in production. Verified by
+planting a leaking line on purpose and watching the test fail (sp7-plan.md,
+T32).
+
 ## Logs
 
 One JSON object per line, written to standard output — or to `LOG_FILE` when

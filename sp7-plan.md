@@ -1,6 +1,6 @@
 # SP7 — Production readiness and compliance: Implementation Plan
 
-**Status:** Building. Decisions U–W answered 2026-09-25: **U1, V1, W1**. Phase 1 complete.
+**Status:** Complete, 2026-09-28. Decisions U–W answered 2026-09-25: **U1, V1, W1**. What remains is listed under "Open items outside the code" and in `docs/compliance/` — none of it is code.
 **Scope:** What stands between a system that works on a developer's machine and one that may hold a real patient's record: configuration and secrets, logs that never leak a patient, health and readiness, security headers and rate limits, container and infrastructure definitions for AWS Mumbai, backups with a restore drill that is actually run, a threat model and automated scanning in CI, the runbooks somebody follows at three in the morning, and an honest self-assessment against the DPDP Act and the EHR Standards.
 **Design reference:** `planning.md` §11 (security, privacy, compliance), §13 (infrastructure), §14 stage 7 · `sp1-plan.md` (tenancy, auth, audit) · `sp5-plan.md` (the patient's rights, erasure, exports) · `sp6-plan.md` (what the system now holds)
 
@@ -391,9 +391,39 @@ rehearsal of a page at an inconvenient hour.
 
 ### Phase 8 — Verification
 
-- [ ] **T31** The production-like smoke in CI: build the images, bring the stack up, migrate, run the smoke scripts against it
-- [ ] **T32** The acceptance scenario below
-- [ ] **T33** A README that gets a new engineer from a clone to a running stack, and points at everything above
+- [x] **T31** The production-like smoke in CI: build the images, bring the stack up, migrate, run the smoke scripts against it
+- [x] **T32** The acceptance scenario below — walked, and written up in `docs/compliance/sp7-acceptance.md`
+- [x] **T33** A README that gets a new engineer from a clone to a running stack, and points at everything above
+
+**The smoke asks what a deployed stack can honestly be asked.** It does not sign
+anybody in, because the seed refuses to run against a production database — and
+that refusal is right: a deployment has no well-known passwords in it. So it
+checks that the migration job finished, that every dependency is reachable, that
+`/version` names the commit, that an unauthenticated read and a sign-in with no
+account are both refused after a real round trip to the database, that both apps
+send a policy which names the storage origin, and that the worker reports its
+queue depths without naming a patient. Twenty-six checks, and they pass against
+the images that would be deployed.
+
+**Step 5 of the scenario went differently, and found a real gap.** The plan
+expected a leaking log line to fail the scrubber test. It did not — because the
+test harness never installed the logger `main.ts` installs, so a line written
+through Nest's `Logger` in a service reached stdout in tests and the scrubber
+only in production. The test that exists to prove no patient reaches a log line
+was not looking at the lines a service writes. The harness now installs it, the
+planted line fails the test as it should, and one more thing became visible in
+doing so: the phone in that line was redacted by shape and **the name was not**,
+because a name is not detectable by shape. The scrubber catches keys and
+patterns; the test catches a name somebody interpolated into a message. Both
+are now written down.
+
+**Step 8 is recorded as not done.** There is no AWS account, so
+`terraform plan` cannot be run from here (V1). What passes is `fmt`, `init
+-backend=false` and `validate`, in CI on every push. The first real plan will
+find something, and saying so is the alternative to marking the step complete.
+
+**Seven of eight steps pass, and the eighth is honest about why it cannot** —
+which is the shape this whole sub-project has taken.
 
 ---
 

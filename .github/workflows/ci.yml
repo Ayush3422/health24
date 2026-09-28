@@ -164,6 +164,53 @@ jobs:
         run: pnpm --filter @health24/portal build
 
   # ---------------------------------------------------------------------------
+  # The images, running (sp7-plan.md, T31)
+  # ---------------------------------------------------------------------------
+  production-stack:
+    name: The production stack
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The whole stack from the images that would be deployed: the same
+      # Dockerfiles, the same compose order, NODE_ENV=production and every
+      # production refusal in force. It is the cheapest place a configuration
+      # mistake is found — the API refusing to start here has already caught
+      # two (sp7-plan.md, Phase 4).
+      - name: Secrets for the local stack
+        run: |
+          set -euo pipefail
+          key() { node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"; }
+          sed -e "s|^JWT_ACCESS_SECRET=.*|JWT_ACCESS_SECRET=$(key)|"               -e "s|^TOTP_ENCRYPTION_KEY=.*|TOTP_ENCRYPTION_KEY=$(key)|"               .env.prod-local.example > .env.prod-local
+
+      - name: Bring it up
+        env:
+          BUILD_SHA: ${{ github.sha }}
+        run: |
+          BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)           docker compose -f docker-compose.prod.yml up -d --build
+
+      # Migrations are a job, not something the API does on boot: if it did not
+      # finish, nothing below would be meaningful.
+      - name: The migration job finished
+        run: |
+          set -euo pipefail
+          code=$(docker inspect -f '{{.State.ExitCode}}' health24-prod-local-migrate-1)
+          echo "migrate exited with $code"
+          test "$code" = "0"
+
+      - name: Smoke it
+        run: node scripts/smoke-prod-stack.mjs
+
+      - name: What it said, if anything went wrong
+        if: failure()
+        run: docker compose -f docker-compose.prod.yml logs --tail 80
+
+      - name: Stop it
+        if: always()
+        run: docker compose -f docker-compose.prod.yml down -v
+
+  # ---------------------------------------------------------------------------
   # What the scanners find (sp7-plan.md, T24, DF8)
   # ---------------------------------------------------------------------------
   scanning:

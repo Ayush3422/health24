@@ -20,6 +20,13 @@ const nodeGlobals = {
   setInterval: 'readonly',
   clearInterval: 'readonly',
   fetch: 'readonly',
+  // The rest of the fetch family, which Node has had since 18 and which the
+  // scripts use for timeouts and for reading response headers. `Response` is
+  // already a built-in as far as the browser configuration is concerned, so it
+  // is not redeclared here.
+  Headers: 'readonly',
+  AbortSignal: 'readonly',
+  AbortController: 'readonly',
   __dirname: 'readonly',
   __filename: 'readonly',
   module: 'readonly',

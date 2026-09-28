@@ -64,6 +64,15 @@ export async function createTestApp(options: { database?: string } = {}): Promis
   // a test application that parses differently proves nothing about the one
   // that is deployed (sp7-plan.md, T12).
   const app = moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false });
+
+  // The scrubbing logger, as `main.ts` installs it. Without this a call to
+  // Nest's own `Logger` in a service writes straight to stdout in tests and
+  // through pino in production — so the test that proves no patient reaches a
+  // log line would not have been looking at the lines a service writes
+  // (sp7-plan.md, T32).
+  const { Logger: PinoLogger } = await import('nestjs-pino');
+  app.useLogger(app.get(PinoLogger));
+
   configureApp(app);
   await app.init();
 
