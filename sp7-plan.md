@@ -311,10 +311,40 @@ stop using it, then drop it — never one.
 
 ### Phase 6 — Security review
 
-- [ ] **T22** A threat model per trust boundary — browser to API, API to database, worker to queue, storage, the patient portal, the platform role — with what stops each threat
-- [ ] **T23** A checklist run against the code: authorisation paths, error messages, token handling, file handling, injection surfaces; findings recorded and each fixed or accepted in writing (W1)
-- [ ] **T24** Dependency, secret and container scanning in CI, failing the build on high severity, with an accepted-risk file (DF8)
-- [ ] **T25** A pen-test scope document: what is in scope, what an external tester is given, and what "pass" means
+- [x] **T22** A threat model per trust boundary — browser to API, API to database, worker to queue, storage, the patient portal, the platform role — with what stops each threat
+- [x] **T23** A checklist run against the code: authorisation paths, error messages, token handling, file handling, injection surfaces; findings recorded and each fixed or accepted in writing (W1)
+- [x] **T24** Dependency, secret and container scanning in CI, failing the build on high severity, with an accepted-risk file (DF8)
+- [x] **T25** A pen-test scope document: what is in scope, what an external tester is given, and what "pass" means
+
+**The worst finding was one this plan predicted and still missed.** Phase 3 said
+a content security policy breaks a screen silently; Phase 6 then found that ours
+refused every document — an `img`, an `iframe` and the presigned upload, all
+three — because it named only the app's own origin. Found by loading the app in
+a browser and trying it, not by reading the policy. The fix names the storage
+origin as configuration substituted at container start, and three tests now
+fail if it is dropped again, including one that watches the browser console.
+
+**Exposure was established, not assumed, and the fix applied anyway.** The
+`drizzle-orm` advisory — SQL injection through unescaped identifiers — reaches
+applications that pass untrusted input to `sql.identifier()`. The one call here
+takes a key of a seven-entry constant chosen by a Zod enum, so nothing was
+exposed; it was upgraded regardless, because "this call site is safe" is an
+argument that has to be made again every time somebody adds one. The same for
+`multer` and `lodash`: no exposure today, overridden anyway, because a
+`FileInterceptor` added next year would reintroduce one silently.
+
+**The gate is on what ships, and the rest is written down.** Production
+dependencies fail the build on a high or critical advisory; development and
+build tooling is reported and reviewed in `accepted-risks.md` with dates,
+because a build that fails daily on a vulnerability in a test runner teaches
+everybody to ignore the scanner. Secrets are scanned in the working tree **and
+in history** — a secret removed in a later commit is still in every clone.
+
+**The checklist records what it found and what it did not.** "Checked, nothing
+found" is written down deliberately: a list that only holds problems cannot be
+told apart from a list nobody ran. And what the review could not cover — the
+hospital's network, the cryptographic primitives, capacity, the infrastructure
+as deployed — is stated rather than left to be assumed.
 
 ### Phase 7 — Runbooks and the compliance position
 
