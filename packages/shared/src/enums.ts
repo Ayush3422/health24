@@ -158,6 +158,23 @@ export type AbdmLinkInitiator = (typeof ABDM_LINK_INITIATORS)[number];
 export const ABDM_CARE_CONTEXT_STATUSES = ['linked', 'unlinked'] as const;
 export type AbdmCareContextStatus = (typeof ABDM_CARE_CONTEXT_STATUSES)[number];
 
+/**
+ * How a data request ended (sp8-plan.md, T23).
+ *
+ * `partly_transferred` is the one worth having: a consent revoked halfway
+ * through a transfer stops it, and what already went cannot be recalled. A
+ * status that could only say "done" or "failed" would describe that as
+ * neither.
+ */
+export const ABDM_TRANSFER_STATUSES = [
+  'pending',
+  'transferred',
+  'partly_transferred',
+  'failed',
+  'refused',
+] as const;
+export type AbdmTransferStatus = (typeof ABDM_TRANSFER_STATUSES)[number];
+
 /** A linking attempt: waiting on the patient, or finished one way or another. */
 export const ABDM_LINK_REQUEST_STATUSES = ['pending', 'confirmed', 'expired', 'failed'] as const;
 export type AbdmLinkRequestStatus = (typeof ABDM_LINK_REQUEST_STATUSES)[number];

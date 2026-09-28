@@ -64,11 +64,16 @@ export const GATEWAY_OPERATIONS = {
     direction: 'notify',
   },
 
-  /** Phase 5: a request for data, and the outcome of sending it. */
-  'health-information.request': { path: null, built: false, direction: 'inbound' },
+  /** A request for data, our acknowledgement of it, and the outcome. */
+  'health-information.request': { path: null, built: true, direction: 'inbound' },
+  'health-information.on-request': {
+    path: '/v0.5/health-information/hip/on-request',
+    built: true,
+    direction: 'notify',
+  },
   'health-information.notify': {
     path: '/v0.5/health-information/notify',
-    built: false,
+    built: true,
     direction: 'notify',
   },
 } as const;

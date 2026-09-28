@@ -120,12 +120,31 @@ export interface ExportRecord {
   }>;
 }
 
-/** Everything an export carries. Read in the patient's own context, so row-level security scopes it. */
+/**
+ * Everything an export carries. Read in the patient's own context, so
+ * row-level security scopes it.
+ *
+ * With `encounterId`, it is narrowed to one visit — which is what an ABDM
+ * care context is (sp8-plan.md, T21). Three tables record the encounter
+ * optionally rather than always: allergies, observations and documents can be
+ * entered without one. A visit-scoped read returns only the rows explicitly
+ * attached to that visit, so an allergy recorded at the front desk between
+ * appointments is **not** in the bundle. That is a real omission and it is
+ * written down here and in `docs/abdm.md` rather than discovered by whoever
+ * wonders where it went.
+ */
 export async function readExportRecord(
   tx: DbTransaction,
   patientId: string,
+  options: { encounterId?: string } = {},
 ): Promise<ExportRecord> {
   const ids = sql`app.patient_record_ids(${patientId}::uuid)`;
+
+  /** Narrows a table to one visit, or to nothing at all when unscoped. */
+  const visit = (alias: string) =>
+    options.encounterId
+      ? sql` AND ${sql.raw(`${alias}."encounter_id"`)} = ${options.encounterId}::uuid`
+      : sql``;
   const clinician = (column: string) => sql`app.staff_name_for_patient(${sql.raw(column)})`;
   const time = (column: string) =>
     sql`to_char(${sql.raw(column)} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`;
@@ -157,7 +176,7 @@ export async function readExportRecord(
            ${clinician('e."attending_staff_id"')} AS clinician_name
       FROM "encounter" e
       LEFT JOIN "hospital_directory" h ON h."id" = e."hospital_id"
-     WHERE e."patient_id" = ANY (${ids})
+     WHERE e."patient_id" = ANY (${ids})${options.encounterId ? sql` AND e."id" = ${options.encounterId}::uuid` : sql``}
   ORDER BY e."started_at"
      LIMIT ${LIMIT}
   `);
@@ -175,7 +194,7 @@ export async function readExportRecord(
            ), '[]'::json) AS codings
       FROM "condition" c
       LEFT JOIN "hospital_directory" h ON h."id" = c."hospital_id"
-     WHERE c."patient_id" = ANY (${ids}) AND c."version_status" = 'current'
+     WHERE c."patient_id" = ANY (${ids}) AND c."version_status" = 'current'${visit('c')}
   ORDER BY c."recorded_at"
      LIMIT ${LIMIT}
   `);
@@ -192,7 +211,7 @@ export async function readExportRecord(
            r."instructions", ${clinician('r."attributed_clinician_id"')} AS clinician_name
       FROM "medication_request" r
       LEFT JOIN "hospital_directory" h ON h."id" = r."hospital_id"
-     WHERE r."patient_id" = ANY (${ids}) AND r."version_status" = 'current'
+     WHERE r."patient_id" = ANY (${ids}) AND r."version_status" = 'current'${visit('r')}
   ORDER BY r."recorded_at"
      LIMIT ${LIMIT}
   `);
@@ -204,7 +223,7 @@ export async function readExportRecord(
            ${clinician('a."attributed_clinician_id"')} AS clinician_name
       FROM "allergy_intolerance" a
       LEFT JOIN "hospital_directory" h ON h."id" = a."hospital_id"
-     WHERE a."patient_id" = ANY (${ids}) AND a."version_status" = 'current'
+     WHERE a."patient_id" = ANY (${ids}) AND a."version_status" = 'current'${visit('a')}
   ORDER BY a."recorded_at"
      LIMIT ${LIMIT}
   `);
@@ -217,7 +236,7 @@ export async function readExportRecord(
            o."reference_high"::text AS reference_high, o."group_id", o."panel_code"
       FROM "observation" o
       LEFT JOIN "hospital_directory" h ON h."id" = o."hospital_id"
-     WHERE o."patient_id" = ANY (${ids}) AND o."version_status" = 'current'
+     WHERE o."patient_id" = ANY (${ids}) AND o."version_status" = 'current'${visit('o')}
   ORDER BY o."effective_at"
      LIMIT ${LIMIT}
   `);
@@ -227,7 +246,7 @@ export async function readExportRecord(
            p."name", p."outcome", ${clinician('p."attributed_clinician_id"')} AS clinician_name
       FROM "procedure" p
       LEFT JOIN "hospital_directory" h ON h."id" = p."hospital_id"
-     WHERE p."patient_id" = ANY (${ids}) AND p."version_status" = 'current'
+     WHERE p."patient_id" = ANY (${ids}) AND p."version_status" = 'current'${visit('p')}
   ORDER BY p."performed_at"
      LIMIT ${LIMIT}
   `);
@@ -238,7 +257,7 @@ export async function readExportRecord(
            ${clinician('n."attributed_clinician_id"')} AS clinician_name
       FROM "clinical_note" n
       LEFT JOIN "hospital_directory" h ON h."id" = n."hospital_id"
-     WHERE n."patient_id" = ANY (${ids}) AND n."version_status" = 'current'
+     WHERE n."patient_id" = ANY (${ids}) AND n."version_status" = 'current'${visit('n')}
   ORDER BY n."recorded_at"
      LIMIT ${LIMIT}
   `);
@@ -249,7 +268,7 @@ export async function readExportRecord(
            (SELECT count(*)::int FROM "document_file" f WHERE f."document_id" = d."id") AS file_count
       FROM "document_reference" d
       LEFT JOIN "hospital_directory" h ON h."id" = d."hospital_id"
-     WHERE d."patient_id" = ANY (${ids}) AND d."version_status" = 'current'
+     WHERE d."patient_id" = ANY (${ids}) AND d."version_status" = 'current'${visit('d')}
        AND d."availability" = 'available'
   ORDER BY d."report_date"
      LIMIT ${LIMIT}

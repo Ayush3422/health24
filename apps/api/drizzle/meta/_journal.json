@@ -519,6 +519,20 @@
       "when": 1790615243704,
       "tag": "0073_sp8_abdm_consent_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1790616586387,
+      "tag": "0074_sp8_data_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1790616594856,
+      "tag": "0075_sp8_data_request_rules",
+      "breakpoints": true
     }
   ]
 }

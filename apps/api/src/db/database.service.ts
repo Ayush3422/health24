@@ -2,6 +2,7 @@ import { Inject, Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   createDb,
+  withAbdmConsent,
   withPatient,
   withSystemContext,
   withTenant,
@@ -40,6 +41,17 @@ export class DatabaseService implements OnModuleDestroy {
   /** Runs a unit of work as a patient in the portal, over their own record only (SP5). */
   async asPatient<T>(patientId: string, fn: (tx: DbTransaction) => Promise<T>): Promise<T> {
     return withPatient(this.handle.db, patientId, fn);
+  }
+
+  /**
+   * Runs a unit of work assembling the answer to one ABDM data request,
+   * bound to the consent it rests on (SP8, DF3).
+   */
+  async asAbdmConsent<T>(
+    consentArtefactId: string,
+    fn: (tx: DbTransaction) => Promise<T>,
+  ): Promise<T> {
+    return withAbdmConsent(this.handle.db, consentArtefactId, fn);
   }
 
   /**

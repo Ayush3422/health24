@@ -1,6 +1,6 @@
 # SP8 — ABDM: Implementation Plan
 
-**Status:** In progress — Phases 1–4 complete, 2026-09-28. Decisions X–AA answered 2026-09-28: **X1, Y1, Z1, AA1**.
+**Status:** In progress — Phases 1–5 complete, 2026-09-28. Decisions X–AA answered 2026-09-28: **X1, Y1, Z1, AA1**.
 **Scope:** Joining the national network as a **Health Information Provider**: an ABHA number and address verified and linked to a patient, care contexts discovered and linked, a consent artefact arriving from the consent manager and landing in the consent model this system already has, and the record assembled as encrypted FHIR bundles and pushed to whoever the patient has allowed — plus the `/fhir/R4` read surface that all of it is built on, the screens that make linking and sharing visible to staff and to the patient, and an honest account of how far this is from a certificate.
 **Design reference:** `planning.md` §10 (the `/fhir/R4` surface as the seam ABDM arrives through), §8 (consent and access control), §14 stage 8 · `sp1-plan.md` (patient identity and matching) · `sp3-plan.md` (the clinical record and `app.consent_permits`) · `sp5-plan.md` (the patient's rights, the portal, the FHIR export) · [docs/compliance/ehr-standards-self-assessment.md](docs/compliance/ehr-standards-self-assessment.md) gaps 1–3
 
@@ -382,12 +382,71 @@ of the portal and one test assertion, and the alternative was a field called
 
 ### Phase 5 — Data request and transfer
 
-- [ ] **T20** The dedicated database context for assembly, bound to one consent id, with policies that make over-sharing a database refusal rather than a code review (DF3)
-- [ ] **T21** Bundles per care context, reusing the mappings in `record-fhir.ts`, with what a bundle omits stated rather than silently dropped
-- [ ] **T22** The crypto: a key pair per transfer, the key agreement and derivation the specification names, authenticated encryption, and nothing sensitive surviving the transfer (DF7)
-- [ ] **T23** Transfer as a queued job with retries, partial failure and the outcome notification (DF8)
-- [ ] **T24** The audit entries — every row transferred, attributed to the requester, carrying the consent artefact id (DF5)
-- [ ] **T25** A consent revoked mid-transfer stops it; a test proves the remaining bundles are never sent
+- [x] **T20** The dedicated database context for assembly, bound to one consent id, with policies that make over-sharing a database refusal rather than a code review (DF3)
+- [x] **T21** Bundles per care context, reusing the mappings in `record-fhir.ts`, with what a bundle omits stated rather than silently dropped
+- [x] **T22** The crypto: a key pair per transfer, the key agreement and derivation the specification names, authenticated encryption, and nothing sensitive surviving the transfer (DF7)
+- [x] **T23** Transfer as a queued job with retries, partial failure and the outcome notification (DF8)
+- [x] **T24** The audit entries — every row transferred, attributed to the requester, carrying the consent artefact id (DF5)
+- [x] **T25** A consent revoked mid-transfer stops it; a test proves the remaining bundles are never sent
+
+**The suite plays the requester, which is the only way any of this is worth
+asserting.** It generates the key pair ABDM would send, receives the pushes at
+an endpoint of its own, and **decrypts them** — so what the tests check is not
+that this system called the right functions but what a requester actually
+receives. A test that asserted "we called encrypt" would pass against code
+that encrypted the wrong thing.
+
+**T25 is the test this phase existed to be able to pass.** The consent is
+withdrawn the moment the first bundle lands at the requester, and the second
+visit never leaves the building. That works because the transfer is one visit
+at a time and re-reads the consent before each — and because the row it leaves
+says `partly_transferred` with the reason, rather than rounding an outcome
+that is neither "done" nor "failed" to one of them. The table's constraints
+refuse the other shapes: complete having sent nothing, refused having sent
+something.
+
+**The whole of the safety is in where the reading happens.** Assembly runs in
+a context bound to one consent artefact, so a mistake in the code that builds
+a bundle cannot widen it — it can only ask for rows the policies have already
+decided it may see. The test for that is the one asserting a medicines-only
+consent yields no `Condition`: nothing in the assembly code filters by
+category at all.
+
+**The mappings are shared rather than copied.** `record-fhir.ts` was split so
+that the resources a patient's own export produces are the resources a bundle
+carries, with the document wrapper added around them. A second set of mappings
+would have drifted, and the drift would have shown up as two systems
+disagreeing about the same patient.
+
+**What a bundle leaves out is written down in three places** — the module, the
+plan and `docs/abdm.md` — because two of the three omissions are surprising.
+Notes are deliberate and carried over from SP5. The files behind a document
+are deliberate: a bundle never carries a long-lived link. And **anything
+recorded without a visit** — an allergy entered at the front desk between
+appointments — belongs to no care context and is therefore in no bundle. That
+last one is a consequence of what a care context *is*, and it would otherwise
+be found by somebody wondering where an allergy went.
+
+**The crypto is a hundred lines of Node and no dependency**, which is
+deliberate: this is the most sensitive path in the system and an unmaintained
+package in it is worse than the code. Two transfers to the same requester
+never share a key, because this system's pair and nonce are fresh each time —
+a requester cannot make them collide even by reusing its own. What the tests
+cannot prove is that ABDM derives the same key from the same inputs; the
+parameters are the published ones as understood here, one module holds all of
+them, and T38 is where they are confirmed.
+
+**A queue with a sweep behind it, as DF8 asks.** The sweep is the half that
+matters: a lost job leaves a requester waiting for records that will never
+come and nothing to say so, so anything still pending after a few minutes is
+taken on whether or not its job ever ran. The job carries an id and nothing
+else, so a job delivered twice finds the row settled and does nothing — which
+one test asserts by transferring twice and counting one push.
+
+**One inconsistency fixed in passing.** `SCAN_QUEUE_NAME` and
+`NOTIFICATION_QUEUE_NAME` were in the validated configuration schema and
+documented; `EXPORT_QUEUE_NAME` was neither. Both it and the new transfer
+queue are now.
 
 ### Phase 6 — The `/fhir/R4` read surface
 

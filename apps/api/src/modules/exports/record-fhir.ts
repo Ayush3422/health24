@@ -49,7 +49,14 @@ const interpretationCode: Record<string, { code: string; display: string }> = {
   normal: { code: 'N', display: 'Normal' },
 };
 
-export function buildRecordFhir(record: ExportRecord, exportedAt: Date): unknown {
+/**
+ * Every resource a record turns into, the patient first.
+ *
+ * Separated from the bundle around it so that SP8 can wrap the same mappings
+ * in the document bundle ABDM asks for, rather than growing a second set that
+ * would drift from this one (sp8-plan.md, T21).
+ */
+export function buildRecordResources(record: ExportRecord): Array<Record<string, unknown>> {
   const patient = {
     resourceType: 'Patient',
     id: record.patient.id,
@@ -254,7 +261,7 @@ export function buildRecordFhir(record: ExportRecord, exportedAt: Date): unknown
     content: [{ attachment: { title: `${document.file_count} file(s) in the Health24 portal` } }],
   }));
 
-  const resources = [
+  return [
     patient,
     ...encounters,
     ...conditions,
@@ -263,7 +270,11 @@ export function buildRecordFhir(record: ExportRecord, exportedAt: Date): unknown
     ...observations,
     ...procedures,
     ...documents,
-  ];
+  ] as Array<Record<string, unknown>>;
+}
+
+export function buildRecordFhir(record: ExportRecord, exportedAt: Date): unknown {
+  const resources = buildRecordResources(record);
 
   return {
     resourceType: 'Bundle',
@@ -271,7 +282,7 @@ export function buildRecordFhir(record: ExportRecord, exportedAt: Date): unknown
     timestamp: exportedAt.toISOString(),
     total: resources.length,
     entry: resources.map((resource) => ({
-      fullUrl: `urn:uuid:${(resource as { id: string }).id}`,
+      fullUrl: `urn:uuid:${String(resource.id)}`,
       resource,
     })),
   };

@@ -2,6 +2,7 @@ import {
   ABDM_CARE_CONTEXT_STATUSES,
   ABDM_LINK_INITIATORS,
   ABDM_LINK_REQUEST_STATUSES,
+  ABDM_TRANSFER_STATUSES,
   ABHA_VERIFICATION_METHODS,
   ACCESS_ACTIONS,
   ACTOR_TYPES,
@@ -115,6 +116,10 @@ export const abdmCareContextStatusEnum = pgEnum(
 export const abdmLinkRequestStatusEnum = pgEnum(
   'abdm_link_request_status',
   tuple(ABDM_LINK_REQUEST_STATUSES),
+);
+export const abdmTransferStatusEnum = pgEnum(
+  'abdm_transfer_status',
+  tuple(ABDM_TRANSFER_STATUSES),
 );
 
 // Terminology

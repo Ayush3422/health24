@@ -98,4 +98,30 @@ export async function withSystemContext<T>(
   });
 }
 
+/**
+ * Runs a unit of work while assembling the answer to one ABDM data request
+ * (sp8-plan.md, T20, DF3).
+ *
+ * Bound to a single consent artefact and to no hospital and no patient. The
+ * branch of `app.consent_permits` this reaches admits exactly the categories
+ * and dates that artefact names, while it is in force — so a mistake in the
+ * code that builds a bundle cannot widen what the bundle contains. It can
+ * only ask for rows the database has already decided it may see.
+ *
+ * Read-only in practice: no write policy admits anything in this context, and
+ * nothing here needs one.
+ */
+export async function withAbdmConsent<T>(
+  db: Db,
+  consentArtefactId: string,
+  fn: (tx: DbTransaction) => Promise<T>,
+): Promise<T> {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select set_config('app.current_abdm_consent_id', ${consentArtefactId}, true)`,
+    );
+    return fn(tx);
+  });
+}
+
 export { schema };

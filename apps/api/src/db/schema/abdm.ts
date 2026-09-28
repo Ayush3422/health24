@@ -4,11 +4,12 @@ import { v7 as uuidv7 } from 'uuid';
 import { hospitals } from './hospitals';
 import { patients } from './patients';
 import { staffUsers } from './staff';
-import { encounters } from './clinical';
+import { consentArtefacts, encounters } from './clinical';
 import {
   abdmCareContextStatusEnum,
   abdmLinkInitiatorEnum,
   abdmLinkRequestStatusEnum,
+  abdmTransferStatusEnum,
 } from './enums';
 
 const primaryId = () =>
@@ -141,3 +142,61 @@ export const abdmLinkRequests = pgTable(
 );
 
 export type AbdmLinkRequest = typeof abdmLinkRequests.$inferSelect;
+
+/**
+ * A request for a patient's records, and what became of it
+ * (sp8-plan.md, T23, T24).
+ *
+ * The row is the evidence. It says which consent the request rested on, what
+ * was sent and how much of it, and — when a consent was withdrawn while the
+ * transfer was running — that some of it went and the rest did not. That
+ * last case is the reason this table exists rather than the request being a
+ * queue job and nothing else: a job that disappears cannot answer a patient
+ * asking what left the building.
+ *
+ * The requester's key material is public by construction: a public key and a
+ * nonce. Nothing secret is stored here, and the key that actually encrypts a
+ * bundle is derived in the worker and never written down (DF7).
+ */
+export const abdmDataRequests = pgTable(
+  'abdm_data_request',
+  {
+    id: primaryId(),
+
+    consentArtefactId: uuid('consent_artefact_id')
+      .notNull()
+      .references(() => consentArtefacts.id, { onDelete: 'restrict' }),
+    patientId: uuid('patient_id')
+      .notNull()
+      .references(() => patients.id, { onDelete: 'restrict' }),
+    hospitalId: uuid('hospital_id')
+      .notNull()
+      .references(() => hospitals.id, { onDelete: 'restrict' }),
+
+    /** The gateway's id for this request. Unique, so a redelivery is free. */
+    abdmTransactionId: text('abdm_transaction_id').notNull().unique(),
+
+    /** Where the encrypted bundles are posted. Not a gateway path. */
+    dataPushUrl: text('data_push_url').notNull(),
+
+    /** The requester's half of the key agreement. Public by construction. */
+    requesterPublicKey: text('requester_public_key').notNull(),
+    requesterNonce: text('requester_nonce').notNull(),
+
+    status: abdmTransferStatusEnum('status').notNull().default('pending'),
+
+    careContextsRequested: integer('care_contexts_requested').notNull(),
+    careContextsSent: integer('care_contexts_sent').notNull().default(0),
+
+    failureReason: text('failure_reason'),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('abdm_data_request_patient_idx').on(table.patientId, table.createdAt),
+    index('abdm_data_request_status_idx').on(table.status, table.createdAt),
+  ],
+);
+
+export type AbdmDataRequest = typeof abdmDataRequests.$inferSelect;

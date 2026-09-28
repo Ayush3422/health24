@@ -28,6 +28,20 @@ import { randomUUID } from 'node:crypto';
 
 export const MOCK_GATEWAY_CODE = '000000';
 
+/** One page of encrypted bundles, as the requester receives it. */
+export interface DataPush {
+  transactionId: string;
+  pageNumber: number;
+  pageCount: number;
+  entries: Array<{
+    content: string;
+    media: string;
+    checksum: string;
+    careContextReference: string;
+  }>;
+  keyMaterial: { dhPublicKey: { keyValue: string }; nonce: string };
+}
+
 export interface MockGatewayOptions {
   /**
    * Where this gateway calls back to: the API's own base URL.
@@ -70,6 +84,18 @@ export class MockGatewayServer {
   readonly sent: Array<{ operation: string; correlation: string | undefined }> = [];
   /** How many sessions it has handed out — one per burst, if caching works. */
   sessionsIssued = 0;
+  /** Everything pushed to the requester's endpoint, in order. */
+  readonly pushes: DataPush[] = [];
+  /** When set, the requester's endpoint answers with this status instead. */
+  pushFailsWith: number | null = null;
+  /**
+   * Run when a push arrives, before it is answered.
+   *
+   * It exists for one test: a consent withdrawn *while* a transfer is running
+   * has to stop the rest of it, and the only honest place to withdraw it is
+   * between two pushes.
+   */
+  onPush: ((push: DataPush) => Promise<void> | void) | null = null;
   /** Every one-way answer this system has sent back, for a test to read. */
   readonly received: Array<{ path: string; body: Record<string, unknown> }> = [];
 
@@ -78,6 +104,11 @@ export class MockGatewayServer {
 
   constructor(private readonly options: MockGatewayOptions) {
     this.callbackBaseUrl = options.callbackBaseUrl ?? '';
+  }
+
+  /** Where this gateway tells a HIP to push data. */
+  get dataPushUrl(): string {
+    return `${this.url}/hiu/data-push`;
   }
 
   get url(): string {
@@ -181,6 +212,22 @@ export class MockGatewayServer {
       response.end(JSON.stringify(payload));
     };
 
+    // The requester's own endpoint, where encrypted bundles are pushed. Not
+    // part of the gateway at all — it stands in for the HIU, so that a test
+    // can decrypt what this system sent and see exactly what left.
+    if (path === '/hiu/data-push') {
+      this.pushes.push(body as unknown as DataPush);
+      await this.onPush?.(body as unknown as DataPush);
+
+      if (this.pushFailsWith) {
+        reply(this.pushFailsWith, { error: 'the requester is having a bad day' });
+        return;
+      }
+
+      reply(202, {});
+      return;
+    }
+
     if (path === '/v0.5/sessions') {
       if (body.clientId !== this.options.clientId || body.clientSecret !== this.options.clientSecret) {
         reply(401, { error: 'bad credentials' });
@@ -270,7 +317,7 @@ export class MockGatewayServer {
 
     // --- Our one-way answers to what the gateway asked us ------------------
 
-    if (path.includes('/on-')) {
+    if (path.includes('/on-') || path === '/v0.5/health-information/notify') {
       this.received.push({ path, body });
       reply(202, {});
       return;

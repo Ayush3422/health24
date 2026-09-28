@@ -14,6 +14,8 @@ import { Public } from '../../../common/decorators';
 import { DiscoveryService } from '../care-contexts/discovery.service';
 import { LinkingService } from '../care-contexts/linking.service';
 import { AbdmConsentService } from '../consent/abdm-consent.service';
+import { DataRequestService } from '../transfer/data-request.service';
+import { TransferQueue } from '../transfer/transfer-queue';
 import { AbdmConfig } from '../abdm.config';
 import { INBOUND_REFUSED, refuseInboundRequest } from './callback-auth';
 import { GatewayClient } from './gateway.client';
@@ -43,6 +45,8 @@ export class GatewayInboundController {
     private readonly discovery: DiscoveryService,
     private readonly linking: LinkingService,
     private readonly consent: AbdmConsentService,
+    private readonly dataRequests: DataRequestService,
+    private readonly transfers: TransferQueue,
   ) {}
 
   @Public()
@@ -84,7 +88,11 @@ export class GatewayInboundController {
     // kept the right response is to fail loudly so the consent manager sends
     // it again. Their retry is the durability; a second one of ours would be
     // a failure mode rather than a remedy.
-    if (operation === 'consent.notify') {
+    // Two operations are settled before the gateway is answered: a consent,
+    // which is a fact to keep (T17), and a data request, whose acceptance is
+    // the promise that a transfer is coming. Everything else is a question
+    // the gateway is waiting on.
+    if (operation === 'consent.notify' || operation === 'health-information.request') {
       await this.answer(operation, hipId, body);
       return { accepted: true };
     }
@@ -190,6 +198,36 @@ export class GatewayInboundController {
       return;
     }
 
+    if (operation === 'health-information.request') {
+      const requested = body.hiRequest ?? {};
+      const key = requested.keyMaterial ?? {};
+
+      const accepted = await this.dataRequests.accept({
+        hipId,
+        transactionId: body.transactionId ?? '',
+        abdmConsentId: requested.consent?.id ?? '',
+        dataPushUrl: requested.dataPushUrl ?? '',
+        requesterPublicKey: key.dhPublicKey?.keyValue ?? '',
+        requesterNonce: key.nonce ?? '',
+      });
+
+      await this.gateway.notify(
+        'health-information.on-request',
+        {
+          ...correlation,
+          hiRequest: { transactionId: body.transactionId, sessionStatus: 'ACKNOWLEDGED' },
+        },
+        { hipId },
+      );
+
+      // Only after the gateway has been told the request is accepted: a
+      // transfer that finished before the acknowledgement would arrive at a
+      // requester that has not been told to expect it.
+      if (!accepted.alreadyKnown) await this.transfers.requested(accepted.dataRequestId);
+
+      return;
+    }
+
     if (operation === 'care-context.link.inbound-confirm') {
       const linked = await this.linking.completePatientLink({
         hipId,
@@ -219,6 +257,11 @@ interface InboundBody {
     careContexts?: Array<{ referenceNumber: string }>;
   };
   confirmation?: { linkRefNumber?: string; token?: string };
+  hiRequest?: {
+    consent?: { id?: string };
+    dataPushUrl?: string;
+    keyMaterial?: { dhPublicKey?: { keyValue?: string }; nonce?: string };
+  };
   notification?: {
     status?: 'GRANTED' | 'REVOKED' | 'EXPIRED';
     consentId?: string;

@@ -159,6 +159,8 @@ const envSchema = z
      */
     SMS_LOG_FILE: z.string().optional(),
     NOTIFICATION_QUEUE_NAME: z.string().optional(),
+    EXPORT_QUEUE_NAME: z.string().optional(),
+    ABDM_TRANSFER_QUEUE_NAME: z.string().optional(),
 
     /**
      * How this system reaches ABDM (SP8, Decision Z1).

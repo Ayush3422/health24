@@ -5,6 +5,8 @@ import { AppLoggerModule } from './common/logging/logger.module';
 import { MetricsModule } from './health/metrics.module';
 import { WorkerProbeServer } from './health/worker-probe.server';
 import { DatabaseModule } from './db/database.module';
+import { AbdmModule } from './modules/abdm/abdm.module';
+import { TransferWorker } from './modules/abdm/transfer/transfer.worker';
 import { AuditModule } from './modules/audit/audit.module';
 import { DocumentCleanupTimer } from './modules/documents/document-cleanup.timer';
 import { DocumentScanHandler } from './modules/documents/document-scan.handler';
@@ -44,6 +46,8 @@ import { StorageModule } from './modules/storage/storage.module';
     NotificationsModule,
     ExportsModule,
     ReportsModule,
+    // Answering ABDM's requests for a patient's records (SP8).
+    AbdmModule,
   ],
   providers: [
     // Liveness and queue depth for the worker, on a port of its own (T9).
@@ -58,6 +62,9 @@ import { StorageModule } from './modules/storage/storage.module';
     ExportWorker,
     // Counts yesterday for every hospital, so a year's report is cheap.
     DailySummaryTimer,
+    // Assembles, encrypts and pushes what a national requester asked for,
+    // with a sweep behind it for the jobs that never ran (SP8, T23).
+    TransferWorker,
   ],
 })
 export class WorkerModule {}

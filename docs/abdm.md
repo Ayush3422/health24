@@ -5,9 +5,9 @@ and — as carefully as the rest — what is not (sp8-plan.md, DF11).
 
 **This page grows with the sub-project.** Today it covers ABHA identity, the
 transport underneath it, care contexts — which visits are offered to the
-national network and how — and the consents that arrive over it. Assembling
-and pushing the data itself is Phase 5, and is described here when it exists,
-not before.
+national network and how — the consents that arrive over it, and the transfers
+they authorise. The `/fhir/R4` read surface is Phase 6, and is described here
+when it exists, not before.
 
 ---
 
@@ -19,7 +19,7 @@ not before.
 | The gateway transport: sessions, correlation, callbacks | **Built** (Phase 2) |
 | Care-context discovery and linking | **Built** (Phase 3) |
 | Consent notification from the consent manager | **Built** (Phase 4) |
-| Assembling and pushing health information | Phase 5 |
+| Assembling and pushing health information | **Built** (Phase 5) |
 | A `/fhir/R4` read surface | Phase 6 |
 | **Certified by ABDM** | **No.** Nothing here has been assessed by anybody but this repository's own tests |
 
@@ -213,6 +213,66 @@ stops **this system** from assembling anything, at once. It does not revoke
 the artefact at the consent manager, and it does not reach data another
 provider already received. To end it everywhere, the patient revokes it in
 their ABHA app.
+
+---
+
+## Answering a request for records
+
+A data request names a consent, where to push the records, and the requester's
+half of a key agreement. It is accepted or refused at the door — a request on
+a consent that is not in force is refused outright, so nothing is written that
+suggests a transfer is coming — and the transfer itself is a queued job,
+because assembling and encrypting a record is not work to do while a gateway
+waits.
+
+**One visit at a time, and the consent is re-read before each one.** That is
+not an implementation detail: a patient who withdraws their consent while a
+transfer is running stops the rest of it. What has already gone cannot be
+recalled, and the row left behind records `partly_transferred` with the reason
+rather than rounding the outcome to "done" or "failed".
+
+**The bundle is assembled in a context bound to that one consent.** A mistake
+in the code that builds a bundle cannot widen it; it can only ask for rows the
+database has already decided it may see. What comes out is a FHIR `document`
+bundle led by a `Composition` — close to ABDM's published profiles per health
+information type, and **not asserted to conform to them**. That check is Phase
+6, and reconciling with the sandbox is Phase 8.
+
+### What a bundle leaves out
+
+- **Clinicians' notes**, always. No health information type grants them.
+- **The files behind a document.** A `DocumentReference` names the report and
+  its date; the bytes are fetched through a link issued one at a time and
+  audited, and a bundle never carries a long-lived one.
+- **Anything recorded without a visit.** Allergies, observations and documents
+  can be entered with no encounter, and a care context *is* a visit — so those
+  rows belong to no care context and are in no bundle. This is a real omission
+  and it is here rather than left to be discovered.
+
+### The encryption
+
+Each transfer has its own ephemeral key pair on each side. The requester sends
+a public key and a nonce; this system generates its own pair, agrees a shared
+secret by X25519, and derives an AES-256-GCM key and initialisation vector by
+HKDF-SHA256 with the two nonces exclusive-ored as the salt. Nothing that could
+decrypt a transfer exists after it, on this side, unless somebody kept it —
+the private key never leaves the function that used it and is never stored or
+logged.
+
+The scheme is proved self-consistent by a test that plays the requester and
+decrypts what was sent, and that shows two transfers to the same requester
+never share a key. What that cannot prove is that ABDM derives the key the
+same way: the parameters are the published ones as understood here, this is
+the sort of detail where nearly right is wrong, and reconciling them is Phase
+8. One module holds all of it.
+
+### What is written down about a transfer
+
+Every row that left is on the patient's audit trail, attributed to the
+requester and carrying the consent artefact it rested on — so "who has seen
+this" is answered the same way for a national requester as for a hospital. The
+data request row says what was asked for, how much of it went, and why it
+stopped if it did.
 
 ---
 

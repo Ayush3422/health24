@@ -93,6 +93,53 @@ export class AuditService {
     }
   }
 
+  /**
+   * Many entries as one write (SP8, T24).
+   *
+   * A data push is an audited read of **every row it contains**, which for
+   * one visit can be dozens. Writing them one at a time would be dozens of
+   * transactions for one transfer; writing them as one insert keeps the trail
+   * complete without making the completeness expensive. Failure is handled as
+   * above, and deliberately does not throw: the transfer has happened, and
+   * losing the trail must be loud rather than silent.
+   */
+  async recordMany(entries: AuditEntry[]): Promise<void> {
+    if (entries.length === 0) return;
+
+    try {
+      await this.db.asSystem(async (tx) => {
+        await tx.insert(accessLog).values(
+          entries.map((entry) => ({
+            actorId: entry.actorId,
+            actorType: entry.actorType,
+            actorLabel: entry.actorLabel ?? null,
+            hospitalId: entry.hospitalId,
+            patientId: entry.patientId ?? null,
+            resourceType: entry.resourceType,
+            resourceId: entry.resourceId ?? null,
+            action: entry.action,
+            outcome: entry.outcome ?? 'allowed',
+            breakGlassReason: entry.breakGlassReason ?? null,
+            consentArtefactId: entry.consentArtefactId ?? null,
+            offlineViewedAt: entry.offlineViewedAt ?? null,
+            requestId: entry.meta?.requestId ?? null,
+            route: entry.meta?.route ?? null,
+            ipAddress: entry.meta?.ipAddress ?? null,
+            userAgent: entry.meta?.userAgent ?? null,
+          })),
+        );
+      });
+    } catch (error) {
+      this.metrics.count('audit_write_failures_total', { action: entries[0]!.action });
+
+      this.logger.error(
+        `AUDIT WRITE FAILED for ${String(entries.length)} entries ` +
+          `resource=${entries[0]!.resourceType} — investigate immediately`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+  }
+
   /** Convenience for the common case: an authenticated staff member acting. */
   async recordForActor(
     actor: Actor,

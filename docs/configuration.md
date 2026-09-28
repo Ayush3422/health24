@@ -52,6 +52,8 @@ repository; deployed values come from a secret store — see
 | `SMS_PROVIDER` | Optional | `log` | unset | How sign-in codes reach patients. **`log` is refused in production**: a code in a log is a code anyone with log access can use. A DLT-registered provider is chosen before the pilot. |
 | `SMS_LOG_FILE` | Optional | path | — | Where the `log` provider also writes each message, for the browser tests. **Refused in production.** |
 | `NOTIFICATION_QUEUE_NAME` | Optional | text | the default queue | As `SCAN_QUEUE_NAME`. |
+| `EXPORT_QUEUE_NAME` | Optional | text | the default queue | As `SCAN_QUEUE_NAME`. |
+| `ABDM_TRANSFER_QUEUE_NAME` | Optional | text | the default queue | As `SCAN_QUEUE_NAME`. The queue answering ABDM data requests. |
 | `ABDM_MODE` | Optional | `off`, `mock`, `gateway` | `mock` outside production, `off` in it | How this system reaches ABDM. `mock` is an in-process stand-in that needs no credential and accepts a well-known code; `off` refuses every ABDM operation; `gateway` is the wire adapter, and needs the five settings below. **`mock` is refused in production** — it would mark any ABHA verified without the patient being there. See [abdm.md](abdm.md). |
 | `ABDM_GATEWAY_URL` | With `gateway` | URL | — | The gateway's base URL. **Plain HTTP is refused in production** unless it is loopback or a private address. |
 | `ABDM_CLIENT_ID` | With `gateway` | text | — | This deployment's registered client. |
