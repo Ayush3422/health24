@@ -30,6 +30,7 @@ import { RequestContextMiddleware } from './common/request-context.middleware';
 import { AppLoggerModule } from './common/logging/logger.module';
 import { HealthModule } from './health/health.module';
 import { AbdmModule } from './modules/abdm/abdm.module';
+import { FhirModule } from './modules/fhir/fhir.module';
 
 @Module({
   imports: [
@@ -67,6 +68,8 @@ import { AbdmModule } from './modules/abdm/abdm.module';
     PrivacyModule,
     // ABDM (SP8). Off unless configured; nothing else depends on it.
     AbdmModule,
+    // The /fhir/R4 read surface, outside the /api/v1 prefix (planning.md §10).
+    FhirModule,
   ],
   controllers: [],
   providers: [

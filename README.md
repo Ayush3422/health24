@@ -115,6 +115,7 @@ relational.
 | Know what a browser is told, and what is refused | [docs/hardening.md](docs/hardening.md) |
 | Deploy it, or read the infrastructure | [docs/deployment.md](docs/deployment.md) |
 | Know how far ABDM has got, and what is not certified | [docs/abdm.md](docs/abdm.md) |
+| Read the record as FHIR, or see where it deviates | [docs/fhir.md](docs/fhir.md) |
 | Handle an incident, a breach, a restore, a key rotation | [docs/runbooks/](docs/runbooks/) |
 | See the security position, honestly | [docs/compliance/threat-model.md](docs/compliance/threat-model.md), [security-review.md](docs/compliance/security-review.md) |
 | Answer a hospital's counsel | [docs/compliance/dpdp-self-assessment.md](docs/compliance/dpdp-self-assessment.md), [ehr-standards-self-assessment.md](docs/compliance/ehr-standards-self-assessment.md) |

@@ -80,6 +80,9 @@ const EVERY_ROLE = ALL_ROLES;
 /** Terminology is reference data, read by those who code diagnoses or curate mappings. */
 const TERMINOLOGY_READERS: RoleKey[] = ['platformAdmin', 'clinician', 'records', 'curator'];
 
+/** Who may read a diagnosis or a prescription — through any surface (SP8, T29). */
+const CLINICAL_READERS: RoleKey[] = ['clinician', 'records'];
+
 const ROUTES: RouteExpectation[] = [
   { method: 'get', path: '/health', allow: [], public: true },
   // The probes and the metrics a load balancer and a scraper read. Public by
@@ -274,6 +277,34 @@ const ROUTES: RouteExpectation[] = [
     allow: ['clinician', 'frontDesk', 'records'],
     body: { reason: 'authorisation probe' },
   },
+
+  // The /fhir/R4 read surface (SP8, T29). Outside the /api/v1 prefix by
+  // design, and inside this sweep by necessity: it is a second way to read
+  // the same record, and a second way to read a record is exactly the sort of
+  // thing that ships without anybody deciding who may use it.
+  //
+  // The permissions are the ones the equivalent /api/v1 route carries — that
+  // is the whole authorisation story, and the point is that there is no
+  // second one.
+  { method: 'get', path: '/fhir/R4/metadata', allow: [], public: true },
+  {
+    method: 'get',
+    path: '/fhir/R4/Patient/:id',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
+  {
+    method: 'get',
+    path: '/fhir/R4/Patient',
+    allow: ['clinician', 'frontDesk', 'records'],
+  },
+  { method: 'get', path: '/fhir/R4/CodeSystem/:id', allow: TERMINOLOGY_READERS },
+  { method: 'get', path: '/fhir/R4/CodeSystem', allow: TERMINOLOGY_READERS },
+  { method: 'get', path: '/fhir/R4/ConceptMap/:id', allow: TERMINOLOGY_READERS },
+  { method: 'get', path: '/fhir/R4/ConceptMap', allow: TERMINOLOGY_READERS },
+  // The clinical resources, behind the permission that governs reading a
+  // diagnosis anywhere else.
+  { method: 'get', path: '/fhir/R4/:type/:id', allow: CLINICAL_READERS },
+  { method: 'get', path: '/fhir/R4/:type', allow: CLINICAL_READERS },
 
   // Terminology
   { method: 'get', path: '/api/v1/terminology/systems', allow: TERMINOLOGY_READERS },

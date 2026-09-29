@@ -1,6 +1,6 @@
 # SP8 — ABDM: Implementation Plan
 
-**Status:** In progress — Phases 1–5 complete, 2026-09-28. Decisions X–AA answered 2026-09-28: **X1, Y1, Z1, AA1**.
+**Status:** In progress — Phases 1–6 complete, 2026-09-29. Decisions X–AA answered 2026-09-28: **X1, Y1, Z1, AA1**.
 **Scope:** Joining the national network as a **Health Information Provider**: an ABHA number and address verified and linked to a patient, care contexts discovered and linked, a consent artefact arriving from the consent manager and landing in the consent model this system already has, and the record assembled as encrypted FHIR bundles and pushed to whoever the patient has allowed — plus the `/fhir/R4` read surface that all of it is built on, the screens that make linking and sharing visible to staff and to the patient, and an honest account of how far this is from a certificate.
 **Design reference:** `planning.md` §10 (the `/fhir/R4` surface as the seam ABDM arrives through), §8 (consent and access control), §14 stage 8 · `sp1-plan.md` (patient identity and matching) · `sp3-plan.md` (the clinical record and `app.consent_permits`) · `sp5-plan.md` (the patient's rights, the portal, the FHIR export) · [docs/compliance/ehr-standards-self-assessment.md](docs/compliance/ehr-standards-self-assessment.md) gaps 1–3
 
@@ -450,11 +450,64 @@ queue are now.
 
 ### Phase 6 — The `/fhir/R4` read surface
 
-- [ ] **T26** The surface's shape: base path, versioning, the resources in the definition of done, and a `CapabilityStatement` that does not overstate (DF10)
-- [ ] **T27** Read and search for each resource, as a translation layer over the relational model, reusing the existing mappings
-- [ ] **T28** `CodeSystem` and `ConceptMap` from the terminology service — the part of this surface that is genuinely ours
-- [ ] **T29** Authentication, authorisation and row-level security identical to `/api/v1`, proved by extending the route sweep rather than by inspection
-- [ ] **T30** Conformance checked against the published profiles, with every deviation recorded
+- [x] **T26** The surface's shape: base path, versioning, the resources in the definition of done, and a `CapabilityStatement` that does not overstate (DF10)
+- [x] **T27** Read and search for each resource, as a translation layer over the relational model, reusing the existing mappings
+- [x] **T28** `CodeSystem` and `ConceptMap` from the terminology service — the part of this surface that is genuinely ours
+- [x] **T29** Authentication, authorisation and row-level security identical to `/api/v1`, proved by extending the route sweep rather than by inspection
+- [x] **T30** Conformance checked against the published profiles, with every deviation recorded
+
+**The surface grants nothing, and that is the only claim worth making about
+it.** Every read runs under the caller's own credentials, the same permissions
+and the same row-level security as `/api/v1` — so a FHIR client is a member
+of staff with a token, seeing what that member of staff sees in a different
+shape. The test that says so is the one where another hospital asks for the
+patient by id and gets a 404, and searches for their conditions and gets an
+empty bundle. Nothing in `FhirService` implements that; the policies do.
+
+**A capability statement is a promise made to a machine**, so a test asserts
+it in both directions: everything claimed is served, and a type that is not
+claimed is refused by name rather than 404ing into ambiguity. Its
+`description` says the awkward things where a client will read them —
+read-only, every clinical search must name a patient, and **conformance to
+ABDM's profiles is not claimed**.
+
+**Every clinical search must name a patient.** There is deliberately no way to
+ask this surface for all of anything: "give me every Condition" is what an
+integration writes once and a breach report describes later.
+
+**T30's honest answer is a document, not a green test.** A real validator
+needs the published StructureDefinitions and a dependency this project has not
+taken on for a read surface. What `conformance.spec.ts` does instead is assert
+the floor the specification itself states — every element R4 marks `1..1`, a
+document bundle leading with its `Composition`, and every reference inside a
+bundle resolving to something the bundle carries. Everything below that floor
+is written out in `docs/fhir.md`, nine deviations, each a decision rather than
+an omission.
+
+**The most useful of those nine is the one that will fail certification.**
+`Composition.author` is `1..*` in R4 and this system does not write it,
+because the honest value is not a single person for a record assembled from a
+visit and naming the hospital would be a claim about attribution the record
+does not support. A strict receiver will reject the bundle on that element.
+Saying so now, at the top of the Phase 8 list, is better than finding it in an
+assessment.
+
+**One distinction the tests forced into the open.** The first run of the
+conformance spec failed on a bundle containing "Burning after meals" — and it
+was right to, but not for the reason expected: that was the **chief
+complaint** on the `Encounter`, not a clinician's note. A care context's
+*display* carries nothing clinical because it is shown on a consent screen
+anybody may glance at; a *bundle* goes only to a requester the patient
+authorised for the `encounters` category, and the reason for a visit is what
+an encounter is. Both are now asserted separately, and the difference is
+written down.
+
+**And one bug that would have been a mystery.** `ConceptMap/$translate` was
+routed and matched nothing: Express's path matcher does not escape `$`, so the
+pattern compiled with an end-of-input anchor in the middle of it and returned
+a 404 that looked exactly like a missing concept map. The operation now
+arrives as an id and is told apart, with the reason in a comment so the next
+`$operation` does not rediscover it.
 
 ### Phase 7 — What staff and patients see
 

@@ -20,7 +20,7 @@ when it exists, not before.
 | Care-context discovery and linking | **Built** (Phase 3) |
 | Consent notification from the consent manager | **Built** (Phase 4) |
 | Assembling and pushing health information | **Built** (Phase 5) |
-| A `/fhir/R4` read surface | Phase 6 |
+| A `/fhir/R4` read surface | **Built** (Phase 6). See [fhir.md](fhir.md) |
 | **Certified by ABDM** | **No.** Nothing here has been assessed by anybody but this repository's own tests |
 
 The last row is the one a hospital is most likely to repeat to a regulator, so

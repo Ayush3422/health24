@@ -2,6 +2,7 @@ import type { ServerResponse } from 'node:http';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { securityHeaders } from '@health24/shared';
 import { PROBE_ROUTES } from './health/health.module';
+import { FHIR_ROUTES } from './modules/fhir/capability-statement';
 
 /**
  * Everything the application is, besides its modules (sp7-plan.md, T10–T13).
@@ -45,7 +46,15 @@ export function configureApp(app: NestExpressApplication): void {
   // limit counts the whole hospital as one caller.
   app.set('trust proxy', 1);
 
-  app.setGlobalPrefix('api/v1', { exclude: PROBE_ROUTES });
+  /*
+   * `/api/v1` for everything except the probes and the FHIR surface.
+   *
+   * `planning.md` §10 describes `/fhir/R4` as a surface of its own rather
+   * than a corner of this API's, and a FHIR client given a base URL expects
+   * `{base}/Patient/{id}` to work. Versioning it twice — `/api/v1/fhir/R4` —
+   * would mean two version numbers that can disagree (SP8, T26).
+   */
+  app.setGlobalPrefix('api/v1', { exclude: [...PROBE_ROUTES, ...FHIR_ROUTES] });
 
   /*
    * Cross-origin access, which in normal use nobody needs (T13).
