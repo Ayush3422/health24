@@ -27,6 +27,24 @@ interface Message {
   at: string;
 }
 
+/** What SP8 left: a confirmed ABHA, a shared visit, and a requester (T34). */
+export function seededAbdm(): {
+  abhaAddress: string;
+  careContextDisplay: string;
+  requesterName: string;
+  hipId: string;
+} {
+  const file = process.env.E2E_SP8_FILE;
+  if (!file) throw new Error('E2E_SP8_FILE is not set — the global setup did not run');
+
+  return JSON.parse(readFileSync(file, 'utf8')) as {
+    abhaAddress: string;
+    careContextDisplay: string;
+    requesterName: string;
+    hipId: string;
+  };
+}
+
 /** Every text message the API has sent this run — the patient's phone, in a file. */
 export function messages(): Message[] {
   const file = process.env.SMS_LOG_FILE;

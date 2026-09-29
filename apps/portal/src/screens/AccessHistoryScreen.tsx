@@ -117,7 +117,9 @@ function AccessEntry({ entry }: { entry: AccessHistoryEntry }): JSX.Element {
         ? t('access.otherPhone', { phone: entry.actor.label ?? '' })
         : entry.resources.includes('emergency_card')
           ? t('access.cardOpened')
-          : t('access.system');
+          : // A requester on the national network names itself; a scheduled
+            // job of ours does not (SP8, T32).
+            (entry.actor.label ?? t('access.system'));
 
   // A day's work at one hospital can touch a dozen kinds of record; the entry
   // names the first few and counts the rest, rather than running off the screen.

@@ -1,6 +1,6 @@
 # SP8 — ABDM: Implementation Plan
 
-**Status:** In progress — Phases 1–6 complete, 2026-09-29. Decisions X–AA answered 2026-09-28: **X1, Y1, Z1, AA1**.
+**Status:** In progress — Phases 1–7 complete, 2026-09-29. Decisions X–AA answered 2026-09-28: **X1, Y1, Z1, AA1**.
 **Scope:** Joining the national network as a **Health Information Provider**: an ABHA number and address verified and linked to a patient, care contexts discovered and linked, a consent artefact arriving from the consent manager and landing in the consent model this system already has, and the record assembled as encrypted FHIR bundles and pushed to whoever the patient has allowed — plus the `/fhir/R4` read surface that all of it is built on, the screens that make linking and sharing visible to staff and to the patient, and an honest account of how far this is from a certificate.
 **Design reference:** `planning.md` §10 (the `/fhir/R4` surface as the seam ABDM arrives through), §8 (consent and access control), §14 stage 8 · `sp1-plan.md` (patient identity and matching) · `sp3-plan.md` (the clinical record and `app.consent_permits`) · `sp5-plan.md` (the patient's rights, the portal, the FHIR export) · [docs/compliance/ehr-standards-self-assessment.md](docs/compliance/ehr-standards-self-assessment.md) gaps 1–3
 
@@ -511,10 +511,58 @@ arrives as an id and is told apart, with the reason in a comment so the next
 
 ### Phase 7 — What staff and patients see
 
-- [ ] **T31** The patient's ABHA and care contexts in the clinical app: linked, not linked, and the linking flow
-- [ ] **T32** ABDM access in the portal's access history, naming the requester and the consent it rested on (DF6)
-- [ ] **T33** The patient's view of consents granted through ABDM, beside the ones they granted here, with revocation reaching the right place
-- [ ] **T34** Browser tests for both, including the case that matters most: a patient reading who received their record and when
+- [x] **T31** The patient's ABHA and care contexts in the clinical app: linked, not linked, and the linking flow
+- [x] **T32** ABDM access in the portal's access history, naming the requester and the consent it rested on (DF6)
+- [x] **T33** The patient's view of consents granted through ABDM, beside the ones they granted here, with revocation reaching the right place
+- [x] **T34** Browser tests for both, including the case that matters most: a patient reading who received their record and when
+
+**"The system read your record" is not an answer a patient can do anything
+with.** The access history reported a system actor with no name, so a transfer
+to a national requester arrived on her screen as an anonymous event. The
+actor's label was already in the audit row; it was being dropped on the way
+out. Now a requester names itself and a scheduled job of ours still does not,
+which is the distinction that was missing rather than a new field.
+
+**The browser tests found the bug the integration tests could not.** They
+drive a patient registered at one hospital and seen at another — and the desk
+at the second could not confirm her ABHA at all. The rule they met is SP1's
+and is older than any of this: a hospital may *read* a patient it is linked to
+and *write* only one it created. That is right for demographics, where a
+second hospital correcting a name behind the first's back is how two records
+of one person diverge. It is wrong for an ABHA, which is confirmed with the
+patient standing there by whichever hospital they walked into. Migration 0076
+adds a second way to satisfy the check, open only while
+`app.record_abha_verification` is running and only for a hospital the patient
+is linked to — the old rule is untouched, and there is now an integration test
+for the case as well.
+
+**The screens keep two decisions apart** rather than putting ABDM in a corner
+of the consent tab. Verifying an ABHA records who somebody is; sharing a visit
+tells the country that this hospital holds a record of it, and every hospital
+in India can then ask her for it. Both say, before anything is started, that
+the patient has to be there to read a code back — a member of staff who thinks
+otherwise gets as far as a code they cannot supply.
+
+**The caveat is on the screen that does the thing, before the button.**
+Unlinking a visit stops this hospital offering it; a consent the patient
+already gave ends in their ABHA app, not here. Revoking an ABDM consent in the
+portal stops this system assembling anything at once, and does not reach the
+consent manager. Both sentences are asserted by a browser test, because a
+caveat nobody reads is a caveat nobody wrote.
+
+**The browser tests run against the wire adapter, not the in-process
+stand-in.** The mock gateway runs as its own process on a known port and the
+API is pointed at it with `ABDM_MODE=gateway`, so what the screens drive is
+what a deployment would run: sessions, 202s, callbacks and all. The seed then
+walks the whole thing — the desk confirms her ABHA, offers a visit, she
+answers; the consent manager notifies a consent; a requester asks for the
+records and the worker sends them — using the same inbound endpoints the
+gateway uses, secret header and all. Nothing reaches behind the API.
+
+**And the tab is in the accessibility sweep**, which the navigation-driven
+sweep could not reach because it is opened from a patient. It is a screen
+where somebody decides whether a record goes on to the national network; it
+should not be the one screen nobody checked.
 
 ### Phase 8 — Verification, documentation and the certification position
 

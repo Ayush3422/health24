@@ -55,6 +55,18 @@ export function seeded(): SeededSp6 {
   return readJson<SeededSp6>('E2E_SP6_FILE');
 }
 
+/** What SP8 left: a confirmed ABHA, a shared visit, and a requester (T34). */
+export function seededAbdm(): SeededSp8 {
+  return readJson<SeededSp8>('E2E_SP8_FILE');
+}
+
+export type SeededSp8 = {
+  abhaAddress: string;
+  careContextDisplay: string;
+  requesterName: string;
+  hipId: string;
+};
+
 /** Rupees as the screens print them: 601000 paise → "₹6,010.00". */
 export function rupees(paise: number): string {
   const rupeePart = Math.floor(Math.abs(paise) / 100).toLocaleString('en-IN');

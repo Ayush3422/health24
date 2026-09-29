@@ -121,13 +121,20 @@ export class MockGatewayServer {
     return `http://127.0.0.1:${String(address.port)}`;
   }
 
-  async start(): Promise<void> {
+  /**
+   * Starts listening, on a port of the caller's choosing or any free one.
+   *
+   * The browser tests need a known port: the API has to be told where the
+   * gateway is before it starts, and a gateway that picked its own port
+   * cannot tell it.
+   */
+  async start(port = 0): Promise<void> {
     this.server = createServer((request, response) => {
       void this.handle(request, response);
     });
 
     await new Promise<void>((resolve) => {
-      this.server!.listen(0, '127.0.0.1', resolve);
+      this.server!.listen(port, '127.0.0.1', resolve);
     });
   }
 

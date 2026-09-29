@@ -349,7 +349,13 @@ export const accessHistoryEntrySchema = z.object({
     }),
     /** Another phone with portal access to this record, masked. */
     z.object({ kind: z.literal('patient'), label: z.string().nullable() }),
-    z.object({ kind: z.literal('system') }),
+    /**
+     * Not a person: a scheduled job, or — from SP8 — a requester on the
+     * national network that was given records under a consent. The label
+     * names it, because "the system read your record" is not an answer a
+     * patient can do anything with.
+     */
+    z.object({ kind: z.literal('system'), label: z.string().nullable() }),
   ]),
   hospital: z.object({ id: uuidSchema, name: z.string() }).nullable(),
   /** What was touched, by audit resource type; the portal words them. */

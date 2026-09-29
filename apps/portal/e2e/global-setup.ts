@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import { seedSp6 } from './seed-sp6';
+import { seedSp8 } from './seed-sp8';
 
 /**
  * Everything the browser tests need, in the order it has to happen.
@@ -34,6 +35,14 @@ export const WORKER_PROBE_PORT = 3102;
 export const PORTAL_PORT = 5175;
 /** The clinical app, whose SP6 screens are tested beside the portal (T25). */
 export const CLINICAL_PORT = 5176;
+/**
+ * The mock ABDM gateway (sp8-plan.md, T34).
+ *
+ * A real port and a real process, because the ABDM screens are only worth
+ * testing against something that behaves like the gateway: it answers 202 and
+ * calls back, and the API has to be told where it is before it starts.
+ */
+export const MOCK_GATEWAY_PORT = 3103;
 
 const RUN = `e2e-${process.pid}`;
 
@@ -139,6 +148,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   process.env.E2E_DATABASE_ADMIN_URL = databaseUrl('DATABASE_ADMIN_URL');
   process.env.E2E_STAFF_FILE = path.join(OUT, 'e2e-staff.json');
   process.env.E2E_SP6_FILE = path.join(OUT, 'sp6.json');
+  process.env.E2E_SP8_FILE = path.join(OUT, 'sp8.json');
 
   // The API is run from its build, not from its sources: Nest's dependency
   // injection reads the type metadata TypeScript emits, and the quick
@@ -158,7 +168,26 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     NOTIFICATION_QUEUE_NAME: `patient-notifications-${RUN}`,
     EXPORT_QUEUE_NAME: `patient-exports-${RUN}`,
     SCAN_QUEUE_NAME: `document-scans-${RUN}`,
+    ABDM_TRANSFER_QUEUE_NAME: `abdm-transfers-${RUN}`,
+    // Pointed at the mock gateway below: the screens are driven against the
+    // wire adapter rather than the in-process stand-in, so what the browser
+    // tests exercise is what a deployment would run.
+    ABDM_MODE: 'gateway',
+    ABDM_GATEWAY_URL: `http://127.0.0.1:${MOCK_GATEWAY_PORT}`,
+    ABDM_CLIENT_ID: 'health24-e2e',
+    ABDM_CLIENT_SECRET: 'not-a-real-client-secret',
+    ABDM_HIP_ID: 'HFR-E2E-DEFAULT',
+    ABDM_CM_ID: 'sbx',
+    ABDM_CALLBACK_SECRET: 'not-a-real-callback-secret',
   };
+
+  const gateway = start('node apps/api/scripts/abdm-mock-gateway.mjs', 'the mock gateway', {
+    PORT: String(MOCK_GATEWAY_PORT),
+    CALLBACK_BASE_URL: `http://localhost:${API_PORT}`,
+    ABDM_CLIENT_ID: apiEnv.ABDM_CLIENT_ID,
+    ABDM_CLIENT_SECRET: apiEnv.ABDM_CLIENT_SECRET,
+    ABDM_CALLBACK_SECRET: apiEnv.ABDM_CALLBACK_SECRET,
+  });
 
   const api = start('node apps/api/dist/main.js', 'the API', apiEnv);
   const worker = start('node apps/api/dist/worker.js', 'the worker', {
@@ -176,7 +205,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     { API_ORIGIN: `http://localhost:${API_PORT}` },
   );
 
-  const servers = [api, worker, portal, clinical];
+  const servers = [gateway, api, worker, portal, clinical];
 
   try {
     await waitFor(`http://localhost:${API_PORT}/health`, 'The API');
@@ -187,6 +216,17 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     // would have created it (T25). The tests read the figures back.
     const seeded = await seedSp6(`http://localhost:${API_PORT}`);
     writeFileSync(process.env.E2E_SP6_FILE, JSON.stringify(seeded, null, 2), 'utf8');
+
+    // And what SP8 left: a confirmed ABHA, a visit on the national network, a
+    // consent that arrived from the consent manager, and the records that
+    // left under it (T34).
+    const abdm = await seedSp8({
+      apiOrigin: `http://localhost:${API_PORT}`,
+      gatewayOrigin: `http://127.0.0.1:${MOCK_GATEWAY_PORT}`,
+      callbackSecret: apiEnv.ABDM_CALLBACK_SECRET!,
+    });
+
+    writeFileSync(process.env.E2E_SP8_FILE, JSON.stringify(abdm, null, 2), 'utf8');
   } catch (error: unknown) {
     await Promise.all(servers.map(stop));
     throw error;

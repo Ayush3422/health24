@@ -8,6 +8,7 @@ import { AllergyBanner, RecordAllergyForm } from '../clinical/AllergyBanner';
 import { DoctorsAndTreatment } from '../clinical/DoctorsAndTreatment';
 import { PatientDocuments } from '../clinical/Documents';
 import { PatientImports } from '../clinical/Imports';
+import { PatientAbdm } from '../clinical/Abdm';
 import { PatientPortalAccess } from '../clinical/PortalAccess';
 import {
   CurrentMedications,
@@ -26,7 +27,15 @@ import { PatientSharing } from '../clinical/Sharing';
 import { PatientSummaryCard, PatientTimeline } from '../clinical/Timeline';
 
 type TabKey =
-  'overview' | 'doctors' | 'reports' | 'bills' | 'medicines' | 'visits' | 'imports' | 'consent';
+  | 'overview'
+  | 'doctors'
+  | 'reports'
+  | 'bills'
+  | 'medicines'
+  | 'visits'
+  | 'imports'
+  | 'consent'
+  | 'abdm';
 
 const readsClinical = (role: StaffRole) => hasPermission(role, 'clinical:read');
 const handlesDocuments = (role: StaffRole) =>
@@ -50,6 +59,10 @@ const TABS: Array<{ key: TabKey; label: string; allowed: (role: StaffRole) => bo
     label: 'Consent & sharing',
     allowed: (role) => hasPermission(role, 'consent:read'),
   },
+  // Its own tab rather than a corner of consent: verifying who somebody is
+  // and telling the country this hospital holds their visit are different
+  // decisions, and the screen keeps them apart (SP8, T31).
+  { key: 'abdm', label: 'ABDM', allowed: (role) => hasPermission(role, 'patient:read') },
 ];
 
 const tabPath = (patientId: string, key: TabKey) =>
@@ -177,6 +190,8 @@ function TabContent({
       return <PatientImports patientId={patientId} />;
     case 'consent':
       return <PatientSharing patientId={patientId} />;
+    case 'abdm':
+      return <PatientAbdm patientId={patientId} />;
   }
 }
 
@@ -208,7 +223,16 @@ function Overview({ record, role }: { record: PatientSummary; role: StaffRole })
         </div>
         <div>
           <dt>ABHA</dt>
-          <dd>{record.abhaNumber ?? 'Not linked'}</dd>
+          <dd>
+            {record.abhaAddress ?? record.abhaNumber ?? 'Not linked'}
+            {record.abhaAddress || record.abhaNumber ? (
+              // A typed ABHA and a confirmed one look the same on a screen
+              // unless the screen says which it is (SP8, T2).
+              <span className={`status ${record.abhaVerified ? 'status--active' : 'status--cancelled'}`}>
+                {record.abhaVerified ? 'Verified' : 'Not verified'}
+              </span>
+            ) : null}
+          </dd>
         </div>
         <div>
           <dt>Blood group</dt>

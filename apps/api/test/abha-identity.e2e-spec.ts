@@ -32,8 +32,10 @@ describe('ABHA identity', () => {
   const closers: Array<() => Promise<void>> = [];
 
   let hospital: { id: string; mrnPrefix: string };
+  let elsewhere: { id: string };
   let frontDesk: SeededStaff;
   let token: string;
+  let elsewhereToken: string;
 
   const ABHA = '11112222333344';
   const ADDRESS = 'lakshmi.devi@abdm';
@@ -89,6 +91,8 @@ describe('ABHA identity', () => {
     await resetDatabase();
 
     const seeded = await seedHospital({ name: 'Sanjeevani Ayurveda', mrnPrefix: 'SJT' });
+    const other = await seedHospital({ name: 'Shanti Allopathic', mrnPrefix: 'SHA' });
+    elsewhere = other.hospital;
     hospital = seeded.hospital;
     frontDesk = seeded.staff.frontDesk!;
 
@@ -96,6 +100,7 @@ describe('ABHA identity', () => {
     closers.push(ctx.close);
 
     token = await signIn(ctx, frontDesk);
+    elsewhereToken = await signIn(ctx, other.staff.frontDesk!);
 
     const ownerConnection = testDb();
     owner = ownerConnection.client;
@@ -245,6 +250,43 @@ describe('ABHA identity', () => {
       // A conflict a person resolves, not a 500 they report.
       expect(clash.status).toBe(409);
       expect(JSON.stringify(clash.body)).toMatch(/already holds/i);
+    });
+
+    /**
+     * Found by the browser tests, which drive a patient registered at one
+     * hospital and seen at another: SP1 lets a hospital write only a patient
+     * it created, and confirming an ABHA is done by whichever hospital they
+     * walked into (migration 0076).
+     */
+    it('can be done by a hospital the patient did not register at', async () => {
+      const patient = await register('Registered Elsewhere');
+
+      // The other hospital sees her because she is linked to it, not because
+      // it created her.
+      await owner`
+        INSERT INTO patient_hospital_link (patient_id, hospital_id, mrn)
+        VALUES (${patient.id}, ${elsewhere.id}, 'SHA-000099')
+      `;
+
+      const started = await post(
+        `/patients/${patient.id}/abha/verification`,
+        { abhaNumber: '13131313131313', method: 'mobile_otp' },
+        elsewhereToken,
+      );
+
+      expect(started.status, JSON.stringify(started.body)).toBe(201);
+
+      const confirmed = await post(
+        `/patients/${patient.id}/abha/verification/confirm`,
+        {
+          transactionId: (started.body as { transactionId: string }).transactionId,
+          code: MOCK_ABHA_CODE,
+        },
+        elsewhereToken,
+      );
+
+      expect(confirmed.status, JSON.stringify(confirmed.body)).toBe(201);
+      expect(confirmed.body).toMatchObject({ verified: true });
     });
 
     it('is on the audit trail, so the patient can see it was asked about', async () => {

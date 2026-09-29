@@ -284,9 +284,13 @@ function ConsentCard({
   const [error, setError] = useState<string | null>(null);
 
   const emergency = consent.captureMethod === 'break_glass';
+  // Granted in the patient's own ABHA app and notified to us: nobody here
+  // recorded it, so the desk wording would be wrong (SP8, T33).
+  const abdm = consent.captureMethod === 'abdm';
 
-  const grantedBy =
-    consent.recordedBy.kind === 'patient'
+  const grantedBy = abdm
+    ? t('consents.grantedInAbhaApp', { date: formatDate(consent.grantedAt) })
+    : consent.recordedBy.kind === 'patient'
       ? consent.recordedBy.you
         ? t('consents.grantedByYou', { date: formatDate(consent.grantedAt) })
         : t('consents.grantedInPortal', { date: formatDate(consent.grantedAt) })
@@ -325,6 +329,7 @@ function ConsentCard({
       <p className="timeline__meta">
         <span className="badge">{t(`consents.status_${consent.status}`)}</span>
         {emergency ? <span className="badge badge--danger">{t('consents.emergency')}</span> : null}
+        {abdm ? <span className="badge">{t('consents.abdm')}</span> : null}
       </p>
       <strong>{consent.grantee.name}</strong>
       <span className="item__detail">
@@ -366,6 +371,12 @@ function ConsentCard({
         confirming ? (
           <div className="confirm">
             <p>{t('consents.revokeConfirm', { hospital: consent.grantee.name })}</p>
+            {/*
+              Said before they press it, not after: revoking here stops this
+              system assembling anything at once, and does not reach the
+              consent manager (SP8, T33).
+            */}
+            {abdm ? <p className="item__meta">{t('consents.abdmRevokeNote')}</p> : null}
             {error ? (
               <p className="alert" role="alert">
                 {error}

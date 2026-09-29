@@ -175,7 +175,8 @@ export class AccessHistoryService {
           : row.actor_type === 'patient'
             ? // Another phone with access to this record: a family member, or the patient's other phone.
               { kind: 'patient', label: row.actor_label?.replace(/^patient portal\s*/, '') ?? null }
-            : { kind: 'system' },
+            : // A national requester names itself; a scheduled job does not.
+              { kind: 'system', label: row.actor_label },
       hospital: row.hospital_id
         ? { id: row.hospital_id, name: row.hospital_name ?? 'Unknown hospital' }
         : null,

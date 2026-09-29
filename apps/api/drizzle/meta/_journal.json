@@ -533,6 +533,13 @@
       "when": 1790616594856,
       "tag": "0075_sp8_data_request_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1790683979360,
+      "tag": "0076_sp8_abha_verification_policy",
+      "breakpoints": true
     }
   ]
 }

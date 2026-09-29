@@ -67,6 +67,22 @@ test.describe('the SP6 screens', () => {
     });
   }
 
+  /**
+   * The ABDM tab is reached from a patient rather than from the navigation,
+   * so the sweep above cannot see it — and it is a screen where somebody
+   * decides whether a record goes on to the national network (SP8, T34).
+   */
+  test('the ABDM tab meets WCAG 2.2 AA too', async ({ page }) => {
+    await signIn(page, 'cityDesk');
+    await openNav(page, 'Patients', 'Patients');
+    await page.getByLabel('Search patients').fill('Lakshmi');
+    await page.getByRole('row', { name: /Lakshmi Iyer/ }).getByRole('link').click();
+    await page.getByRole('link', { name: 'ABDM' }).click();
+
+    await expect(page.getByRole('heading', { name: 'ABHA' })).toBeVisible();
+    expect(await failures(page), 'the ABDM tab has accessibility failures').toEqual([]);
+  });
+
   test('say what each report is, in words, not only as a picture', async ({ page }) => {
     await signIn(page, 'cityAdmin');
     await openNav(page, 'Reports', 'Reports');
