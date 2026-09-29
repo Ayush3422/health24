@@ -8,10 +8,13 @@ record without either of them having to pretend to be the other.
 The patient owns access to it: they sign in from their phone, see who read their
 record, share it with a hospital and stop sharing it again.
 
-**Status: not in production, and holding no real patient record.** Six
-sub-projects are built and tested; the seventh — production readiness and
-compliance — is complete in code and has open items that only counsel and a
-pilot hospital can close (`sp7-plan.md`, `docs/compliance/`).
+**Status: not in production, and holding no real patient record.** Eight
+sub-projects are built and tested. The seventh — production readiness and
+compliance — is complete in code with open items only counsel and a pilot
+hospital can close. The eighth — ABDM — is built against a mock of the
+national gateway and **has been assessed by nobody**: see
+[docs/compliance/abdm-certification.md](docs/compliance/abdm-certification.md)
+before repeating any of it to a hospital.
 
 ---
 
@@ -116,11 +119,12 @@ relational.
 | Deploy it, or read the infrastructure | [docs/deployment.md](docs/deployment.md) |
 | Know how far ABDM has got, and what is not certified | [docs/abdm.md](docs/abdm.md) |
 | Read the record as FHIR, or see where it deviates | [docs/fhir.md](docs/fhir.md) |
-| Handle an incident, a breach, a restore, a key rotation | [docs/runbooks/](docs/runbooks/) |
+| Handle an incident, a breach, a restore, a key rotation, a failed ABDM transfer | [docs/runbooks/](docs/runbooks/) |
 | See the security position, honestly | [docs/compliance/threat-model.md](docs/compliance/threat-model.md), [security-review.md](docs/compliance/security-review.md) |
 | Answer a hospital's counsel | [docs/compliance/dpdp-self-assessment.md](docs/compliance/dpdp-self-assessment.md), [ehr-standards-self-assessment.md](docs/compliance/ehr-standards-self-assessment.md) |
+| Answer "is this ABDM-certified?" | [docs/compliance/abdm-certification.md](docs/compliance/abdm-certification.md) |
 | Know what is kept and for how long | [docs/compliance/retention-and-erasure.md](docs/compliance/retention-and-erasure.md) |
-| Understand why any of it is the way it is | `planning.md`, then `sp1-plan.md` … `sp7-plan.md` |
+| Understand why any of it is the way it is | `planning.md`, then `sp1-plan.md` … `sp8-plan.md` |
 
 Each `spN-plan.md` records the decisions taken before that sub-project was
 built, and — under each phase — what it turned out to be, including what went
@@ -128,9 +132,13 @@ wrong. They are the honest history, and they are worth more than this page.
 
 ## What is not built
 
-- **ABDM**: ABHA linking, the HIP and HIU adapters, and a `/fhir/R4` read
-  surface. That is SP8, and `docs/compliance/ehr-standards-self-assessment.md`
-  says what it takes.
+- **ABDM certification.** The HIP half is built — ABHA verification, care
+  contexts, consent from the national consent manager, encrypted transfer —
+  and `/fhir/R4` with it. None of it has run against ABDM's sandbox, no
+  facility is registered, and nothing has been certified
+  ([docs/compliance/abdm-certification.md](docs/compliance/abdm-certification.md)).
+- **The HIU half of ABDM**: asking another provider for a record through the
+  gateway. Deliberately out of SP8's scope (Decision X1), with its seams named.
 - **SNOMED CT**, which the EHR Standards name and which needs a licence, a
   mapping strategy and a clinical reviewer.
 - **A coded prescription vocabulary** for Ayurvedic formulations. Nobody has one;

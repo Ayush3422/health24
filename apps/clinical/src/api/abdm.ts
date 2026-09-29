@@ -4,6 +4,7 @@ import type {
   AbhaIdentity,
   AbhaVerificationMethod,
   CareContextState,
+  ConsentSummary,
 } from '@health24/shared';
 import { api } from './client';
 
@@ -84,6 +85,21 @@ export function useConfirmCareContextLink(patientId: string) {
         body: input,
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: careContextsKey(patientId) }),
+  });
+}
+
+/**
+ * What a national requester was given of **this hospital's** records.
+ *
+ * Deliberately a different list from the consent tab's. That one says what
+ * this hospital may read of somebody else's record; this says what left it.
+ * A single list holding both would say the opposite of the truth about half
+ * its rows (SP8, T31).
+ */
+export function useAbdmConsents(patientId: string) {
+  return useQuery({
+    queryKey: ['abdm-consents', patientId],
+    queryFn: () => api<ConsentSummary[]>(`/patients/${patientId}/consents?source=abdm`),
   });
 }
 

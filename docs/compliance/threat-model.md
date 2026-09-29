@@ -110,7 +110,33 @@ always served with their recorded type.
 
 ---
 
-## 6. Platform and operations
+## 6. The national network (SP8)
+
+**Who is on the other side:** ABDM's gateway, a consent manager, and a
+requester nobody here has met. Two directions, and they are not equally
+protected — see [abdm.md](../abdm.md) for the full account.
+
+| Threat | What stops it | Where |
+| --- | --- | --- |
+| A caller answering for the registry, to inject an outcome | An answer must quote a call this process made and is still waiting on; a shared secret and a skew window sit beside it | `gateway/callback-auth.ts` |
+| The same, on a request the gateway **starts** | The correlation check cannot apply — there is no call of ours. What is left is a shared secret and the clock, and the gap is closed instead by the next row | `gateway/inbound.controller.ts` |
+| **Discovery used as an oracle**, to learn whether somebody is a patient here | The only thing that matches is a **verified** ABHA address the caller already knows. Name, phone and date of birth never match, and every refusal is one indistinguishable refusal | `care-contexts/discovery.service.ts` |
+| A visit put on the network without the patient | Nothing is linked until a code comes back; the request's visits are frozen when the patient is asked, so what they approve is what was put to them | `abdm_link_request` guard, migration 0070 |
+| A consent granting more than the patient agreed to | The health information types map conservatively, notes are never granted, and the artefact's categories and dates are what the database enforces | `hi-type-mapping.ts`, `app.consent_permits` |
+| A bundle carrying more than the consent allows | Assembly runs in a context bound to one consent id; a mistake in the code that builds a bundle cannot widen it | migration 0073, `transfer.service.ts` |
+| A transfer continuing after the patient changes their mind | The consent is re-read before every visit; the row records `partly_transferred` and why | `transfer.service.ts`, `abdm-transfer.e2e-spec.ts` |
+| Records readable in transit | Ephemeral key agreement per transfer, authenticated encryption, nothing kept that could open it afterwards | `transfer/fidelius.ts` |
+| A requester's records leaving unrecorded | Every row transferred is on the patient's audit trail, attributed to the requester and carrying the artefact | `transfer.service.ts` |
+| `/fhir/R4` widening access | Same credentials, same permissions, same row-level security; every route in the authorisation sweep | [fhir.md](../fhir.md), `authorization.e2e-spec.ts` |
+
+**What this section does not claim.** That ABDM's own end is secure, that the
+requester keeps its undertaking to erase, or that the wire parameters match
+the specification — the last is Phase 8's open task and is recorded in
+[abdm-certification.md](abdm-certification.md).
+
+---
+
+## 7. Platform and operations
 
 **Who is on the other side:** us.
 
@@ -140,3 +166,6 @@ always served with their recorded type.
   yet.
 - **Supply chain beyond scanning.** Dependencies are scanned and pinned by a
   lockfile; nothing verifies what a maintainer published.
+- **What a national requester does with what it received.** A transfer is not
+  recallable, and the consent's erase-by date is an undertaking this system
+  cannot enforce.

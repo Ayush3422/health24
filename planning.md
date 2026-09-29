@@ -371,7 +371,8 @@ Estimates assume one developer working consistently. They are ranges because sol
 | —     | **Milestone B**              | **Pilot-ready with one hospital, real consent**                               | **~8–12 months**         |
 | 6     | SP6 Operations               | Orders, procedures, billing, reporting                                        | 8–12 weeks               |
 | 7     | Compliance & pilot           | Security review, pen test, legal, DPA, runbooks                               | 6–10 weeks               |
-| 8     | ABDM                         | ABHA linking, HIP/HIU adapters, sandbox certification                         | Scoped after Milestone B |
+| 8     | SP8 ABDM                     | ABHA linking, the HIP adapter, care contexts, consent, encrypted transfer, `/fhir/R4` | 8–12 weeks               |
+| —     | **Open after SP8**           | **Sandbox reconciliation, certification, and the HIU half** — see `docs/compliance/abdm-certification.md` | **Blocked on credentials and a registered facility** |
 
 **Recommendation on sequencing:** find a pilot hospital — ideally an integrated Ayush + allopathic facility — before Stage 3 completes. Building Stages 4–6 without a real clinician using Stage 3 daily is the most likely way to spend a year building the wrong thing.
 

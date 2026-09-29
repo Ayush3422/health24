@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import { hasPermission, type AbhaVerificationMethod, type CareContextState } from '@health24/shared';
 import { ApiError } from '../api/client';
 import {
+  useAbdmConsents,
   useCareContexts,
   useConfirmAbhaVerification,
   useConfirmCareContextLink,
@@ -43,6 +44,7 @@ export function PatientAbdm({ patientId }: { patientId: string }): JSX.Element {
     <div className="clinical-record">
       <AbhaIdentitySection patientId={patientId} canVerify={canVerify} />
       <CareContextsSection patientId={patientId} canLink={canLink} />
+      <AbdmConsentsSection patientId={patientId} />
     </div>
   );
 }
@@ -313,6 +315,58 @@ function CareContextsSection({
           </button>
         )
       ) : null}
+    </section>
+  );
+}
+
+/**
+ * Who has been given this patient's records from here.
+ *
+ * Kept apart from the consent tab, which lists what this hospital may read of
+ * somebody else's record. This is the other direction, and a list holding
+ * both would say the opposite of the truth about half its rows.
+ */
+function AbdmConsentsSection({ patientId }: { patientId: string }): JSX.Element | null {
+  const consents = useAbdmConsents(patientId);
+
+  if (consents.isPending || consents.isError) return null;
+
+  return (
+    <section className="panel">
+      <h2>Given to the national network</h2>
+
+      {consents.data.length === 0 ? (
+        <p className="muted">
+          Nobody has been given this patient&apos;s records through ABDM.
+        </p>
+      ) : (
+        <ul className="list">
+          {consents.data.map((consent) => (
+            <li key={consent.id} className="item">
+              <div className="item__main">
+                {consent.dataCategories.join(', ')}
+                {consent.dateRangeFrom || consent.dateRangeTo
+                  ? ` · ${consent.dateRangeFrom ?? 'the beginning'} to ${consent.dateRangeTo ?? 'today'}`
+                  : ''}
+              </div>
+              <span
+                className={`status ${consent.status === 'active' ? 'status--active' : 'status--cancelled'}`}
+              >
+                {consent.status === 'active'
+                  ? `Until ${formatDate(consent.expiresAt)}`
+                  : consent.status === 'revoked'
+                    ? 'Ended'
+                    : 'Expired'}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <p className="muted">
+        The patient gives and ends these in their own ABHA app. Nothing here can grant one, and
+        ending one here would not end it there.
+      </p>
     </section>
   );
 }

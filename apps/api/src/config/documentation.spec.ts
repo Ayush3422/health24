@@ -150,6 +150,7 @@ describe('the documentation', () => {
     );
 
     expect(runbooks.sort()).toEqual([
+      'abdm.md',
       'breach-notification.md',
       'incident-response.md',
       'key-rotation.md',

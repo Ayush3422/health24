@@ -1,6 +1,6 @@
 # SP8 — ABDM: Implementation Plan
 
-**Status:** In progress — Phases 1–7 complete, 2026-09-29. Decisions X–AA answered 2026-09-28: **X1, Y1, Z1, AA1**.
+**Status:** Complete, 2026-09-29 — with two tasks recorded as not done, because they cannot be done from here: T38 needs ABDM sandbox credentials and T39 needs an AWS account. What remains is listed under "Open items outside the code" and in [docs/compliance/abdm-certification.md](docs/compliance/abdm-certification.md); none of it is code. Decisions X–AA answered 2026-09-28: **X1, Y1, Z1, AA1**.
 **Scope:** Joining the national network as a **Health Information Provider**: an ABHA number and address verified and linked to a patient, care contexts discovered and linked, a consent artefact arriving from the consent manager and landing in the consent model this system already has, and the record assembled as encrypted FHIR bundles and pushed to whoever the patient has allowed — plus the `/fhir/R4` read surface that all of it is built on, the screens that make linking and sharing visible to staff and to the patient, and an honest account of how far this is from a certificate.
 **Design reference:** `planning.md` §10 (the `/fhir/R4` surface as the seam ABDM arrives through), §8 (consent and access control), §14 stage 8 · `sp1-plan.md` (patient identity and matching) · `sp3-plan.md` (the clinical record and `app.consent_permits`) · `sp5-plan.md` (the patient's rights, the portal, the FHIR export) · [docs/compliance/ehr-standards-self-assessment.md](docs/compliance/ehr-standards-self-assessment.md) gaps 1–3
 
@@ -566,12 +566,47 @@ should not be the one screen nobody checked.
 
 ### Phase 8 — Verification, documentation and the certification position
 
-- [ ] **T35** The acceptance scenario below, walked and written up
-- [ ] **T36** `docs/abdm.md`, and a runbook for a failed transfer and for a disputed consent
-- [ ] **T37** The certification position: the milestones, what each requires, what is implemented, what has run against a sandbox, and what only ABDM can assess (DF11)
-- [ ] **T38** Reconcile the mock against the sandbox when credentials exist, and record every difference (Z1)
-- [ ] **T39** The first real `terraform plan`, carried from SP7's acceptance step 8, when there is an account to run it against — and recorded as still open if there is not
-- [ ] **T40** Update the EHR Standards self-assessment, the README and `planning.md` §14 with what SP8 closed and what it did not
+- [x] **T35** The acceptance scenario below, walked and written up
+- [x] **T36** `docs/abdm.md`, and a runbook for a failed transfer and for a disputed consent
+- [x] **T37** The certification position: the milestones, what each requires, what is implemented, what has run against a sandbox, and what only ABDM can assess (DF11)
+- [ ] **T38** Reconcile the mock against the sandbox when credentials exist, and record every difference (Z1) — **not done: there are no credentials**
+- [ ] **T39** The first real `terraform plan` — **not done: there is still no AWS account**, carried from SP7 and carried again
+- [x] **T40** Update the EHR Standards self-assessment, the README and `planning.md` §14 with what SP8 closed and what it did not
+
+**The scenario is one test, not eight**, because it is a sequence: nothing
+after step 2 is meaningful if step 2 did not happen, and splitting it would
+let a later step pass against a state an earlier one never produced. It runs
+against a real database and a mock gateway speaking the real protocol, and it
+walks all eight testable steps in order.
+
+**Step 4 was wrong as written, and the walk is what found it.** The plan said
+a member of staff at the clinic "sees nothing different". What they see is:
+their own consent list — *what this hospital may read of somebody else's
+record* — is unchanged and empty, as intended; but the clinic **can** see that
+a national requester was given something of its records, because it holds the
+record that left and should know. A single list holding both directions would
+say the opposite of the truth about half its rows, so the clinical consent
+list is now scoped to consents granted **to** this hospital, and
+`?source=abdm` asks for the other direction. That is a better answer than the
+one the plan imagined.
+
+**Two steps are recorded as not done.** T38 has no sandbox credentials, so
+nothing in this sub-project has met ABDM — every flow is tested against a mock
+that behaves like the gateway in the ways that matter and cannot prove the
+gateway behaves as documented. T39 has no AWS account, carried from SP7 and
+carried again; saying so for a second sub-project running is uncomfortable,
+which is the point of saying it.
+
+**The certification position names six things that will fail an assessment**,
+before anybody else finds them, and puts `Composition.author` first: FHIR
+requires it, this system does not write it, and the honest value is not a
+single person for a record assembled from a visit. It needs a decision with a
+clinical reviewer rather than more code.
+
+**And the three-column rule is the shape of that page.** *Built*,
+*sandbox-tested*, *certified* are three different claims; today every row is
+the first and no row is either of the others. A hospital repeating a claim to
+a regulator is the most expensive kind to have been wrong about.
 
 ---
 

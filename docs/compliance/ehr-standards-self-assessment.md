@@ -21,9 +21,10 @@ should.
 
 | Standard | Verdict | Where |
 | --- | --- | --- |
-| A unique health identifier for the patient | **Partly** | Every patient has a platform-wide id and a per-hospital MRN, and the same person is recognised across hospitals by a matching workflow with a human decision (`sp1-plan.md`). ABHA is not implemented |
-| ABHA (Ayushman Bharat Health Account) number and address | **Open** | SP8. The column exists on the patient and is validated; nothing populates it |
-| Facility and provider identifiers (HFR, HPR) | **Open** | Hospitals and staff carry internal ids only |
+| A unique health identifier for the patient | **Satisfied** | Every patient has a platform-wide id and a per-hospital MRN, the same person is recognised across hospitals by a matching workflow with a human decision (`sp1-plan.md`), and an ABHA can be confirmed against the national registry (`sp8-plan.md`) |
+| ABHA (Ayushman Bharat Health Account) number and address | **Satisfied** | Verified through the gateway with the patient reading a code back, recorded with the method and the moment, and frozen afterwards. A **typed** ABHA is deliberately not treated as identity — the distinction is enforced in the database (`docs/abdm.md`) |
+| Facility identifier (HFR) | **Partly** | `hospital.hfr_id` carries it, and every ABDM call is made for that facility. Registering a real facility is the pilot hospital's to do |
+| Provider identifiers (HPR) | **Open** | Staff carry internal ids only |
 
 ## Terminology
 
@@ -38,7 +39,7 @@ should.
 
 | Standard | Verdict | Where |
 | --- | --- | --- |
-| **HL7 FHIR** as the exchange format | **Partly** | The data model is FHIR-shaped throughout — Patient, Encounter, Condition, MedicationRequest, Observation, DocumentReference, ServiceRequest, Procedure — and a patient's exported copy is generated as FHIR. There is no `/fhir/R4` read API, which `planning.md` §10 describes as the seam ABDM arrives through |
+| **HL7 FHIR** as the exchange format | **Satisfied, with deviations recorded** | The data model is FHIR-shaped throughout, a patient's exported copy is generated as FHIR, records shared through ABDM are FHIR document bundles, and `/fhir/R4` serves Patient, Encounter, Condition, MedicationRequest, Observation, DocumentReference, CodeSystem and ConceptMap as a read-only translation layer. Conformance to ABDM's published profiles is **not claimed**; the nine deviations are listed in [docs/fhir.md](../fhir.md) |
 | Metadata and Data Standards (MDDS) for demographics | **Partly** | Name, gender, date of birth, address and phone follow the expected shapes; the full MDDS code lists for state and district are not used |
 | **DICOM** for imaging | **Not applicable, today** | Radiology arrives as a report document, not as images. If image viewing is ever built, this row changes |
 | Document formats: PDF/A for clinical documents | **Partly** | Discharge summaries and invoices are rendered as PDF; they are not PDF/A, which is the archival profile the Standards prefer |
@@ -73,14 +74,19 @@ should.
 | # | Gap | What it takes | Before |
 | --- | --- | --- | --- |
 | 1 | **SNOMED CT** | India's national licence, a mapping strategy from NAMASTE, and a clinical reviewer. It is a sub-project, not a task | Hospital procurement, ABDM certification |
-| 2 | **ABHA and the ABDM adapters** | SP8 | A pilot that claims ABDM compatibility |
-| 3 | **A `/fhir/R4` read surface** | A translation layer over the existing model, which is already FHIR-shaped | SP8, alongside ABDM |
+| 2 | **ABDM certification** | Sandbox credentials, a registered facility, and an assessment. The adapters are built and tested against a mock; nothing has met ABDM ([abdm-certification.md](abdm-certification.md)) | A pilot that claims ABDM compatibility |
+| 3 | **`Composition.author` in shared bundles** | A decision with a clinical reviewer about what a visit record's author is. FHIR requires the element and a strict receiver will reject the bundle without it | ABDM certification |
 | 4 | **A coded prescription vocabulary** | An answer to `planning.md` §15 Q7 — adopt one or build one, with clinical review | Before claiming interoperable prescriptions |
 | 5 | **PDF/A** for archival documents | A rendering change | Before a hospital's records officer asks |
 | 6 | **MDDS code lists** for address fields | Data, not design | Before ABDM |
 | 7 | **ISO 27799 posture** | An ISMS, and eventually an audit | Before scale |
 
-**The honest summary:** the security, audit, consent and clinical-content halves
-of the Standards are in good shape and tested. The interoperability half —
-SNOMED CT, ABHA, FHIR over the wire — is mostly not built, and is exactly what
-SP8 exists for.
+**The honest summary, as it stands after SP8:** the security, audit, consent and
+clinical-content halves of the Standards are in good shape and tested. Of the
+interoperability half, **ABHA and FHIR over the wire are now built** — verified
+identity, care-context linking, consent from the national consent manager,
+encrypted transfer, and a read surface — and **SNOMED CT is not**, which leaves
+it as the largest single gap on this page. What is built has been tested
+against a mock of the gateway and assessed by nobody; see
+[abdm-certification.md](abdm-certification.md) before repeating any of it to a
+hospital.

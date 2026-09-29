@@ -1,4 +1,13 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import {
   breakGlassSchema,
   recordConsentSchema,
@@ -32,14 +41,23 @@ export class ConsentController {
     return this.consent.record(actor, patientId, body, meta);
   }
 
+  /**
+   * The consents this hospital may read under — and, with `?source=abdm`, the
+   * ones a national requester was given over this hospital's own records
+   * (SP8, T31). The two are never mixed: one says what this hospital may see,
+   * the other says what left it.
+   */
   @Get('patients/:patientId/consents')
   @RequirePermission('consent:read')
   async list(
     @CurrentActor() actor: Actor,
     @Param('patientId', ParseUUIDPipe) patientId: string,
     @CurrentMeta() meta: RequestMeta,
+    @Query('source') source?: string,
   ): Promise<ConsentSummary[]> {
-    return this.consent.list(actor, patientId, meta);
+    return this.consent.list(actor, patientId, meta, {
+      source: source === 'abdm' ? 'abdm' : 'local',
+    });
   }
 
   /** Takes effect at once: the next read no longer sees what the consent covered. */

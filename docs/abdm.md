@@ -21,7 +21,7 @@ when it exists, not before.
 | Consent notification from the consent manager | **Built** (Phase 4) |
 | Assembling and pushing health information | **Built** (Phase 5) |
 | A `/fhir/R4` read surface | **Built** (Phase 6). See [fhir.md](fhir.md) |
-| **Certified by ABDM** | **No.** Nothing here has been assessed by anybody but this repository's own tests |
+| **Certified by ABDM** | **No.** Nothing here has been assessed by anybody but this repository's own tests — see [compliance/abdm-certification.md](compliance/abdm-certification.md) |
 
 The last row is the one a hospital is most likely to repeat to a regulator, so
 it is stated first rather than buried: this system is being **built toward**
@@ -354,3 +354,5 @@ place the wire format lives, and this is half of it.
   challenge, it confirms nothing about who is standing at the desk, and an
   enum value for something unimplemented is a claim this sub-project does not
   make.
+- **When a transfer fails, or a consent is disputed**, the runbook is
+  [runbooks/abdm.md](runbooks/abdm.md).

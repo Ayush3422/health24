@@ -169,8 +169,24 @@ export class ConsentService {
     return this.toSummary(row);
   }
 
-  async list(actor: Actor, patientId: string, meta: RequestMeta): Promise<ConsentSummary[]> {
+  /**
+   * The consents this hospital may read another hospital's record under.
+   *
+   * `source = 'local'` deliberately. A consent notified by ABDM is visible to
+   * the hospital whose records it covers — it should know a national
+   * requester was allowed some of them — but it grants this hospital nothing,
+   * and a list headed "what we may see" that contained it would say the
+   * opposite of the truth. Those are shown on the ABDM screen instead, where
+   * `source: 'abdm'` asks for them (SP8, T31).
+   */
+  async list(
+    actor: Actor,
+    patientId: string,
+    meta: RequestMeta,
+    options: { source?: 'local' | 'abdm' } = {},
+  ): Promise<ConsentSummary[]> {
     const hospitalId = requireHospital(actor);
+    const source = options.source ?? 'local';
 
     const rows = await this.db.asTenant(hospitalId, async (tx) => {
       await requireLinkedPatient(tx, hospitalId, patientId);
@@ -178,6 +194,7 @@ export class ConsentService {
       const found = await tx.execute<ConsentRow>(sql`
         ${consentSelect('hospital')}
          WHERE ca."patient_id" = ANY (app.patient_record_ids(${patientId}::uuid))
+           AND ca."source" = ${source}
       ORDER BY ca."granted_at" DESC
       `);
 
